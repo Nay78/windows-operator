@@ -20,6 +20,7 @@ public static class OperatorOpenApi
             ["/v1/uia/click"] = Post("Click a UI Automation element."),
             ["/v1/uia/type"] = Post("Type into a UI Automation element."),
             ["/v1/input/hotkey"] = Post("Send a hotkey chord."),
+            ["/v1/auth/microsoft/device-login"] = Post("Open Microsoft device-code login in Edge and submit the code."),
             ["/v1/mail/folders"] = Get("List Outlook mailbox folders."),
             ["/v1/mail/status"] = Get("Return Outlook mail worker and process status."),
             ["/v1/mail/sync"] = Post("Start Outlook send/receive sync and wait for cache refresh."),

@@ -963,7 +963,7 @@ public sealed class OutlookMailComService : IMailService, IDisposable
     {
         private readonly HashSet<int> _preservedOutlookProcesses;
         private readonly OutlookOperationLock _operationLock;
-        private readonly Timer _watchdog;
+        private readonly System.Threading.Timer _watchdog;
         private bool _disposed;
 
         public OutlookLease(dynamic application, HashSet<int> preservedOutlookProcesses, OutlookOperationLock operationLock)
@@ -971,7 +971,7 @@ public sealed class OutlookMailComService : IMailService, IDisposable
             Application = application;
             _preservedOutlookProcesses = preservedOutlookProcesses;
             _operationLock = operationLock;
-            _watchdog = new Timer(
+            _watchdog = new System.Threading.Timer(
                 _ => StopHeadlessOutlookProcesses(_preservedOutlookProcesses, TimeSpan.Zero),
                 state: null,
                 dueTime: OutlookOperationTimeout,

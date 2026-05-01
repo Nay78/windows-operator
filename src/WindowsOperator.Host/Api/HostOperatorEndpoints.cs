@@ -65,6 +65,13 @@ public static class HostOperatorEndpoints
             await HostOperatorHttp.ExecuteAsync(
                 () => facade.SendHotkeyAsync(request, cancellationToken)));
 
+        group.MapPost("/auth/microsoft/device-login", async Task<Results<Ok<MicrosoftDeviceLoginResult>, JsonHttpResult<OperatorError>>> (
+            MicrosoftDeviceLoginRequest request,
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await HostOperatorHttp.ExecuteAsync(
+                () => facade.StartMicrosoftDeviceLoginAsync(request, cancellationToken)));
+
         group.MapGet("/mail/folders", async Task<Results<Ok<IReadOnlyList<MailFolderRef>>, JsonHttpResult<OperatorError>>> (
             IOperatorFacade facade,
             CancellationToken cancellationToken) =>

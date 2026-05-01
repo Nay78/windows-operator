@@ -73,6 +73,36 @@ public sealed class RestAndMcpParityTests
         Assert.Equal(rest, mcp);
     }
 
+    [Fact]
+    public async Task MicrosoftDeviceLogin_RestEndpoint_ReturnsResult()
+    {
+        using var app = OperatorApp.Build(
+            Array.Empty<string>(),
+            services =>
+            {
+                ReplaceOperatorFacade(services);
+            },
+            useTestServer: true);
+        await app.StartAsync();
+        var client = app.GetTestClient();
+        var request = new MicrosoftDeviceLoginRequest
+        {
+            DeviceCode = "ABCD-EFGH",
+            DryRun = true,
+        };
+
+        var response = await client.PostAsJsonAsync(
+            "/v1/auth/microsoft/device-login",
+            request,
+            OperatorJson.SerializerOptions);
+        var result = await response.Content.ReadFromJsonAsync<MicrosoftDeviceLoginResult>(OperatorJson.SerializerOptions);
+
+        response.EnsureSuccessStatusCode();
+        Assert.NotNull(result);
+        Assert.True(result!.Success);
+        Assert.Contains("dry_run", result.Actions);
+    }
+
     private static void ReplaceOperatorFacade(IServiceCollection services)
     {
         var existing = services.Single(descriptor => descriptor.ServiceType == typeof(IOperatorFacade));

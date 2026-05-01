@@ -8,6 +8,7 @@ public sealed class OperatorFacade : IOperatorFacade
 {
     private readonly IInputService _inputService;
     private readonly IMailService _mailService;
+    private readonly IMicrosoftAuthService _microsoftAuthService;
     private readonly IUiAutomationService _uiAutomationService;
     private readonly IOptions<OperatorOptions> _options;
     private readonly IScreenshotService _screenshotService;
@@ -21,6 +22,7 @@ public sealed class OperatorFacade : IOperatorFacade
         IScreenshotService screenshotService,
         IInputService inputService,
         IMailService mailService,
+        IMicrosoftAuthService microsoftAuthService,
         IOptions<OperatorOptions> options)
     {
         _windowCatalogService = windowCatalogService;
@@ -29,6 +31,7 @@ public sealed class OperatorFacade : IOperatorFacade
         _screenshotService = screenshotService;
         _inputService = inputService;
         _mailService = mailService;
+        _microsoftAuthService = microsoftAuthService;
         _options = options;
     }
 
@@ -77,6 +80,11 @@ public sealed class OperatorFacade : IOperatorFacade
 
     public Task<ActionResult> SendHotkeyAsync(HotkeyRequest request, CancellationToken cancellationToken) =>
         _inputService.SendHotkeyAsync(request, cancellationToken);
+
+    public Task<MicrosoftDeviceLoginResult> StartMicrosoftDeviceLoginAsync(
+        MicrosoftDeviceLoginRequest request,
+        CancellationToken cancellationToken) =>
+        _microsoftAuthService.StartDeviceLoginAsync(request, cancellationToken);
 
     public Task<IReadOnlyList<MailFolderRef>> ListMailFoldersAsync(MailListFoldersRequest request, CancellationToken cancellationToken) =>
         _mailService.ListFoldersAsync(request, cancellationToken);

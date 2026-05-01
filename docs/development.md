@@ -31,6 +31,26 @@ Codex mutable state lives under `%LOCALAPPDATA%\Codex`. Run `codex login` manual
 
 Bootstrap also makes `codex` usable from normal Windows shells by persisting `%LOCALAPPDATA%\Codex\npm-global` on the user `PATH` and placing forwarding shims in `%APPDATA%\npm`.
 
+## Microsoft device login
+
+Use this when a Microsoft device-code flow prints a code and needs browser handoff in the Windows desktop session:
+
+```bash
+curl -X POST http://127.0.0.1:43117/v1/auth/microsoft/device-login \
+  -H 'Content-Type: application/json' \
+  -d '{"deviceCode":"ABCD-EFGH"}'
+```
+
+The REST endpoint proxies from Host to Agent. Agent opens Edge at `https://microsoft.com/devicelogin`, pastes the device code, submits it, and stops there. The user completes Microsoft account and MFA prompts in Edge. External services should use this REST endpoint instead of SSH.
+
+SSH fallback:
+
+```bash
+scripts/linux/windows-run-ps.sh scripts/windows/login-microsoft-device-code.ps1 -DeviceCode ABCD-EFGH
+```
+
+The helper schedules itself into the logged-in desktop session and runs the same Edge handoff when REST is unavailable.
+
 ## Manual smoke flow
 
 1. Start Notepad.

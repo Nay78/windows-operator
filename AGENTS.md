@@ -77,6 +77,7 @@ Linux host checks use the NixOS Operator REST tunnel on `127.0.0.1:43117`.
 - Keep Windows-specific verification on Windows.
 - Prefer code-first automation over UI automation when possible.
 - For email attachment download, prefer Classic Outlook COM before Power Automate Desktop or web UI scraping.
+- Namespace new feature surfaces using [Feature namespaces](docs/feature-namespaces.md).
 
 ## Deep Module Principles
 
@@ -96,6 +97,7 @@ Linux host checks use the NixOS Operator REST tunnel on `127.0.0.1:43117`.
 
 - [Development notes](docs/development.md)
 - [Current backlog](docs/todo.md)
+- [Feature namespaces](docs/feature-namespaces.md)
 - [Linux/Windows exchange plan](docs/operator-exchange.md)
 - [Email attachment automation plan](docs/email-attachment-automation.md)
 - [Codex adapter notes](docs/codex-adapter.md)

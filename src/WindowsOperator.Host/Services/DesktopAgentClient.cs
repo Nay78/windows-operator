@@ -49,6 +49,11 @@ public sealed class DesktopAgentClient
     public Task<ActionResult> SendHotkeyAsync(HotkeyRequest request, CancellationToken cancellationToken) =>
         SendAsync<ActionResult>(HttpMethod.Post, "/v1/input/hotkey", request, cancellationToken);
 
+    public Task<MicrosoftDeviceLoginResult> StartMicrosoftDeviceLoginAsync(
+        MicrosoftDeviceLoginRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<MicrosoftDeviceLoginResult>(HttpMethod.Post, "/v1/auth/microsoft/device-login", request, cancellationToken);
+
     public Task<IReadOnlyList<MailFolderRef>> ListMailFoldersAsync(MailListFoldersRequest request, CancellationToken cancellationToken) =>
         request.SyncBeforeRead
             ? SendAsync<IReadOnlyList<MailFolderRef>>(HttpMethod.Post, "/v1/mail/folders", request, cancellationToken)

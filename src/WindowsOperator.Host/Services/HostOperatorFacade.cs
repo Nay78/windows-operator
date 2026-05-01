@@ -57,6 +57,11 @@ public sealed class HostOperatorFacade : IOperatorFacade
     public Task<ActionResult> SendHotkeyAsync(HotkeyRequest request, CancellationToken cancellationToken) =>
         _desktopAgent.SendHotkeyAsync(request, cancellationToken);
 
+    public Task<MicrosoftDeviceLoginResult> StartMicrosoftDeviceLoginAsync(
+        MicrosoftDeviceLoginRequest request,
+        CancellationToken cancellationToken) =>
+        _desktopAgent.StartMicrosoftDeviceLoginAsync(request, cancellationToken);
+
     public Task<IReadOnlyList<MailFolderRef>> ListMailFoldersAsync(MailListFoldersRequest request, CancellationToken cancellationToken) =>
         _desktopAgent.ListMailFoldersAsync(request, cancellationToken);
 

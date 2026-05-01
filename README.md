@@ -26,6 +26,7 @@ Host REST binds `127.0.0.1:43117` by default and proxies desktop automation to t
 - `POST /v1/uia/click`
 - `POST /v1/uia/type`
 - `POST /v1/input/hotkey`
+- `POST /v1/auth/microsoft/device-login`
 - `GET /v1/mail/folders`
 - `POST /v1/mail/folders`
 - `POST /v1/mail/messages/search`
@@ -121,6 +122,24 @@ scripts/linux/windows-run-ps.sh scripts/windows/bootstrap-vm.ps1
 The runner defaults to `administrator@127.0.0.1:22555` and uses `/run/secrets/ssh_automation_key` when present.
 
 The runner stages a copy under `operator-exchange/runs/<run-id>` and verifies it against the repo script hash before Windows executes it.
+
+For Microsoft device-code login, hand off to Edge in the logged-in Windows desktop session:
+
+```bash
+curl -X POST http://127.0.0.1:43117/v1/auth/microsoft/device-login \
+  -H 'Content-Type: application/json' \
+  -d '{"deviceCode":"ABCD-EFGH"}'
+```
+
+The REST operation opens `https://microsoft.com/devicelogin`, pastes the device code, and leaves account/MFA prompts for the user.
+
+SSH fallback:
+
+```bash
+scripts/linux/windows-run-ps.sh scripts/windows/login-microsoft-device-code.ps1 -DeviceCode ABCD-EFGH
+```
+
+The helper uses the same browser handoff behavior when REST is unavailable.
 
 For Outlook profile recovery when REST mail calls are degraded:
 

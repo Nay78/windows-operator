@@ -20,6 +20,10 @@ public interface IOperatorFacade
 
     Task<ActionResult> SendHotkeyAsync(HotkeyRequest request, CancellationToken cancellationToken);
 
+    Task<MicrosoftDeviceLoginResult> StartMicrosoftDeviceLoginAsync(
+        MicrosoftDeviceLoginRequest request,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyList<MailFolderRef>> ListMailFoldersAsync(MailListFoldersRequest request, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<MailMessageRef>> SearchMailMessagesAsync(MailSearchRequest request, CancellationToken cancellationToken);

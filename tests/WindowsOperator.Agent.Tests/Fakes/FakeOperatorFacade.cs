@@ -67,6 +67,17 @@ internal sealed class FakeOperatorFacade : IOperatorFacade
     public Task<ActionResult> SendHotkeyAsync(HotkeyRequest request, CancellationToken cancellationToken) =>
         Task.FromResult(new ActionResult(true, string.Join("+", request.Keys)));
 
+    public Task<MicrosoftDeviceLoginResult> StartMicrosoftDeviceLoginAsync(
+        MicrosoftDeviceLoginRequest request,
+        CancellationToken cancellationToken) =>
+        Task.FromResult(new MicrosoftDeviceLoginResult(
+            true,
+            request.LoginUrl,
+            request.InPrivate,
+            new[] { request.DryRun ? "dry_run" : "device_code_submitted" },
+            Array.Empty<string>(),
+            DateTimeOffset.Parse("2026-04-26T20:13:00Z")));
+
     public Task<IReadOnlyList<MailFolderRef>> ListMailFoldersAsync(MailListFoldersRequest request, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<MailFolderRef>>(
             new[]

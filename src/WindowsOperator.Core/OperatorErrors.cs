@@ -53,6 +53,13 @@ public static class OperatorErrors
             "Retry with a narrower selector or fallback to keyboard navigation.",
             detail);
 
+    public static OperatorError AuthUnavailable(string detail) =>
+        Create(
+            ErrorCodes.AuthUnavailable,
+            "Microsoft authentication browser handoff is unavailable.",
+            "Confirm the Windows desktop session is logged in and Microsoft Edge is installed, then retry.",
+            detail);
+
     public static OperatorError MailUnavailable(string detail) =>
         Create(
             ErrorCodes.MailUnavailable,
