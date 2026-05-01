@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="8.0.7" />
+    <ProjectReference Include="..\WindowsOperator.Automation\WindowsOperator.Automation.csproj" />
+    <ProjectReference Include="..\WindowsOperator.Capture\WindowsOperator.Capture.csproj" />
+    <ProjectReference Include="..\WindowsOperator.Core\WindowsOperator.Core.csproj" />
+    <ProjectReference Include="..\WindowsOperator.Mcp\WindowsOperator.Mcp.csproj" />
+  </ItemGroup>
+</Project>

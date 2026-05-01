@@ -1,0 +1,11 @@
+{
+  "solution": {
+    "path": "WindowsOperator.sln",
+    "projects": [
+      "src\\WindowsOperator.Core\\WindowsOperator.Core.csproj",
+      "src\\WindowsOperator.Host\\WindowsOperator.Host.csproj",
+      "src\\WindowsOperator.Mcp\\WindowsOperator.Mcp.csproj",
+      "tests\\WindowsOperator.Mcp.Tests\\WindowsOperator.Mcp.Tests.csproj"
+    ]
+  }
+}

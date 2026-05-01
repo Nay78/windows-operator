@@ -1,0 +1,16 @@
+<Project>
+  <PropertyGroup>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(WINDOWS_OPERATOR_LOCAL_STATE_ROOT)' != ''">
+    <WindowsOperatorStateRoot>$([MSBuild]::EnsureTrailingSlash('$(WINDOWS_OPERATOR_LOCAL_STATE_ROOT)'))</WindowsOperatorStateRoot>
+    <BaseIntermediateOutputPath>$(WindowsOperatorStateRoot)artifacts\obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
+    <BaseOutputPath>$(WindowsOperatorStateRoot)artifacts\bin\$(MSBuildProjectName)\</BaseOutputPath>
+    <DefaultItemExcludes>$(DefaultItemExcludes);$(MSBuildProjectDirectory)\obj\**;$(MSBuildProjectDirectory)\bin\**</DefaultItemExcludes>
+  </PropertyGroup>
+</Project>

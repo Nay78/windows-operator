@@ -1,0 +1,136 @@
+using Microsoft.AspNetCore.Http.HttpResults;
+using WindowsOperator.Core.Contracts;
+using WindowsOperator.Core.Services;
+
+namespace WindowsOperator.Agent.Api;
+
+public static class OperatorEndpoints
+{
+    public static IEndpointRouteBuilder MapOperatorEndpoints(this IEndpointRouteBuilder endpoints)
+    {
+        var group = endpoints.MapGroup("/v1");
+
+        group.MapGet("/health", async Task<Results<Ok<HealthResult>, JsonHttpResult<OperatorError>>> (
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => facade.GetHealthAsync(cancellationToken)));
+
+        group.MapGet("/windows", async Task<Results<Ok<IReadOnlyList<WindowRef>>, JsonHttpResult<OperatorError>>> (
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => facade.ListWindowsAsync(cancellationToken)));
+
+        group.MapPost("/windows/{id:long}/activate", async Task<Results<Ok<ActionResult>, JsonHttpResult<OperatorError>>> (
+            long id,
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => facade.ActivateWindowAsync(id, cancellationToken)));
+
+        group.MapGet("/windows/{id:long}/screenshot", async Task<Results<Ok<ScreenshotResult>, JsonHttpResult<OperatorError>>> (
+            long id,
+            string? format,
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => facade.CaptureWindowAsync(id, ParseFormat(format), cancellationToken)));
+
+        group.MapPost("/uia/query", async Task<Results<Ok<IReadOnlyList<UiElementRef>>, JsonHttpResult<OperatorError>>> (
+            UiQuery request,
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => facade.QueryUiAsync(request, cancellationToken)));
+
+        group.MapPost("/uia/click", async Task<Results<Ok<ActionResult>, JsonHttpResult<OperatorError>>> (
+            UiaClickRequest request,
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => facade.ClickUiAsync(request, cancellationToken)));
+
+        group.MapPost("/uia/type", async Task<Results<Ok<ActionResult>, JsonHttpResult<OperatorError>>> (
+            UiaTypeRequest request,
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => facade.TypeUiAsync(request, cancellationToken)));
+
+        group.MapPost("/input/hotkey", async Task<Results<Ok<ActionResult>, JsonHttpResult<OperatorError>>> (
+            HotkeyRequest request,
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => facade.SendHotkeyAsync(request, cancellationToken)));
+
+        group.MapGet("/mail/folders", async Task<Results<Ok<IReadOnlyList<MailFolderRef>>, JsonHttpResult<OperatorError>>> (
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => facade.ListMailFoldersAsync(new MailListFoldersRequest(), cancellationToken)));
+
+        group.MapPost("/mail/folders", async Task<Results<Ok<IReadOnlyList<MailFolderRef>>, JsonHttpResult<OperatorError>>> (
+            MailListFoldersRequest request,
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => facade.ListMailFoldersAsync(request, cancellationToken)));
+
+        group.MapGet("/mail/status", async Task<Results<Ok<MailStatusResult>, JsonHttpResult<OperatorError>>> (
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => facade.GetMailStatusAsync(cancellationToken)));
+
+        group.MapPost("/mail/sync", async Task<Results<Ok<MailSyncResult>, JsonHttpResult<OperatorError>>> (
+            MailSyncRequest request,
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => facade.SyncMailAsync(request, cancellationToken)));
+
+        group.MapPost("/mail/recover", async Task<Results<Ok<MailRecoveryResult>, JsonHttpResult<OperatorError>>> (
+            MailRecoveryRequest request,
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => facade.RecoverMailAsync(request, cancellationToken)));
+
+        group.MapPost("/mail/messages/search", async Task<Results<Ok<IReadOnlyList<MailMessageRef>>, JsonHttpResult<OperatorError>>> (
+            MailSearchRequest request,
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => facade.SearchMailMessagesAsync(request, cancellationToken)));
+
+        group.MapPost("/mail/attachments/download", async Task<Results<Ok<MailDownloadResult>, JsonHttpResult<OperatorError>>> (
+            MailDownloadRequest request,
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => facade.DownloadMailAttachmentsAsync(request, cancellationToken)));
+
+        group.MapGet("/mail/runs/{runId}", async Task<Results<Ok<MailDownloadResult>, JsonHttpResult<OperatorError>>> (
+            string runId,
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => facade.GetMailRunAsync(runId, cancellationToken)));
+
+        endpoints.MapGet("/openapi.json", () => OperatorOpenApi.Document);
+
+        return endpoints;
+    }
+
+    private static ScreenshotFormat? ParseFormat(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
+        }
+
+        return Enum.Parse<ScreenshotFormat>(raw, true);
+    }
+}

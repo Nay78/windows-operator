@@ -1,0 +1,137 @@
+# Windows Operator
+
+Windows-first desktop operator scaffold for local automation. Repo targets a logged-in user session on Windows 10 2004+ and Windows 11. No Windows service, no Linux runtime glue, no remote bind by default.
+
+## Projects
+
+- `src/WindowsOperator.Host`: headless REST control plane on loopback `43117`.
+- `src/WindowsOperator.Agent`: interactive desktop worker on loopback `43119`.
+- `src/WindowsOperator.Core`: contracts, options, error model, shared orchestration.
+- `src/WindowsOperator.Automation`: Win32 window catalog/activation and FlaUI UIA3 automation backend.
+- `src/WindowsOperator.Capture`: screenshot backend chain and image encoding policy.
+- `src/WindowsOperator.Mcp`: MCP tool catalog and stdio transport.
+- `src/WindowsOperator.MailWorker`: short-lived Classic Outlook COM worker.
+- `tests/*`: unit and integration coverage.
+- `docs/`: development notes and phase 2 Codex adapter boundary.
+
+## v1 surfaces
+
+Host REST binds `127.0.0.1:43117` by default and proxies desktop automation to the Agent when a desktop session exists.
+
+- `GET /v1/health`
+- `GET /v1/windows`
+- `POST /v1/windows/{id}/activate`
+- `GET /v1/windows/{id}/screenshot`
+- `POST /v1/uia/query`
+- `POST /v1/uia/click`
+- `POST /v1/uia/type`
+- `POST /v1/input/hotkey`
+- `GET /v1/mail/folders`
+- `POST /v1/mail/folders`
+- `POST /v1/mail/messages/search`
+- `POST /v1/mail/attachments/download`
+- `GET /v1/mail/status`
+- `POST /v1/mail/sync`
+- `POST /v1/mail/recover`
+
+MCP tools expose same contract surface:
+
+- `operator_health`
+- `window_list`
+- `window_activate`
+- `window_screenshot`
+- `uia_query`
+- `uia_click`
+- `uia_type`
+- `input_hotkey`
+- `mail_list_folders`
+- `mail_search_messages`
+- `mail_download_attachments`
+- `mail_status`
+- `mail_sync`
+- `mail_recover`
+
+## Backend choices
+
+- UI automation backend seam exists, but scaffold ships only `FlaUI.UIA3`.
+- Screenshot backend chain is `WindowsGraphicsCapture -> PrintWindow -> GdiBitBlt`.
+- Default screenshot output is JPEG quality `85`, longest edge `1600px`. PNG available for debugging.
+- Active window appears first in window listings. v1 keeps privacy/token scope on active-window capture flow.
+
+## Provisioning model
+
+Shared repo stays canonical source. Windows host builds from shared source in place, but mutable state stays local under `%LOCALAPPDATA%\WindowsOperator` by default:
+
+- `DOTNET_CLI_HOME`
+- `NUGET_PACKAGES`
+- build outputs under `artifacts\bin` and `artifacts\obj`
+- launcher state under `run`
+- logs under `logs`
+
+Provision a fresh Windows workstation with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\windows\bootstrap.ps1 -RepoRoot \\server\share\windows-operator -EnableAutostart
+```
+
+Autostart uses two Task Scheduler entries. `WindowsOperator.Host` runs at startup as SYSTEM from a local published copy. `WindowsOperator.Agent` runs only in the logged-in desktop session, unelevated, after a 30 second delay.
+
+The VM bootstrap wrapper also provisions Codex CLI under `%LOCALAPPDATA%\Codex`, using a local npm prefix/cache and a per-user `Codex.AppServer` scheduled task:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\windows\bootstrap-codex.ps1 -EnableAutostart
+```
+
+Codex credentials are not provisioned. Run `codex login` manually in the Windows desktop session. After login, `Codex.AppServer` starts `codex app-server --listen ws://127.0.0.1:43118` on Windows loopback.
+
+For shell usability, bootstrap also persists `%LOCALAPPDATA%\Codex\npm-global` on the user `PATH` and writes compatibility shims into `%APPDATA%\npm\codex.cmd` and `%APPDATA%\npm\codex.ps1`.
+
+## Local dev
+
+Use Windows for actual development and verification.
+
+```powershell
+dotnet restore
+dotnet build WindowsOperator.sln
+dotnet test WindowsOperator.sln
+dotnet run --project src/WindowsOperator.Agent
+```
+
+On Linux, use the portable filter for core/MCP coverage:
+
+```bash
+dotnet test WindowsOperator.Portable.slnf
+```
+
+`dotnet run` starts loopback REST and a background MCP stdio server in same process.
+For desktop-only worker runs, `WindowsOperator.Agent` listens on `127.0.0.1:43119`.
+
+For Windows shared-source runs, prefer:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\windows\run-agent.ps1 -RepoRoot \\server\share\windows-operator
+```
+
+From Linux, run repo-owned Windows scripts through the exchange runner:
+
+```bash
+scripts/linux/windows-run-ps.sh scripts/windows/bootstrap-vm.ps1
+```
+
+The runner defaults to `administrator@127.0.0.1:22555` and uses `/run/secrets/ssh_automation_key` when present.
+
+The runner stages a copy under `operator-exchange/runs/<run-id>` and verifies it against the repo script hash before Windows executes it.
+
+For Outlook profile recovery when REST mail calls are degraded:
+
+```bash
+scripts/linux/windows-run-ps.sh scripts/windows/recover-outlook-mail.ps1 -Mode Profile
+```
+
+Machine-local overrides belong in `%LOCALAPPDATA%\WindowsOperator\run\appsettings.Local.json`.
+
+## Current scaffold limits
+
+- WGC class exists as primary seam, but real WinRT interop still needs Windows validation and hardening.
+- Elevated/UAC targets are intentionally unsupported in v1. Errors return explicit remediation.
+- Remote exposure stays loopback-only. On the NixOS host, access Codex app-server through the SSH tunnel on `127.0.0.1:43118`.
