@@ -54,22 +54,27 @@ public sealed class DesktopAgentClient
         CancellationToken cancellationToken) =>
         SendAsync<MicrosoftDeviceLoginResult>(HttpMethod.Post, "/v1/auth/microsoft/device-login", request, cancellationToken);
 
-    public Task<IReadOnlyList<MailFolderRef>> ListMailFoldersAsync(MailListFoldersRequest request, CancellationToken cancellationToken) =>
-        request.SyncBeforeRead
-            ? SendAsync<IReadOnlyList<MailFolderRef>>(HttpMethod.Post, "/v1/mail/folders", request, cancellationToken)
-            : SendAsync<IReadOnlyList<MailFolderRef>>(HttpMethod.Get, "/v1/mail/folders", null, cancellationToken);
+    public Task<PowerPointInspectResult> InspectPowerPointAsync(
+        PowerPointInspectRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<PowerPointInspectResult>(HttpMethod.Post, "/v1/powerpoint/inspect", request, cancellationToken);
+
+    public Task<PowerPointEditResult> EditPowerPointAsync(
+        PowerPointEditRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<PowerPointEditResult>(HttpMethod.Post, "/v1/powerpoint/edit", request, cancellationToken);
+
+    public Task<PowerPointEditResult> GetPowerPointJobAsync(string jobId, CancellationToken cancellationToken) =>
+        SendAsync<PowerPointEditResult>(HttpMethod.Get, $"/v1/powerpoint/jobs/{Uri.EscapeDataString(jobId)}", null, cancellationToken);
+
+    public Task<MailFoldersResult> ListMailFoldersAsync(MailListFoldersRequest request, CancellationToken cancellationToken) =>
+        SendAsync<MailFoldersResult>(HttpMethod.Post, "/v1/mail/folders", request, cancellationToken);
 
     public Task<MailStatusResult> GetMailStatusAsync(CancellationToken cancellationToken) =>
         SendAsync<MailStatusResult>(HttpMethod.Get, "/v1/mail/status", null, cancellationToken);
 
-    public Task<MailSyncResult> SyncMailAsync(MailSyncRequest request, CancellationToken cancellationToken) =>
-        SendAsync<MailSyncResult>(HttpMethod.Post, "/v1/mail/sync", request, cancellationToken);
-
-    public Task<MailRecoveryResult> RecoverMailAsync(MailRecoveryRequest request, CancellationToken cancellationToken) =>
-        SendAsync<MailRecoveryResult>(HttpMethod.Post, "/v1/mail/recover", request, cancellationToken);
-
-    public Task<IReadOnlyList<MailMessageRef>> SearchMailMessagesAsync(MailSearchRequest request, CancellationToken cancellationToken) =>
-        SendAsync<IReadOnlyList<MailMessageRef>>(HttpMethod.Post, "/v1/mail/messages/search", request, cancellationToken);
+    public Task<MailSearchResult> SearchMailMessagesAsync(MailSearchRequest request, CancellationToken cancellationToken) =>
+        SendAsync<MailSearchResult>(HttpMethod.Post, "/v1/mail/messages/search", request, cancellationToken);
 
     public Task<MailDownloadResult> DownloadMailAttachmentsAsync(MailDownloadRequest request, CancellationToken cancellationToken) =>
         SendAsync<MailDownloadResult>(HttpMethod.Post, "/v1/mail/attachments/download", request, cancellationToken);

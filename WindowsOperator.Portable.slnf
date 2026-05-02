@@ -5,6 +5,7 @@
       "src\\WindowsOperator.Core\\WindowsOperator.Core.csproj",
       "src\\WindowsOperator.Host\\WindowsOperator.Host.csproj",
       "src\\WindowsOperator.Mcp\\WindowsOperator.Mcp.csproj",
+      "src\\WindowsOperator.OpenApi\\WindowsOperator.OpenApi.csproj",
       "tests\\WindowsOperator.Mcp.Tests\\WindowsOperator.Mcp.Tests.csproj"
     ]
   }

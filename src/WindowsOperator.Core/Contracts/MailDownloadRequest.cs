@@ -20,7 +20,5 @@ public sealed record MailDownloadRequest
 
     public bool DryRun { get; init; }
 
-    public bool SyncBeforeRead { get; init; }
-
-    public int SyncWaitSeconds { get; init; } = 30;
+    public string Freshness { get; init; } = MailFreshness.Auto;
 }

@@ -60,6 +60,27 @@ public static class OperatorErrors
             "Confirm the Windows desktop session is logged in and Microsoft Edge is installed, then retry.",
             detail);
 
+    public static OperatorError PowerPointUnavailable(string detail) =>
+        Create(
+            ErrorCodes.PowerPointUnavailable,
+            "PowerPoint automation is unavailable.",
+            "Confirm PowerPoint is installed in the logged-in Windows desktop session, then retry.",
+            detail);
+
+    public static OperatorError PowerPointValidationFailed(string detail) =>
+        Create(
+            ErrorCodes.PowerPointValidationFailed,
+            "PowerPoint edit request is invalid.",
+            "Inspect the presentation, fix selectors or paths, then retry.",
+            detail);
+
+    public static OperatorError PowerPointJobNotFound(string detail) =>
+        Create(
+            ErrorCodes.PowerPointJobNotFound,
+            "Requested PowerPoint job was not found.",
+            "Check the job id or rerun the edit request.",
+            detail);
+
     public static OperatorError MailUnavailable(string detail) =>
         Create(
             ErrorCodes.MailUnavailable,

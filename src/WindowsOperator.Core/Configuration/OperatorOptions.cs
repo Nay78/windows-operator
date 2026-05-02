@@ -14,5 +14,7 @@ public sealed class OperatorOptions
 
     public ScreenshotOptions Screenshot { get; set; } = new();
 
+    public MailOptions Mail { get; set; } = new();
+
     public string RestBaseUrl => $"http://{BindAddress}:{RestPort}";
 }

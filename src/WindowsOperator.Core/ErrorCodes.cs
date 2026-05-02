@@ -10,6 +10,9 @@ public static class ErrorCodes
     public const string MinimizedRdp = "minimized_rdp";
     public const string UnsupportedControl = "unsupported_control";
     public const string AuthUnavailable = "auth_unavailable";
+    public const string PowerPointUnavailable = "powerpoint_unavailable";
+    public const string PowerPointValidationFailed = "powerpoint_validation_failed";
+    public const string PowerPointJobNotFound = "powerpoint_job_not_found";
     public const string MailUnavailable = "mail_unavailable";
     public const string MailFolderNotFound = "mail_folder_not_found";
     public const string MailRunNotFound = "mail_run_not_found";

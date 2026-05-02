@@ -2,6 +2,8 @@
 
 Goal: download files from email without Microsoft Graph access.
 
+Target runtime architecture: [Outlook mail automation target architecture](outlook-mail-automation-architecture.md).
+
 ## Ranking
 
 1. Classic Outlook COM + PowerShell.
@@ -36,14 +38,11 @@ Why:
 REST surface on host loopback:
 
 ```text
-GET  http://127.0.0.1:43117/v1/mail/folders
 POST http://127.0.0.1:43117/v1/mail/folders
 POST http://127.0.0.1:43117/v1/mail/messages/search
 POST http://127.0.0.1:43117/v1/mail/attachments/download
 GET  http://127.0.0.1:43117/v1/mail/runs/<run-id>
 GET  http://127.0.0.1:43117/v1/mail/status
-POST http://127.0.0.1:43117/v1/mail/sync
-POST http://127.0.0.1:43117/v1/mail/recover
 GET  http://127.0.0.1:43117/openapi.json
 ```
 
@@ -60,12 +59,8 @@ Mail tools:
 - `mail_download_attachments`
 - `mail_get_run`
 - `mail_status`
-- `mail_sync`
-- `mail_recover`
 
-Folder list, search, and download support `syncBeforeRead` plus `syncWaitSeconds` when stale folder names or server-side message moves are possible. Search and download also support folder path, subject substring, received-time bounds, attachment presence, max result/message limits, selected message IDs, selected attachment indexes, explicit run IDs, and dry runs.
-
-Use `mail_sync` for an explicit standalone refresh. Use `syncBeforeRead` when the read must refresh Outlook first. Both paths start Classic Outlook send/receive and sync objects, then wait up to `75` seconds for the local Outlook cache to catch up.
+Folder list, search, and download use automatic Outlook refresh and recovery by default. Callers may set `freshness` to `auto`, `cached`, or `fresh`; they do not call separate sync or recovery operations. Search and download also support folder path, subject substring, received-time bounds, attachment presence, max result/message limits, selected message IDs, selected attachment indexes, explicit run IDs, and dry runs.
 
 ## Proposed Output
 
@@ -141,22 +136,14 @@ Classic Outlook COM shares the user's Outlook profile and OST. Treat it as an ex
 
 ## Recovery
 
-Use mail recovery when Outlook has stale folder names, stuck reminders, Autodiscover prompts, or COM errors such as `0x800706BE`.
+Windows Operator performs bounded recovery internally when Outlook has stale folder names, stuck reminders, Autodiscover prompts, or COM errors such as `0x800706BE`.
 
 REST:
 
 ```bash
-curl -X POST http://127.0.0.1:43117/v1/mail/sync \
-  -H 'Content-Type: application/json' \
-  -d '{"waitSeconds":30}'
-
 curl -X POST http://127.0.0.1:43117/v1/mail/folders \
   -H 'Content-Type: application/json' \
-  -d '{"syncBeforeRead":true,"syncWaitSeconds":30}'
-
-curl -X POST http://127.0.0.1:43117/v1/mail/recover \
-  -H 'Content-Type: application/json' \
-  -d '{"mode":"profile"}'
+  -d '{"freshness":"fresh"}'
 ```
 
 SSH fallback:
@@ -165,11 +152,7 @@ SSH fallback:
 scripts/linux/windows-run-ps.sh scripts/windows/recover-outlook-mail.ps1 -Mode Profile
 ```
 
-Modes:
-
-- `basic`: kill headless Outlook only and clear stale temp files.
-- `profile`: run `outlook.exe /cleanreminders` and `/resetnavpane`, then close Outlook cleanly. It refuses to touch already visible Outlook.
-- `force`: kill visible Outlook too. Use only when the automation desktop is dedicated and Outlook is stuck.
+Recovery escalates from soft cleanup to restart/force kill according to local Windows Operator policy. External callers receive actions/warnings in the mail result envelope instead of driving recovery directly.
 
 ## Debugging
 

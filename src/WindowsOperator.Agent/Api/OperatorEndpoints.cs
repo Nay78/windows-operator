@@ -72,13 +72,28 @@ public static class OperatorEndpoints
             await OperatorHttp.ExecuteAsync(
                 () => facade.StartMicrosoftDeviceLoginAsync(request, cancellationToken)));
 
-        group.MapGet("/mail/folders", async Task<Results<Ok<IReadOnlyList<MailFolderRef>>, JsonHttpResult<OperatorError>>> (
+        group.MapPost("/powerpoint/inspect", async Task<Results<Ok<PowerPointInspectResult>, JsonHttpResult<OperatorError>>> (
+            PowerPointInspectRequest request,
             IOperatorFacade facade,
             CancellationToken cancellationToken) =>
             await OperatorHttp.ExecuteAsync(
-                () => facade.ListMailFoldersAsync(new MailListFoldersRequest(), cancellationToken)));
+                () => facade.InspectPowerPointAsync(request, cancellationToken)));
 
-        group.MapPost("/mail/folders", async Task<Results<Ok<IReadOnlyList<MailFolderRef>>, JsonHttpResult<OperatorError>>> (
+        group.MapPost("/powerpoint/edit", async Task<Results<Ok<PowerPointEditResult>, JsonHttpResult<OperatorError>>> (
+            PowerPointEditRequest request,
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => facade.EditPowerPointAsync(request, cancellationToken)));
+
+        group.MapGet("/powerpoint/jobs/{jobId}", async Task<Results<Ok<PowerPointEditResult>, JsonHttpResult<OperatorError>>> (
+            string jobId,
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => facade.GetPowerPointJobAsync(jobId, cancellationToken)));
+
+        group.MapPost("/mail/folders", async Task<Results<Ok<MailFoldersResult>, JsonHttpResult<OperatorError>>> (
             MailListFoldersRequest request,
             IOperatorFacade facade,
             CancellationToken cancellationToken) =>
@@ -91,21 +106,7 @@ public static class OperatorEndpoints
             await OperatorHttp.ExecuteAsync(
                 () => facade.GetMailStatusAsync(cancellationToken)));
 
-        group.MapPost("/mail/sync", async Task<Results<Ok<MailSyncResult>, JsonHttpResult<OperatorError>>> (
-            MailSyncRequest request,
-            IOperatorFacade facade,
-            CancellationToken cancellationToken) =>
-            await OperatorHttp.ExecuteAsync(
-                () => facade.SyncMailAsync(request, cancellationToken)));
-
-        group.MapPost("/mail/recover", async Task<Results<Ok<MailRecoveryResult>, JsonHttpResult<OperatorError>>> (
-            MailRecoveryRequest request,
-            IOperatorFacade facade,
-            CancellationToken cancellationToken) =>
-            await OperatorHttp.ExecuteAsync(
-                () => facade.RecoverMailAsync(request, cancellationToken)));
-
-        group.MapPost("/mail/messages/search", async Task<Results<Ok<IReadOnlyList<MailMessageRef>>, JsonHttpResult<OperatorError>>> (
+        group.MapPost("/mail/messages/search", async Task<Results<Ok<MailSearchResult>, JsonHttpResult<OperatorError>>> (
             MailSearchRequest request,
             IOperatorFacade facade,
             CancellationToken cancellationToken) =>

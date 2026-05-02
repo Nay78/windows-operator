@@ -5,5 +5,4 @@ public sealed record MailStatusResult(
     int VisibleOutlookCount,
     int HeadlessOutlookCount,
     string? LastWorkerError,
-    MailRecoveryResult? LastRecovery,
     DateTimeOffset CheckedAtUtc);

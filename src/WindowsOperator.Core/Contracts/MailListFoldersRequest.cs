@@ -2,7 +2,5 @@ namespace WindowsOperator.Core.Contracts;
 
 public sealed record MailListFoldersRequest
 {
-    public bool SyncBeforeRead { get; init; }
-
-    public int SyncWaitSeconds { get; init; } = 30;
+    public string Freshness { get; init; } = MailFreshness.Auto;
 }

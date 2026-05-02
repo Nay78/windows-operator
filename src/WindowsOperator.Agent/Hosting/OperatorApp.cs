@@ -47,6 +47,7 @@ public static class OperatorApp
         builder.Services.AddWindowCapture();
         builder.Services.AddSingleton<IMailService, OutlookMailService>();
         builder.Services.AddSingleton<IMicrosoftAuthService, EdgeMicrosoftAuthService>();
+        builder.Services.AddSingleton<IPowerPointService, PowerPointComService>();
         builder.Services.AddSingleton<IOperatorFacade, OperatorFacade>();
         builder.Services.AddOperatorMcp(hostStdioServer: !useTestServer);
 

@@ -10,10 +10,11 @@ Good:
 
 - REST: `/v1/mail/...`
 - REST: `/v1/auth/microsoft/...`
-- MCP: `mail_sync`
+- REST: `/v1/powerpoint/...`
+- MCP: `mail_list_folders`
 - MCP: `auth_microsoft_device_login`
-- Contracts: `MailSyncRequest`, `MicrosoftDeviceLoginRequest`
-- Scripts: `recover-outlook-mail.ps1`, `login-microsoft-device-code.ps1`
+- Contracts: `MailFoldersResult`, `MicrosoftDeviceLoginRequest`
+- Scripts: `login-microsoft-device-code.ps1`
 
 Bad:
 
@@ -32,16 +33,18 @@ Rules:
 
 - Domain is short and durable: `mail`, `auth`, `windows`, `uia`, `input`.
 - Provider appears when behavior is provider-specific: `auth/microsoft`.
-- Action is explicit and boring: `device-login`, `sync`, `recover`, `download`.
-- Keep HTTP verbs meaningful. Use `GET` only for read-only status/list operations. Use `POST` for desktop actions, browser launches, sync, download, recovery, and anything with side effects.
+- Action is explicit and boring: `device-login`, `inspect`, `download`.
+- Keep HTTP verbs meaningful. Use `GET` only for read-only status operations. Use `POST` for desktop actions, browser launches, refresh-aware reads, downloads, and anything with side effects.
 - Keep Host and Agent routes identical. Host may proxy, Agent owns desktop work.
 
 Examples:
 
 ```text
 POST /v1/auth/microsoft/device-login
+POST /v1/powerpoint/inspect
+POST /v1/powerpoint/edit
+GET  /v1/powerpoint/jobs/{jobId}
 GET  /v1/mail/status
-POST /v1/mail/sync
 POST /v1/mail/folders
 POST /v1/mail/attachments/download
 ```
@@ -61,8 +64,8 @@ Examples:
 
 ```text
 auth_microsoft_device_login
-mail_sync
-mail_recover
+mail_list_folders
+mail_search_messages
 mail_download_attachments
 ```
 
@@ -74,7 +77,7 @@ Rules:
 
 - Request/result pair for each operation: `MicrosoftDeviceLoginRequest` and `MicrosoftDeviceLoginResult`.
 - Domain objects stay in `WindowsOperator.Core.Contracts`.
-- Service interfaces use domain verbs: `StartMicrosoftDeviceLoginAsync`, `SyncMailAsync`.
+- Service interfaces use domain verbs: `StartMicrosoftDeviceLoginAsync`, `ListMailFoldersAsync`.
 - Results include timestamp and enough action/error detail for operators.
 - Do not expose implementation paths, registry keys, COM object names, browser process ids, or scheduled task mechanics unless that is the feature's purpose.
 

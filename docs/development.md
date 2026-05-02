@@ -51,6 +51,18 @@ scripts/linux/windows-run-ps.sh scripts/windows/login-microsoft-device-code.ps1 
 
 The helper schedules itself into the logged-in desktop session and runs the same Edge handoff when REST is unavailable.
 
+## PowerPoint automation
+
+PowerPoint slide mutation target architecture lives in [PowerPoint automation target architecture](powerpoint-automation-architecture.md).
+
+High-level rule: external services send typed edit plans through REST, Host proxies, and Desktop Agent executes PowerPoint COM inside the logged-in Windows desktop session. Browser automation may open/authenticate a PowerPoint link, but slide edits use the PowerPoint object model, not web UI clicks.
+
+## Outlook mail automation
+
+Outlook mail refresh and recovery target architecture lives in [Outlook mail automation target architecture](outlook-mail-automation-architecture.md).
+
+High-level rule: external callers request mail intent only. Windows Operator owns Outlook attach/start/close behavior, automatic sync, stale-folder retry, and bounded recovery.
+
 ## Manual smoke flow
 
 1. Start Notepad.

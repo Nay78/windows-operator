@@ -49,7 +49,7 @@ public sealed class McpToolCatalog
                 async (arguments, cancellationToken) =>
                     Serialize(await operatorFacade.SendHotkeyAsync(Deserialize<HotkeyRequest>(arguments), cancellationToken))),
             new(
-                new McpToolDefinition("mail_list_folders", "List Outlook mailbox folders visible to Classic Outlook.", MailListFoldersSchema()),
+                new McpToolDefinition("mail_list_folders", "List Outlook mailbox folders with automatic refresh and recovery.", MailListFoldersSchema()),
                 async (arguments, cancellationToken) =>
                     Serialize(await operatorFacade.ListMailFoldersAsync(Deserialize<MailListFoldersRequest>(arguments), cancellationToken))),
             new(
@@ -57,19 +57,11 @@ public sealed class McpToolCatalog
                 async (arguments, cancellationToken) =>
                     Serialize(await operatorFacade.GetMailStatusAsync(cancellationToken))),
             new(
-                new McpToolDefinition("mail_sync", "Start Outlook send/receive sync and wait for cache refresh.", MailSyncSchema()),
-                async (arguments, cancellationToken) =>
-                    Serialize(await operatorFacade.SyncMailAsync(Deserialize<MailSyncRequest>(arguments), cancellationToken))),
-            new(
-                new McpToolDefinition("mail_recover", "Run Outlook mail automation recovery.", MailRecoverSchema()),
-                async (arguments, cancellationToken) =>
-                    Serialize(await operatorFacade.RecoverMailAsync(Deserialize<MailRecoveryRequest>(arguments), cancellationToken))),
-            new(
-                new McpToolDefinition("mail_search_messages", "Search Outlook messages without reading body or sender email fields.", MailSearchSchema()),
+                new McpToolDefinition("mail_search_messages", "Search Outlook messages with automatic refresh and recovery.", MailSearchSchema()),
                 async (arguments, cancellationToken) =>
                     Serialize(await operatorFacade.SearchMailMessagesAsync(Deserialize<MailSearchRequest>(arguments), cancellationToken))),
             new(
-                new McpToolDefinition("mail_download_attachments", "Download matching Outlook attachments into operator-exchange.", MailDownloadSchema()),
+                new McpToolDefinition("mail_download_attachments", "Download matching Outlook attachments with automatic refresh and recovery.", MailDownloadSchema()),
                 async (arguments, cancellationToken) =>
                     Serialize(await operatorFacade.DownloadMailAttachmentsAsync(Deserialize<MailDownloadRequest>(arguments), cancellationToken))),
             new(
@@ -300,8 +292,7 @@ public sealed class McpToolCatalog
                 ["hasAttachments"] = new JsonObject { ["type"] = "boolean" },
                 ["maxResults"] = new JsonObject { ["type"] = "integer", ["default"] = 25, ["minimum"] = 1, ["maximum"] = 250 },
                 ["includeAttachmentDetails"] = new JsonObject { ["type"] = "boolean", ["default"] = true },
-                ["syncBeforeRead"] = new JsonObject { ["type"] = "boolean", ["default"] = false },
-                ["syncWaitSeconds"] = new JsonObject { ["type"] = "integer", ["default"] = 30, ["minimum"] = 0, ["maximum"] = 75 },
+                ["freshness"] = MailFreshnessSchema(),
             },
         };
 
@@ -321,8 +312,7 @@ public sealed class McpToolCatalog
                 ["attachmentIndexes"] = new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "integer", ["minimum"] = 1 } },
                 ["runId"] = new JsonObject { ["type"] = "string" },
                 ["dryRun"] = new JsonObject { ["type"] = "boolean", ["default"] = false },
-                ["syncBeforeRead"] = new JsonObject { ["type"] = "boolean", ["default"] = false },
-                ["syncWaitSeconds"] = new JsonObject { ["type"] = "integer", ["default"] = 30, ["minimum"] = 0, ["maximum"] = 75 },
+                ["freshness"] = MailFreshnessSchema(),
             },
         };
 
@@ -338,28 +328,6 @@ public sealed class McpToolCatalog
             },
         };
 
-    private static JsonObject MailRecoverSchema() =>
-        new()
-        {
-            ["type"] = "object",
-            ["additionalProperties"] = false,
-            ["properties"] = new JsonObject
-            {
-                ["mode"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray("basic", "profile", "force"), ["default"] = "basic" },
-            },
-        };
-
-    private static JsonObject MailSyncSchema() =>
-        new()
-        {
-            ["type"] = "object",
-            ["additionalProperties"] = false,
-            ["properties"] = new JsonObject
-            {
-                ["waitSeconds"] = new JsonObject { ["type"] = "integer", ["default"] = 30, ["minimum"] = 0, ["maximum"] = 75 },
-            },
-        };
-
     private static JsonObject MailListFoldersSchema() =>
         new()
         {
@@ -367,9 +335,16 @@ public sealed class McpToolCatalog
             ["additionalProperties"] = false,
             ["properties"] = new JsonObject
             {
-                ["syncBeforeRead"] = new JsonObject { ["type"] = "boolean", ["default"] = false },
-                ["syncWaitSeconds"] = new JsonObject { ["type"] = "integer", ["default"] = 30, ["minimum"] = 0, ["maximum"] = 75 },
+                ["freshness"] = MailFreshnessSchema(),
             },
+        };
+
+    private static JsonObject MailFreshnessSchema() =>
+        new()
+        {
+            ["type"] = "string",
+            ["enum"] = new JsonArray(MailFreshness.Auto, MailFreshness.Cached, MailFreshness.Fresh),
+            ["default"] = MailFreshness.Auto,
         };
 
     private sealed record McpToolEntry(

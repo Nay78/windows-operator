@@ -29,8 +29,6 @@ public sealed class McpToolCatalogTests
                 "input_hotkey",
                 "mail_list_folders",
                 "mail_status",
-                "mail_sync",
-                "mail_recover",
                 "mail_search_messages",
                 "mail_download_attachments",
                 "mail_get_run",
@@ -51,13 +49,11 @@ public sealed class McpToolCatalogTests
         Assert.Contains("hwnd", schemas["window_screenshot"]["required"]!.AsArray().Select(node => node!.GetValue<string>()));
         Assert.Contains("png", schemas["window_screenshot"]["properties"]!["format"]!["enum"]!.AsArray().Select(node => node!.GetValue<string>()));
         Assert.Contains("keys", schemas["input_hotkey"]["required"]!.AsArray().Select(node => node!.GetValue<string>()));
-        Assert.NotNull(schemas["mail_list_folders"]["properties"]!["syncBeforeRead"]);
+        Assert.NotNull(schemas["mail_list_folders"]["properties"]!["freshness"]);
         Assert.NotNull(schemas["mail_search_messages"]["properties"]!["folderPath"]);
-        Assert.NotNull(schemas["mail_search_messages"]["properties"]!["syncBeforeRead"]);
-        Assert.NotNull(schemas["mail_sync"]["properties"]!["waitSeconds"]);
-        Assert.NotNull(schemas["mail_recover"]["properties"]!["mode"]);
+        Assert.NotNull(schemas["mail_search_messages"]["properties"]!["freshness"]);
         Assert.NotNull(schemas["mail_download_attachments"]["properties"]!["messageIds"]);
-        Assert.NotNull(schemas["mail_download_attachments"]["properties"]!["syncBeforeRead"]);
+        Assert.NotNull(schemas["mail_download_attachments"]["properties"]!["freshness"]);
         Assert.Contains("runId", schemas["mail_get_run"]["required"]!.AsArray().Select(node => node!.GetValue<string>()));
     }
 
@@ -151,12 +147,12 @@ public sealed class McpToolCatalogTests
                 ["maxResults"] = 5,
             },
             CancellationToken.None);
-        var messages = node!.Deserialize<IReadOnlyList<MailMessageRef>>(OperatorJson.SerializerOptions);
+        var result = node!.Deserialize<MailSearchResult>(OperatorJson.SerializerOptions);
 
         Assert.Equal("mailbox/Bandeja de entrada", facade.LastMailSearch?.FolderPath);
         Assert.Equal("Daily", facade.LastMailSearch?.SubjectContains);
         Assert.True(facade.LastMailSearch?.HasAttachments);
-        Assert.Single(messages!);
+        Assert.Single(result!.Messages);
     }
 
     private sealed class FakeOperatorFacade : IOperatorFacade
@@ -232,14 +228,59 @@ public sealed class McpToolCatalogTests
                 Array.Empty<string>(),
                 DateTimeOffset.Parse("2026-04-26T20:13:00Z")));
 
-        public Task<IReadOnlyList<MailFolderRef>> ListMailFoldersAsync(MailListFoldersRequest request, CancellationToken cancellationToken) =>
-            Task.FromResult<IReadOnlyList<MailFolderRef>>(
-                new[] { new MailFolderRef(0, "mailbox", "mailbox", 1) });
+        public Task<PowerPointInspectResult> InspectPowerPointAsync(
+            PowerPointInspectRequest request,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new PowerPointInspectResult(
+                true,
+                new PowerPointPresentationRef("report.pptx", request.PresentationPath ?? request.PresentationUrl ?? request.ExchangePath, 0),
+                Array.Empty<PowerPointSlideRef>(),
+                Array.Empty<string>(),
+                Array.Empty<string>(),
+                DateTimeOffset.Parse("2026-04-26T20:18:00Z")));
 
-        public Task<IReadOnlyList<MailMessageRef>> SearchMailMessagesAsync(MailSearchRequest request, CancellationToken cancellationToken)
+        public Task<PowerPointEditResult> EditPowerPointAsync(
+            PowerPointEditRequest request,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new PowerPointEditResult(
+                true,
+                request.DryRun,
+                "powerpoint-test",
+                request.PresentationPath ?? request.PresentationUrl ?? request.ExchangePath,
+                request.OutputPath,
+                Array.Empty<PowerPointEditOutcome>(),
+                Array.Empty<string>(),
+                Array.Empty<string>(),
+                DateTimeOffset.Parse("2026-04-26T20:19:00Z")));
+
+        public Task<PowerPointEditResult> GetPowerPointJobAsync(string jobId, CancellationToken cancellationToken) =>
+            Task.FromResult(new PowerPointEditResult(
+                true,
+                true,
+                jobId,
+                "report.pptx",
+                null,
+                Array.Empty<PowerPointEditOutcome>(),
+                Array.Empty<string>(),
+                Array.Empty<string>(),
+                DateTimeOffset.Parse("2026-04-26T20:20:00Z")));
+
+        public Task<MailFoldersResult> ListMailFoldersAsync(MailListFoldersRequest request, CancellationToken cancellationToken) =>
+            Task.FromResult(new MailFoldersResult(
+                true,
+                new[] { new MailFolderRef(0, "mailbox", "mailbox", 1) },
+                new[] { "attached_existing_outlook", "folders_read" },
+                Array.Empty<string>(),
+                Array.Empty<MailRunError>(),
+                DateTimeOffset.Parse("2026-04-26T20:16:30Z"),
+                false,
+                DateTimeOffset.Parse("2026-04-26T20:16:31Z")));
+
+        public Task<MailSearchResult> SearchMailMessagesAsync(MailSearchRequest request, CancellationToken cancellationToken)
         {
             LastMailSearch = request;
-            return Task.FromResult<IReadOnlyList<MailMessageRef>>(
+            return Task.FromResult(new MailSearchResult(
+                true,
                 new[]
                 {
                     new MailMessageRef(
@@ -249,12 +290,19 @@ public sealed class McpToolCatalogTests
                         DateTimeOffset.Parse("2026-04-26T20:14:25Z"),
                         1,
                         new[] { new MailAttachmentRef(1, "report.pdf", ".pdf", 1234) }),
-                });
+                },
+                new[] { "attached_existing_outlook", "messages_searched" },
+                Array.Empty<string>(),
+                Array.Empty<MailRunError>(),
+                DateTimeOffset.Parse("2026-04-26T20:16:30Z"),
+                false,
+                DateTimeOffset.Parse("2026-04-26T20:16:32Z")));
         }
 
         public Task<MailDownloadResult> DownloadMailAttachmentsAsync(MailDownloadRequest request, CancellationToken cancellationToken) =>
             Task.FromResult(
                 new MailDownloadResult(
+                    true,
                     request.RunId ?? "mail-download-test",
                     "/exchange/runs/mail-download-test",
                     "/exchange/downloads/mail",
@@ -264,32 +312,17 @@ public sealed class McpToolCatalogTests
                     request.DryRun ? 1 : 0,
                     Array.Empty<MailSavedAttachment>(),
                     Array.Empty<MailSkippedAttachment>(),
+                    new[] { "attached_existing_outlook", "attachments_downloaded" },
+                    Array.Empty<string>(),
                     Array.Empty<MailRunError>(),
+                    DateTimeOffset.Parse("2026-04-26T20:16:30Z"),
+                    false,
                     DateTimeOffset.Parse("2026-04-26T20:15:00Z")));
 
         public Task<MailDownloadResult> GetMailRunAsync(string runId, CancellationToken cancellationToken) =>
             DownloadMailAttachmentsAsync(new MailDownloadRequest { RunId = runId }, cancellationToken);
 
         public Task<MailStatusResult> GetMailStatusAsync(CancellationToken cancellationToken) =>
-            Task.FromResult(new MailStatusResult(true, 0, 0, null, null, DateTimeOffset.Parse("2026-04-26T20:16:00Z")));
-
-        public Task<MailSyncResult> SyncMailAsync(MailSyncRequest request, CancellationToken cancellationToken) =>
-            Task.FromResult(new MailSyncResult(
-                true,
-                1,
-                request.WaitSeconds,
-                new[] { "fake_sync" },
-                Array.Empty<string>(),
-                DateTimeOffset.Parse("2026-04-26T20:16:30Z")));
-
-        public Task<MailRecoveryResult> RecoverMailAsync(MailRecoveryRequest request, CancellationToken cancellationToken) =>
-            Task.FromResult(new MailRecoveryResult(
-                request.Mode,
-                true,
-                new[] { "fake_recovery" },
-                Array.Empty<string>(),
-                0,
-                0,
-                DateTimeOffset.Parse("2026-04-26T20:17:00Z")));
+            Task.FromResult(new MailStatusResult(true, 0, 0, null, DateTimeOffset.Parse("2026-04-26T20:16:00Z")));
     }
 }

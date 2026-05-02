@@ -13,6 +13,7 @@ Windows-first desktop operator scaffold for local automation. Repo targets a log
 - `src/WindowsOperator.MailWorker`: short-lived Classic Outlook COM worker.
 - `tests/*`: unit and integration coverage.
 - `docs/`: development notes and phase 2 Codex adapter boundary.
+- `openapi/` and `clients/go/`: committed OpenAPI spec and generated Go client.
 
 ## v1 surfaces
 
@@ -27,13 +28,11 @@ Host REST binds `127.0.0.1:43117` by default and proxies desktop automation to t
 - `POST /v1/uia/type`
 - `POST /v1/input/hotkey`
 - `POST /v1/auth/microsoft/device-login`
-- `GET /v1/mail/folders`
 - `POST /v1/mail/folders`
 - `POST /v1/mail/messages/search`
 - `POST /v1/mail/attachments/download`
+- `GET /v1/mail/runs/{runId}`
 - `GET /v1/mail/status`
-- `POST /v1/mail/sync`
-- `POST /v1/mail/recover`
 
 MCP tools expose same contract surface:
 
@@ -48,9 +47,8 @@ MCP tools expose same contract surface:
 - `mail_list_folders`
 - `mail_search_messages`
 - `mail_download_attachments`
+- `mail_get_run`
 - `mail_status`
-- `mail_sync`
-- `mail_recover`
 
 ## Backend choices
 
@@ -88,6 +86,14 @@ Codex credentials are not provisioned. Run `codex login` manually in the Windows
 For shell usability, bootstrap also persists `%LOCALAPPDATA%\Codex\npm-global` on the user `PATH` and writes compatibility shims into `%APPDATA%\npm\codex.cmd` and `%APPDATA%\npm\codex.ps1`.
 
 ## Local dev
+
+Regenerate OpenAPI and Go bindings:
+
+```bash
+scripts/generate-go-client.sh
+```
+
+Details: [Go client generation](docs/go-client-generation.md).
 
 Use Windows for actual development and verification.
 

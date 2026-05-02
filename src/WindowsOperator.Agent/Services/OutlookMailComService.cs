@@ -1,8 +1,10 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using WindowsOperator.Core;
+using WindowsOperator.Core.Configuration;
 using WindowsOperator.Core.Contracts;
 using WindowsOperator.Core.Json;
 using WindowsOperator.Core.Services;
@@ -19,15 +21,21 @@ public sealed class OutlookMailComService : IMailService, IDisposable
         "WINDOWS_OPERATOR_OUTLOOK_TIMEOUT_SECONDS",
         TimeSpan.FromSeconds(75));
     private readonly StaComDispatcher _dispatcher = new();
+    private readonly MailOptions _policy;
 
-    public Task<IReadOnlyList<MailFolderRef>> ListFoldersAsync(MailListFoldersRequest request, CancellationToken cancellationToken) =>
-        _dispatcher.InvokeAsync<IReadOnlyList<MailFolderRef>>(() => ListFoldersCore(request), cancellationToken);
+    public OutlookMailComService(MailOptions? policy = null)
+    {
+        _policy = policy ?? new MailOptions();
+    }
 
-    public Task<IReadOnlyList<MailMessageRef>> SearchMessagesAsync(MailSearchRequest request, CancellationToken cancellationToken) =>
-        _dispatcher.InvokeAsync<IReadOnlyList<MailMessageRef>>(() => SearchMessagesCore(request), cancellationToken);
+    public Task<MailFoldersResult> ListFoldersAsync(MailListFoldersRequest request, CancellationToken cancellationToken) =>
+        _dispatcher.InvokeAsync(() => ListFoldersCore(request, _policy), cancellationToken);
+
+    public Task<MailSearchResult> SearchMessagesAsync(MailSearchRequest request, CancellationToken cancellationToken) =>
+        _dispatcher.InvokeAsync(() => SearchMessagesCore(request, _policy), cancellationToken);
 
     public Task<MailDownloadResult> DownloadAttachmentsAsync(MailDownloadRequest request, CancellationToken cancellationToken) =>
-        _dispatcher.InvokeAsync(() => DownloadAttachmentsCore(request), cancellationToken);
+        _dispatcher.InvokeAsync(() => DownloadAttachmentsCore(request, _policy), cancellationToken);
 
     public Task<MailDownloadResult> GetRunAsync(string runId, CancellationToken cancellationToken) =>
         Task.FromResult(ReadRun(runId));
@@ -38,109 +46,130 @@ public sealed class OutlookMailComService : IMailService, IDisposable
             VisibleOutlookCount: CountOutlookProcesses(visible: true),
             HeadlessOutlookCount: CountOutlookProcesses(visible: false),
             LastWorkerError: null,
-            LastRecovery: null,
-            DateTimeOffset.UtcNow));
-
-    public Task<MailSyncResult> SyncAsync(MailSyncRequest request, CancellationToken cancellationToken) =>
-        _dispatcher.InvokeAsync(() => SyncCore(request), cancellationToken);
-
-    public Task<MailRecoveryResult> RecoverAsync(MailRecoveryRequest request, CancellationToken cancellationToken) =>
-        Task.FromResult(new MailRecoveryResult(
-            request.Mode,
-            Success: true,
-            Actions: new[] { "worker_recovery_not_used" },
-            Errors: Array.Empty<string>(),
-            VisibleOutlookCount: CountOutlookProcesses(visible: true),
-            HeadlessOutlookCount: CountOutlookProcesses(visible: false),
             DateTimeOffset.UtcNow));
 
     public void Dispose() => _dispatcher.Dispose();
 
-    private static IReadOnlyList<MailFolderRef> ListFoldersCore(MailListFoldersRequest request)
+    private static MailFoldersResult ListFoldersCore(MailListFoldersRequest request, MailOptions policy)
     {
-        OutlookLease? outlook = null;
-        dynamic? session = null;
+        var context = new MailOperationContext(policy);
         try
         {
-            outlook = CreateOutlook();
-            session = outlook.Application.GetNamespace("MAPI");
-            if (request.SyncBeforeRead)
-            {
-                RequireSyncSuccess(RunSyncSession(session, new MailSyncRequest { WaitSeconds = request.SyncWaitSeconds }));
-            }
-
-            var rows = new List<MailFolderRef>();
-            for (var i = 1; i <= (int)session.Folders.Count; i++)
-            {
-                AddFolderRows(session.Folders.Item(i), string.Empty, 0, rows);
-            }
-
-            return rows;
-        }
-        catch (Exception ex)
-        {
-            throw MailUnavailable(ex);
-        }
-        finally
-        {
-            ReleaseCom(session);
-            outlook?.Dispose();
-        }
-    }
-
-    private static IReadOnlyList<MailMessageRef> SearchMessagesCore(MailSearchRequest request)
-    {
-        OutlookLease? outlook = null;
-        dynamic? session = null;
-        try
-        {
-            outlook = CreateOutlook();
-            session = outlook.Application.GetNamespace("MAPI");
-            if (request.SyncBeforeRead)
-            {
-                RequireSyncSuccess(RunSyncSession(session, new MailSyncRequest { WaitSeconds = request.SyncWaitSeconds }));
-            }
-
-            var folder = ResolveFolder(session, request.FolderPath);
-            var folderPath = FolderPath(folder);
-            IEnumerable<MailMessageRef> messages = SearchFolder(folder, folderPath, request);
-            return messages.ToArray();
-        }
-        catch (OperatorFailureException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            throw MailUnavailable(ex);
-        }
-        finally
-        {
-            ReleaseCom(session);
-            outlook?.Dispose();
-        }
-    }
-
-    private static MailSyncResult SyncCore(MailSyncRequest request)
-    {
-        OutlookLease? outlook = null;
-        dynamic? session = null;
-        try
-        {
-            outlook = CreateOutlook();
-            session = outlook.Application.GetNamespace("MAPI");
-            return RunSyncSession(session, request);
-        }
-        catch (Exception ex) when (ex is not OperatorFailureException)
-        {
-            return new MailSyncResult(
-                false,
-                0,
-                Math.Clamp(request.WaitSeconds, 0, 75),
-                Array.Empty<string>(),
-                new[] { ex.Message },
+            var rows = ExecuteWithRecovery(context, request.Freshness, session => ReadFolders(session));
+            var state = MailSyncState.Load(SyncStatePath());
+            state.LastFolderReadUtc = DateTimeOffset.UtcNow;
+            state.LastFolderFingerprint = FingerprintFolders(rows);
+            state.Save(SyncStatePath());
+            context.Actions.Add("folders_read");
+            return new MailFoldersResult(
+                true,
+                rows,
+                context.Actions,
+                context.Warnings,
+                Array.Empty<MailRunError>(),
+                context.LastSyncUtc,
+                context.Recovered,
                 DateTimeOffset.UtcNow);
         }
+        catch (Exception ex)
+        {
+            return new MailFoldersResult(
+                false,
+                Array.Empty<MailFolderRef>(),
+                context.Actions,
+                context.Warnings,
+                new[] { ToMailRunError(ex) },
+                context.LastSyncUtc,
+                context.Recovered,
+                DateTimeOffset.UtcNow);
+        }
+    }
+
+    private static MailSearchResult SearchMessagesCore(MailSearchRequest request, MailOptions policy)
+    {
+        var context = new MailOperationContext(policy);
+        try
+        {
+            var messages = ExecuteWithRecovery(context, request.Freshness, session =>
+            {
+                var folder = ResolveFolderWithRefresh(session, request.FolderPath, request.Freshness, context);
+                var folderPath = FolderPath(folder);
+                return SearchFolder(folder, folderPath, request).ToArray();
+            });
+            context.Actions.Add("messages_searched");
+            return new MailSearchResult(
+                true,
+                messages,
+                context.Actions,
+                context.Warnings,
+                Array.Empty<MailRunError>(),
+                context.LastSyncUtc,
+                context.Recovered,
+                DateTimeOffset.UtcNow);
+        }
+        catch (Exception ex)
+        {
+            return new MailSearchResult(
+                false,
+                Array.Empty<MailMessageRef>(),
+                context.Actions,
+                context.Warnings,
+                new[] { ToMailRunError(ex) },
+                context.LastSyncUtc,
+                context.Recovered,
+                DateTimeOffset.UtcNow);
+        }
+    }
+
+    private static T ExecuteWithRecovery<T>(MailOperationContext context, string freshness, Func<dynamic, T> operation)
+    {
+        try
+        {
+            return ExecuteOnce(context, freshness, operation);
+        }
+        catch (Exception ex) when (IsRecoverable(ex) && context.Policy.AllowAutomaticSoftRecovery)
+        {
+            context.Warnings.Add($"soft_recovery_after:{ErrorDetail(ex)}");
+            RecoverOutlook(context, includeVisible: false, "soft_recovery");
+            context.Recovered = true;
+        }
+
+        try
+        {
+            return ExecuteOnce(context, freshness, operation);
+        }
+        catch (Exception ex) when (IsRecoverable(ex) && context.Policy.AllowAutomaticRestart)
+        {
+            context.Warnings.Add($"restart_recovery_after:{ErrorDetail(ex)}");
+            RecoverOutlook(context, includeVisible: true, "restart_recovery");
+            context.Recovered = true;
+        }
+
+        try
+        {
+            return ExecuteOnce(context, freshness, operation);
+        }
+        catch (Exception ex) when (IsRecoverable(ex) && context.Policy.AllowAutomaticForceKill)
+        {
+            context.Warnings.Add($"force_recovery_after:{ErrorDetail(ex)}");
+            RecoverOutlook(context, includeVisible: true, "force_recovery");
+            context.Recovered = true;
+        }
+
+        return ExecuteOnce(context, freshness, operation);
+    }
+
+    private static T ExecuteOnce<T>(MailOperationContext context, string freshness, Func<dynamic, T> operation)
+    {
+        OutlookLease? outlook = null;
+        dynamic? session = null;
+        try
+        {
+            outlook = CreateOutlook(context.Policy, context.Actions);
+            session = outlook.Application.GetNamespace("MAPI");
+            EnsureFresh(session, freshness, context, force: false);
+            return operation(session);
+        }
         finally
         {
             ReleaseCom(session);
@@ -148,13 +177,81 @@ public sealed class OutlookMailComService : IMailService, IDisposable
         }
     }
 
-    private static MailSyncResult RunSyncSession(dynamic session, MailSyncRequest request)
+    private static IReadOnlyList<MailFolderRef> ReadFolders(dynamic session)
+    {
+        var rows = new List<MailFolderRef>();
+        for (var i = 1; i <= (int)session.Folders.Count; i++)
+        {
+            AddFolderRows(session.Folders.Item(i), string.Empty, 0, rows);
+        }
+
+        return rows;
+    }
+
+    private static dynamic ResolveFolderWithRefresh(dynamic session, string? folderPath, string freshness, MailOperationContext context)
+    {
+        try
+        {
+            return ResolveFolder(session, folderPath);
+        }
+        catch (OperatorFailureException ex) when (
+            ex.Error.Code == ErrorCodes.MailFolderNotFound &&
+            context.Policy.ForceSyncWhenFolderMissing &&
+            IsAutoFreshness(freshness))
+        {
+            context.Warnings.Add($"folder_missing_before_forced_sync:{folderPath}");
+            EnsureFresh(session, MailFreshness.Fresh, context, force: true);
+            return ResolveFolder(session, folderPath);
+        }
+    }
+
+    private static void EnsureFresh(dynamic session, string freshness, MailOperationContext context, bool force)
+    {
+        var mode = NormalizeFreshness(freshness);
+        if (mode == MailFreshness.Cached && !force)
+        {
+            context.Actions.Add("refresh_skipped:cached");
+            context.LastSyncUtc = MailSyncState.Load(SyncStatePath()).LastSyncSuccessUtc;
+            return;
+        }
+
+        var state = MailSyncState.Load(SyncStatePath());
+        context.LastSyncUtc = state.LastSyncSuccessUtc;
+        var staleAfter = TimeSpan.FromSeconds(Math.Max(0, context.Policy.SyncFreshnessSeconds));
+        var isStale = state.LastSyncSuccessUtc is null ||
+            DateTimeOffset.UtcNow - state.LastSyncSuccessUtc.Value >= staleAfter;
+        if (!force && mode == MailFreshness.Auto && !isStale)
+        {
+            context.Actions.Add("refresh_skipped:fresh_cache");
+            return;
+        }
+
+        state.LastSyncAttemptUtc = DateTimeOffset.UtcNow;
+        var waitSeconds = Math.Clamp(context.Policy.SyncWaitSeconds, 0, 75);
+        var result = RunSyncSession(session, waitSeconds);
+        context.Actions.Add("auto_sync_started");
+        context.Actions.AddRange(result.Actions);
+        if (!result.Success)
+        {
+            state.LastError = string.Join("; ", result.Errors);
+            state.Save(SyncStatePath());
+            throw new OperatorFailureException(
+                OperatorErrors.MailUnavailable($"Outlook sync failed before read: {state.LastError}"));
+        }
+
+        state.LastSyncSuccessUtc = result.CompletedAtUtc;
+        state.LastError = null;
+        state.Save(SyncStatePath());
+        context.LastSyncUtc = result.CompletedAtUtc;
+    }
+
+    private static MailSyncOutcome RunSyncSession(dynamic session, int waitSeconds)
     {
         var actions = new List<string>();
         var errors = new List<string>();
         var startedObjects = new List<object>();
         var started = 0;
-        var waitSeconds = Math.Clamp(request.WaitSeconds, 0, 75);
+        waitSeconds = Math.Clamp(waitSeconds, 0, 75);
 
         TryLogon(session, actions);
         try
@@ -206,22 +303,13 @@ public sealed class OutlookMailComService : IMailService, IDisposable
             actions.Add($"sync_stop_requested:{startedObjects.Count}");
         }
 
-        return new MailSyncResult(
+        return new MailSyncOutcome(
             errors.Count == 0,
             started,
             waitSeconds,
             actions,
             errors,
             DateTimeOffset.UtcNow);
-    }
-
-    private static void RequireSyncSuccess(MailSyncResult result)
-    {
-        if (!result.Success)
-        {
-            throw new OperatorFailureException(
-                OperatorErrors.MailUnavailable($"Outlook sync failed before read: {string.Join("; ", result.Errors)}"));
-        }
     }
 
     private static void TryLogon(dynamic session, List<string> actions)
@@ -237,10 +325,9 @@ public sealed class OutlookMailComService : IMailService, IDisposable
         }
     }
 
-    private static MailDownloadResult DownloadAttachmentsCore(MailDownloadRequest request)
+    private static MailDownloadResult DownloadAttachmentsCore(MailDownloadRequest request, MailOptions policy)
     {
-        OutlookLease? outlook = null;
-        dynamic? session = null;
+        var context = new MailOperationContext(policy);
         var runId = NormalizeRunId(request.RunId);
         var runRoot = Path.Combine(ExchangeRoot(), "runs", runId);
         Directory.CreateDirectory(runRoot);
@@ -252,42 +339,33 @@ public sealed class OutlookMailComService : IMailService, IDisposable
 
         try
         {
-            outlook = CreateOutlook();
-            session = outlook.Application.GetNamespace("MAPI");
-            if (request.SyncBeforeRead)
+            ExecuteWithRecovery(context, request.Freshness, session =>
             {
-                RequireSyncSuccess(RunSyncSession(session, new MailSyncRequest { WaitSeconds = request.SyncWaitSeconds }));
-            }
+                var candidates = ResolveDownloadCandidates(session, request, context).ToArray();
+                messagesScanned = candidates.Length;
+                var state = ProcessedState.Load(StatePath());
+                foreach (var candidate in candidates)
+                {
+                    messagesMatched++;
+                    SaveAttachments(candidate, request, runRoot, state, saved, skipped, errors);
+                }
 
-            var candidates = ResolveDownloadCandidates(session, request).ToArray();
-            messagesScanned = candidates.Length;
-            var state = ProcessedState.Load(StatePath());
-            foreach (var candidate in candidates)
-            {
-                messagesMatched++;
-                SaveAttachments(candidate, request, runRoot, state, saved, skipped, errors);
-            }
+                if (!request.DryRun)
+                {
+                    state.Save(StatePath());
+                }
 
-            if (!request.DryRun)
-            {
-                state.Save(StatePath());
-            }
-        }
-        catch (OperatorFailureException)
-        {
-            throw;
+                return true;
+            });
+            context.Actions.Add("attachments_downloaded");
         }
         catch (Exception ex)
         {
             errors.Add(new MailRunError("mail_unavailable", ex.Message, ex.ToString()));
         }
-        finally
-        {
-            ReleaseCom(session);
-            outlook?.Dispose();
-        }
 
         var result = new MailDownloadResult(
+            errors.Count == 0,
             runId,
             runRoot,
             Path.Combine(ExchangeRoot(), "downloads", "mail"),
@@ -297,13 +375,17 @@ public sealed class OutlookMailComService : IMailService, IDisposable
             skipped.Count,
             saved,
             skipped,
+            context.Actions,
+            context.Warnings,
             errors,
+            context.LastSyncUtc,
+            context.Recovered,
             DateTimeOffset.UtcNow);
         WriteRunResult(result);
         return result;
     }
 
-    private static IReadOnlyList<DownloadCandidate> ResolveDownloadCandidates(dynamic session, MailDownloadRequest request)
+    private static IReadOnlyList<DownloadCandidate> ResolveDownloadCandidates(dynamic session, MailDownloadRequest request, MailOperationContext context)
     {
         if (request.MessageIds is { Count: > 0 })
         {
@@ -327,7 +409,7 @@ public sealed class OutlookMailComService : IMailService, IDisposable
             IncludeAttachmentDetails = true,
             MaxResults = Math.Clamp(request.MaxMessages, 1, 250),
         };
-        var folder = ResolveFolder(session, request.FolderPath);
+        var folder = ResolveFolderWithRefresh(session, request.FolderPath, request.Freshness, context);
         var folderPath = FolderPath(folder);
         var candidates = new List<DownloadCandidate>();
         foreach (var message in SearchFolder(folder, folderPath, search))
@@ -593,7 +675,7 @@ public sealed class OutlookMailComService : IMailService, IDisposable
         return string.Join("/", names);
     }
 
-    private static OutlookLease CreateOutlook()
+    private static OutlookLease CreateOutlook(MailOptions policy, List<string> actions)
     {
         if (!OperatingSystem.IsWindows())
         {
@@ -612,18 +694,35 @@ public sealed class OutlookMailComService : IMailService, IDisposable
         try
         {
             var existingOutlookProcesses = OutlookProcessIds();
-            if (existingOutlookProcesses.Count > 0)
+            if (existingOutlookProcesses.Count > 0 && !policy.AllowAttachToVisibleOutlook)
             {
                 throw new OperatorFailureException(
                     OperatorErrors.MailUnavailable(
-                        "Classic Outlook is already open in the desktop session. Close Outlook before using mail automation."));
+                        "Classic Outlook is already open and attach policy is disabled."));
             }
 
-            RemoveOutlookTempFilesIfIdle();
+            if (existingOutlookProcesses.Count == 0)
+            {
+                RemoveOutlookTempFilesIfIdle();
+            }
+
             var application = Activator.CreateInstance(type)
                 ?? throw new OperatorFailureException(
                     OperatorErrors.MailUnavailable("Unable to create Outlook.Application COM object."));
-            return new OutlookLease(application, existingOutlookProcesses, operationLock);
+            if (existingOutlookProcesses.Count > 0)
+            {
+                actions.Add("attached_existing_outlook");
+            }
+            else
+            {
+                actions.Add("started_outlook");
+            }
+
+            return new OutlookLease(
+                application,
+                existingOutlookProcesses,
+                operationLock,
+                ownsApplication: existingOutlookProcesses.Count == 0 || !policy.CloseOwnedOutlookOnly);
         }
         catch
         {
@@ -957,20 +1056,166 @@ public sealed class OutlookMailComService : IMailService, IDisposable
         }
     }
 
+    private static void RecoverOutlook(MailOperationContext context, bool includeVisible, string action)
+    {
+        context.Actions.Add(action);
+        StopOutlookProcesses(includeVisible, context.Actions, context.Warnings);
+        RemoveOutlookTempFilesIfIdle();
+    }
+
+    private static void StopOutlookProcesses(bool includeVisible, List<string> actions, List<string> warnings)
+    {
+        foreach (var process in Process.GetProcessesByName("OUTLOOK"))
+        {
+            using (process)
+            {
+                var visible = HasMainWindow(process);
+                if (visible && !includeVisible)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    if (visible)
+                    {
+                        process.CloseMainWindow();
+                        if (process.WaitForExit(5000))
+                        {
+                            actions.Add($"outlook_closed:{process.Id}");
+                            continue;
+                        }
+                    }
+
+                    process.Kill(entireProcessTree: true);
+                    process.WaitForExit(5000);
+                    actions.Add($"outlook_killed:{process.Id}");
+                }
+                catch (Exception ex)
+                {
+                    warnings.Add($"outlook_stop_failed:{process.Id}:{ex.Message}");
+                }
+            }
+        }
+    }
+
+    private static bool IsRecoverable(Exception ex) =>
+        ex is not OperationCanceledException;
+
+    private static string ErrorDetail(Exception ex) =>
+        ex is OperatorFailureException failure
+            ? failure.Error.Details?.GetValueOrDefault("detail") ?? failure.Error.Message
+            : ex.Message;
+
+    private static MailRunError ToMailRunError(Exception ex) =>
+        ex is OperatorFailureException failure
+            ? new MailRunError(failure.Error.Code, ErrorDetail(ex), failure.Error.Message)
+            : new MailRunError("mail_unavailable", ex.Message, ex.ToString());
+
+    private static string NormalizeFreshness(string? raw)
+    {
+        var value = string.IsNullOrWhiteSpace(raw) ? MailFreshness.Auto : raw.Trim().ToLowerInvariant();
+        return value is MailFreshness.Auto or MailFreshness.Cached or MailFreshness.Fresh
+            ? value
+            : throw new OperatorFailureException(
+                OperatorErrors.MailUnavailable($"Unsupported mail freshness: {raw}"));
+    }
+
+    private static bool IsAutoFreshness(string? raw) =>
+        NormalizeFreshness(raw) == MailFreshness.Auto;
+
+    private static string FingerprintFolders(IReadOnlyList<MailFolderRef> folders)
+    {
+        var text = string.Join("\n", folders.Select(folder => $"{folder.Depth}|{folder.Path}|{folder.ChildCount}"));
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(text));
+        return Convert.ToHexString(hash).ToLowerInvariant();
+    }
+
+    private static string SyncStatePath()
+    {
+        var root = Environment.GetEnvironmentVariable("WINDOWS_OPERATOR_LOCAL_STATE_ROOT");
+        if (string.IsNullOrWhiteSpace(root))
+        {
+            root = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "WindowsOperator");
+        }
+
+        return Path.Combine(root, "run", "mail-sync-state.json");
+    }
+
     private sealed record DownloadCandidate(dynamic Item, string FolderPath, MailMessageRef Message);
+
+    private sealed record MailSyncOutcome(
+        bool Success,
+        int SyncObjectsStarted,
+        int WaitSeconds,
+        IReadOnlyList<string> Actions,
+        IReadOnlyList<string> Errors,
+        DateTimeOffset CompletedAtUtc);
+
+    private sealed class MailOperationContext
+    {
+        public MailOperationContext(MailOptions policy)
+        {
+            Policy = policy;
+        }
+
+        public MailOptions Policy { get; }
+
+        public List<string> Actions { get; } = new();
+
+        public List<string> Warnings { get; } = new();
+
+        public DateTimeOffset? LastSyncUtc { get; set; }
+
+        public bool Recovered { get; set; }
+    }
+
+    private sealed class MailSyncState
+    {
+        public DateTimeOffset? LastSyncAttemptUtc { get; set; }
+
+        public DateTimeOffset? LastSyncSuccessUtc { get; set; }
+
+        public DateTimeOffset? LastFolderReadUtc { get; set; }
+
+        public string? LastFolderFingerprint { get; set; }
+
+        public string? LastError { get; set; }
+
+        public static MailSyncState Load(string path)
+        {
+            if (!File.Exists(path))
+            {
+                return new MailSyncState();
+            }
+
+            return JsonSerializer.Deserialize<MailSyncState>(File.ReadAllText(path), OperatorJson.SerializerOptions)
+                ?? new MailSyncState();
+        }
+
+        public void Save(string path)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path) ?? ".");
+            File.WriteAllText(path, JsonSerializer.Serialize(this, OperatorJson.SerializerOptions));
+        }
+    }
 
     private sealed class OutlookLease : IDisposable
     {
         private readonly HashSet<int> _preservedOutlookProcesses;
         private readonly OutlookOperationLock _operationLock;
         private readonly System.Threading.Timer _watchdog;
+        private readonly bool _ownsApplication;
         private bool _disposed;
 
-        public OutlookLease(dynamic application, HashSet<int> preservedOutlookProcesses, OutlookOperationLock operationLock)
+        public OutlookLease(dynamic application, HashSet<int> preservedOutlookProcesses, OutlookOperationLock operationLock, bool ownsApplication)
         {
             Application = application;
             _preservedOutlookProcesses = preservedOutlookProcesses;
             _operationLock = operationLock;
+            _ownsApplication = ownsApplication;
             _watchdog = new System.Threading.Timer(
                 _ => StopHeadlessOutlookProcesses(_preservedOutlookProcesses, TimeSpan.Zero),
                 state: null,
@@ -991,7 +1236,10 @@ public sealed class OutlookMailComService : IMailService, IDisposable
             _watchdog.Dispose();
             try
             {
-                Application.Quit();
+                if (_ownsApplication)
+                {
+                    Application.Quit();
+                }
             }
             catch
             {
@@ -1001,8 +1249,12 @@ public sealed class OutlookMailComService : IMailService, IDisposable
             {
                 ReleaseCom(Application);
                 CollectComGarbage();
-                WaitForOutlookExitOrWindow(_preservedOutlookProcesses, OutlookExitTimeout);
-                StopHeadlessOutlookProcesses(_preservedOutlookProcesses, TimeSpan.Zero);
+                if (_ownsApplication)
+                {
+                    WaitForOutlookExitOrWindow(_preservedOutlookProcesses, OutlookExitTimeout);
+                    StopHeadlessOutlookProcesses(_preservedOutlookProcesses, TimeSpan.Zero);
+                }
+
                 RemoveOutlookTempFilesIfIdle();
                 _operationLock.Dispose();
             }

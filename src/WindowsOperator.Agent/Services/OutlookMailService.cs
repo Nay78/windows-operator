@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Text.Json;
+using Microsoft.Extensions.Options;
 using WindowsOperator.Core;
+using WindowsOperator.Core.Configuration;
 using WindowsOperator.Core.Contracts;
 using WindowsOperator.Core.Json;
 using WindowsOperator.Core.Services;
@@ -13,21 +15,26 @@ public sealed class OutlookMailService : IMailService
         "WINDOWS_OPERATOR_MAIL_WORKER_TIMEOUT_SECONDS",
         TimeSpan.FromSeconds(90));
     private readonly object _stateLock = new();
+    private readonly IOptions<OperatorOptions> _options;
     private string? _lastWorkerError;
-    private MailRecoveryResult? _lastRecovery;
 
-    public async Task<IReadOnlyList<MailFolderRef>> ListFoldersAsync(MailListFoldersRequest request, CancellationToken cancellationToken)
+    public OutlookMailService(IOptions<OperatorOptions> options)
+    {
+        _options = options;
+    }
+
+    public async Task<MailFoldersResult> ListFoldersAsync(MailListFoldersRequest request, CancellationToken cancellationToken)
     {
         var response = await RunWorkerAsync(
-            new MailWorkerRequest { Operation = "list-folders", ListFolders = request },
+            WorkerRequest("list-folders") with { ListFolders = request },
             cancellationToken);
         return response.Folders ?? throw MailUnavailable("Mail worker returned no folder list.");
     }
 
-    public async Task<IReadOnlyList<MailMessageRef>> SearchMessagesAsync(MailSearchRequest request, CancellationToken cancellationToken)
+    public async Task<MailSearchResult> SearchMessagesAsync(MailSearchRequest request, CancellationToken cancellationToken)
     {
         var response = await RunWorkerAsync(
-            new MailWorkerRequest { Operation = "search-messages", Search = request },
+            WorkerRequest("search-messages") with { Search = request },
             cancellationToken);
         return response.Messages ?? throw MailUnavailable("Mail worker returned no message list.");
     }
@@ -35,7 +42,7 @@ public sealed class OutlookMailService : IMailService
     public async Task<MailDownloadResult> DownloadAttachmentsAsync(MailDownloadRequest request, CancellationToken cancellationToken)
     {
         var response = await RunWorkerAsync(
-            new MailWorkerRequest { Operation = "download-attachments", Download = request },
+            WorkerRequest("download-attachments") with { Download = request },
             cancellationToken);
         return response.Download ?? throw MailUnavailable("Mail worker returned no download result.");
     }
@@ -63,78 +70,16 @@ public sealed class OutlookMailService : IMailService
                 CountOutlookProcesses(visible: true),
                 CountOutlookProcesses(visible: false),
                 _lastWorkerError,
-                _lastRecovery,
                 DateTimeOffset.UtcNow));
         }
     }
 
-    public async Task<MailSyncResult> SyncAsync(MailSyncRequest request, CancellationToken cancellationToken)
-    {
-        var response = await RunWorkerAsync(
-            new MailWorkerRequest { Operation = "sync", Sync = request },
-            cancellationToken);
-        return response.Sync ?? throw MailUnavailable("Mail worker returned no sync result.");
-    }
-
-    public Task<MailRecoveryResult> RecoverAsync(MailRecoveryRequest request, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        var mode = NormalizeRecoveryMode(request.Mode);
-        var actions = new List<string>();
-        var errors = new List<string>();
-
-        try
+    private MailWorkerRequest WorkerRequest(string operation) =>
+        new()
         {
-            if (!OperatingSystem.IsWindows())
-            {
-                throw MailUnavailable("Outlook recovery requires Windows.");
-            }
-
-            if (mode == "force")
-            {
-                StopOutlookProcesses(includeVisible: true, actions, errors);
-            }
-            else
-            {
-                StopOutlookProcesses(includeVisible: false, actions, errors);
-            }
-
-            if (mode is "profile" or "force")
-            {
-                var visible = CountOutlookProcesses(visible: true);
-                if (visible > 0 && mode != "force")
-                {
-                    errors.Add("Classic Outlook is visible. Close Outlook or use force recovery.");
-                }
-                else
-                {
-                    RunOutlookSwitch("/cleanreminders", actions, errors);
-                    RunOutlookSwitch("/resetnavpane", actions, errors);
-                    TryCloseVisibleOutlook(actions, errors);
-                    StopOutlookProcesses(includeVisible: mode == "force", actions, errors);
-                }
-            }
-        }
-        catch (Exception ex) when (ex is not OperatorFailureException)
-        {
-            errors.Add(ex.Message);
-        }
-
-        var result = new MailRecoveryResult(
-            mode,
-            errors.Count == 0,
-            actions,
-            errors,
-            CountOutlookProcesses(visible: true),
-            CountOutlookProcesses(visible: false),
-            DateTimeOffset.UtcNow);
-        lock (_stateLock)
-        {
-            _lastRecovery = result;
-        }
-
-        return Task.FromResult(result);
-    }
+            Operation = operation,
+            Policy = _options.Value.Mail,
+        };
 
     private async Task<MailWorkerResponse> RunWorkerAsync(MailWorkerRequest request, CancellationToken cancellationToken)
     {
@@ -278,14 +223,6 @@ public sealed class OutlookMailService : IMailService
     private static OperatorFailureException MailUnavailable(string detail) =>
         new(OperatorErrors.MailUnavailable(detail));
 
-    private static string NormalizeRecoveryMode(string? raw)
-    {
-        var mode = string.IsNullOrWhiteSpace(raw) ? "basic" : raw.Trim().ToLowerInvariant();
-        return mode is "basic" or "profile" or "force"
-            ? mode
-            : throw MailUnavailable($"Unsupported mail recovery mode: {raw}");
-    }
-
     private static int CountOutlookProcesses(bool visible)
     {
         var count = 0;
@@ -313,110 +250,6 @@ public sealed class OutlookMailService : IMailService
         catch
         {
             return false;
-        }
-    }
-
-    private static void StopOutlookProcesses(bool includeVisible, List<string> actions, List<string> errors)
-    {
-        foreach (var process in Process.GetProcessesByName("OUTLOOK"))
-        {
-            using (process)
-            {
-                var visible = HasMainWindow(process);
-                if (visible && !includeVisible)
-                {
-                    continue;
-                }
-
-                try
-                {
-                    process.Kill(entireProcessTree: true);
-                    process.WaitForExit(5000);
-                    actions.Add(visible ? $"killed_visible_outlook:{process.Id}" : $"killed_headless_outlook:{process.Id}");
-                }
-                catch (Exception ex)
-                {
-                    errors.Add($"Failed to kill Outlook PID {process.Id}: {ex.Message}");
-                }
-            }
-        }
-
-        RemoveOutlookTempFilesIfIdle(actions, errors);
-    }
-
-    private static void RunOutlookSwitch(string arguments, List<string> actions, List<string> errors)
-    {
-        try
-        {
-            using var process = Process.Start(new ProcessStartInfo
-            {
-                FileName = "outlook.exe",
-                Arguments = arguments,
-                UseShellExecute = true,
-            });
-            actions.Add($"started_outlook:{arguments}");
-            Thread.Sleep(TimeSpan.FromSeconds(8));
-        }
-        catch (Exception ex)
-        {
-            errors.Add($"Failed to run outlook.exe {arguments}: {ex.Message}");
-        }
-    }
-
-    private static void TryCloseVisibleOutlook(List<string> actions, List<string> errors)
-    {
-        foreach (var process in Process.GetProcessesByName("OUTLOOK"))
-        {
-            using (process)
-            {
-                if (!HasMainWindow(process))
-                {
-                    continue;
-                }
-
-                try
-                {
-                    if (process.CloseMainWindow())
-                    {
-                        actions.Add($"close_requested:{process.Id}");
-                        process.WaitForExit(10000);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    errors.Add($"Failed to close Outlook PID {process.Id}: {ex.Message}");
-                }
-            }
-        }
-    }
-
-    private static void RemoveOutlookTempFilesIfIdle(List<string> actions, List<string> errors)
-    {
-        if (Process.GetProcessesByName("OUTLOOK").Length > 0)
-        {
-            return;
-        }
-
-        var outlookDataPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Microsoft",
-            "Outlook");
-        if (!Directory.Exists(outlookDataPath))
-        {
-            return;
-        }
-
-        foreach (var path in Directory.EnumerateFiles(outlookDataPath, "~*.tmp"))
-        {
-            try
-            {
-                File.Delete(path);
-                actions.Add($"deleted_temp:{Path.GetFileName(path)}");
-            }
-            catch (Exception ex)
-            {
-                errors.Add($"Failed to delete temp file {path}: {ex.Message}");
-            }
         }
     }
 

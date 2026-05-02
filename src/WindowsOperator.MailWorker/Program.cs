@@ -21,7 +21,7 @@ try
         OperatorJson.SerializerOptions)
         ?? throw new InvalidOperationException("Request JSON is empty.");
 
-    using var service = new OutlookMailComService();
+    using var service = new OutlookMailComService(request.Policy);
     var response = request.Operation switch
     {
         "list-folders" => new MailWorkerResponse
@@ -39,10 +39,6 @@ try
             Download = await service.DownloadAttachmentsAsync(
                 request.Download ?? throw new InvalidOperationException("download-attachments requires Download payload."),
                 CancellationToken.None),
-        },
-        "sync" => new MailWorkerResponse
-        {
-            Sync = await service.SyncAsync(request.Sync ?? new MailSyncRequest(), CancellationToken.None),
         },
         _ => throw new InvalidOperationException($"Unsupported mail worker operation: {request.Operation}"),
     };

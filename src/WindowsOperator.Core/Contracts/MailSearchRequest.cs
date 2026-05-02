@@ -16,7 +16,5 @@ public sealed record MailSearchRequest
 
     public bool IncludeAttachmentDetails { get; init; } = true;
 
-    public bool SyncBeforeRead { get; init; }
-
-    public int SyncWaitSeconds { get; init; } = 30;
+    public string Freshness { get; init; } = MailFreshness.Auto;
 }

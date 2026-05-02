@@ -62,10 +62,23 @@ public sealed class HostOperatorFacade : IOperatorFacade
         CancellationToken cancellationToken) =>
         _desktopAgent.StartMicrosoftDeviceLoginAsync(request, cancellationToken);
 
-    public Task<IReadOnlyList<MailFolderRef>> ListMailFoldersAsync(MailListFoldersRequest request, CancellationToken cancellationToken) =>
+    public Task<PowerPointInspectResult> InspectPowerPointAsync(
+        PowerPointInspectRequest request,
+        CancellationToken cancellationToken) =>
+        _desktopAgent.InspectPowerPointAsync(request, cancellationToken);
+
+    public Task<PowerPointEditResult> EditPowerPointAsync(
+        PowerPointEditRequest request,
+        CancellationToken cancellationToken) =>
+        _desktopAgent.EditPowerPointAsync(request, cancellationToken);
+
+    public Task<PowerPointEditResult> GetPowerPointJobAsync(string jobId, CancellationToken cancellationToken) =>
+        _desktopAgent.GetPowerPointJobAsync(jobId, cancellationToken);
+
+    public Task<MailFoldersResult> ListMailFoldersAsync(MailListFoldersRequest request, CancellationToken cancellationToken) =>
         _desktopAgent.ListMailFoldersAsync(request, cancellationToken);
 
-    public Task<IReadOnlyList<MailMessageRef>> SearchMailMessagesAsync(MailSearchRequest request, CancellationToken cancellationToken) =>
+    public Task<MailSearchResult> SearchMailMessagesAsync(MailSearchRequest request, CancellationToken cancellationToken) =>
         _desktopAgent.SearchMailMessagesAsync(request, cancellationToken);
 
     public Task<MailDownloadResult> DownloadMailAttachmentsAsync(MailDownloadRequest request, CancellationToken cancellationToken) =>
@@ -76,12 +89,6 @@ public sealed class HostOperatorFacade : IOperatorFacade
 
     public Task<MailStatusResult> GetMailStatusAsync(CancellationToken cancellationToken) =>
         _desktopAgent.GetMailStatusAsync(cancellationToken);
-
-    public Task<MailSyncResult> SyncMailAsync(MailSyncRequest request, CancellationToken cancellationToken) =>
-        _desktopAgent.SyncMailAsync(request, cancellationToken);
-
-    public Task<MailRecoveryResult> RecoverMailAsync(MailRecoveryRequest request, CancellationToken cancellationToken) =>
-        _desktopAgent.RecoverMailAsync(request, cancellationToken);
 
     private async Task<HealthResult?> ProbeDesktopAgentAsync(CancellationToken cancellationToken)
     {

@@ -24,17 +24,23 @@ public interface IOperatorFacade
         MicrosoftDeviceLoginRequest request,
         CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<MailFolderRef>> ListMailFoldersAsync(MailListFoldersRequest request, CancellationToken cancellationToken);
+    Task<PowerPointInspectResult> InspectPowerPointAsync(
+        PowerPointInspectRequest request,
+        CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<MailMessageRef>> SearchMailMessagesAsync(MailSearchRequest request, CancellationToken cancellationToken);
+    Task<PowerPointEditResult> EditPowerPointAsync(
+        PowerPointEditRequest request,
+        CancellationToken cancellationToken);
+
+    Task<PowerPointEditResult> GetPowerPointJobAsync(string jobId, CancellationToken cancellationToken);
+
+    Task<MailFoldersResult> ListMailFoldersAsync(MailListFoldersRequest request, CancellationToken cancellationToken);
+
+    Task<MailSearchResult> SearchMailMessagesAsync(MailSearchRequest request, CancellationToken cancellationToken);
 
     Task<MailDownloadResult> DownloadMailAttachmentsAsync(MailDownloadRequest request, CancellationToken cancellationToken);
 
     Task<MailDownloadResult> GetMailRunAsync(string runId, CancellationToken cancellationToken);
 
     Task<MailStatusResult> GetMailStatusAsync(CancellationToken cancellationToken);
-
-    Task<MailSyncResult> SyncMailAsync(MailSyncRequest request, CancellationToken cancellationToken);
-
-    Task<MailRecoveryResult> RecoverMailAsync(MailRecoveryRequest request, CancellationToken cancellationToken);
 }

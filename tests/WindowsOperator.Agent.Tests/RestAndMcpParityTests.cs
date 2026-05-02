@@ -103,6 +103,134 @@ public sealed class RestAndMcpParityTests
         Assert.Contains("dry_run", result.Actions);
     }
 
+    [Fact]
+    public async Task PowerPointInspect_RestEndpoint_ReturnsInventory()
+    {
+        using var app = OperatorApp.Build(
+            Array.Empty<string>(),
+            services =>
+            {
+                ReplaceOperatorFacade(services);
+            },
+            useTestServer: true);
+        await app.StartAsync();
+        var client = app.GetTestClient();
+        var request = new PowerPointInspectRequest
+        {
+            PresentationPath = @"C:\Reports\report.pptx",
+            IncludeText = true,
+        };
+
+        var response = await client.PostAsJsonAsync(
+            "/v1/powerpoint/inspect",
+            request,
+            OperatorJson.SerializerOptions);
+        var result = await response.Content.ReadFromJsonAsync<PowerPointInspectResult>(OperatorJson.SerializerOptions);
+
+        response.EnsureSuccessStatusCode();
+        Assert.NotNull(result);
+        Assert.True(result!.Success);
+        Assert.Single(result.Slides);
+        Assert.Equal("Summary.Status", result.Slides[0].Shapes[0].Name);
+    }
+
+    [Fact]
+    public async Task PowerPointEdit_RestEndpoint_ReturnsEditResult()
+    {
+        using var app = OperatorApp.Build(
+            Array.Empty<string>(),
+            services =>
+            {
+                ReplaceOperatorFacade(services);
+            },
+            useTestServer: true);
+        await app.StartAsync();
+        var client = app.GetTestClient();
+        var request = new PowerPointEditRequest
+        {
+            PresentationPath = @"C:\Reports\report.pptx",
+            DryRun = true,
+            Edits = new[]
+            {
+                new PowerPointEditOperation
+                {
+                    Id = "summary-status",
+                    Op = "replaceText",
+                    Target = new PowerPointEditTarget
+                    {
+                        Slide = new PowerPointSlideSelector
+                        {
+                            Tag = new Dictionary<string, string> { ["WO_SLIDE"] = "EXEC_SUMMARY" },
+                        },
+                        Shape = new PowerPointShapeSelector
+                        {
+                            Tag = new Dictionary<string, string> { ["WO_FIELD"] = "STATUS" },
+                        },
+                    },
+                    Find = "{{STATUS}}",
+                    Value = "On track",
+                },
+            },
+        };
+
+        var response = await client.PostAsJsonAsync(
+            "/v1/powerpoint/edit",
+            request,
+            OperatorJson.SerializerOptions);
+        var result = await response.Content.ReadFromJsonAsync<PowerPointEditResult>(OperatorJson.SerializerOptions);
+
+        response.EnsureSuccessStatusCode();
+        Assert.NotNull(result);
+        Assert.True(result!.Success);
+        Assert.True(result.DryRun);
+        Assert.Single(result.Edits);
+        Assert.Equal("summary-status", result.Edits[0].Id);
+    }
+
+    [Fact]
+    public async Task MailFolders_RestEndpoint_ReturnsEnvelope()
+    {
+        using var app = OperatorApp.Build(
+            Array.Empty<string>(),
+            services =>
+            {
+                ReplaceOperatorFacade(services);
+            },
+            useTestServer: true);
+        await app.StartAsync();
+        var client = app.GetTestClient();
+
+        var response = await client.PostAsJsonAsync(
+            "/v1/mail/folders",
+            new MailListFoldersRequest(),
+            OperatorJson.SerializerOptions);
+        var result = await response.Content.ReadFromJsonAsync<MailFoldersResult>(OperatorJson.SerializerOptions);
+
+        response.EnsureSuccessStatusCode();
+        Assert.NotNull(result);
+        Assert.True(result!.Success);
+        Assert.NotEmpty(result.Actions);
+        Assert.Contains(result.Folders, folder => folder.Name == "Bandeja de entrada");
+    }
+
+    [Fact]
+    public async Task MailLegacySyncRecoverAndGetFoldersRoutes_AreRemoved()
+    {
+        using var app = OperatorApp.Build(
+            Array.Empty<string>(),
+            services =>
+            {
+                ReplaceOperatorFacade(services);
+            },
+            useTestServer: true);
+        await app.StartAsync();
+        var client = app.GetTestClient();
+
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, (await client.GetAsync("/v1/mail/folders")).StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, (await client.PostAsJsonAsync("/v1/mail/sync", new { })).StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, (await client.PostAsJsonAsync("/v1/mail/recover", new { })).StatusCode);
+    }
+
     private static void ReplaceOperatorFacade(IServiceCollection services)
     {
         var existing = services.Single(descriptor => descriptor.ServiceType == typeof(IOperatorFacade));
