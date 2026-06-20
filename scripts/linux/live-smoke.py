@@ -5,6 +5,7 @@ import argparse
 import datetime as dt
 import json
 import os
+import ssl
 import subprocess
 import sys
 import time
@@ -179,6 +180,27 @@ def plain_http(url: str, timeout_seconds: int) -> tuple[int | str, bytes]:
         return exc.code, exc.read()
     except Exception as exc:
         return "exception", str(exc).encode("utf-8", "replace")
+
+
+def fetch_url(
+    url: str,
+    timeout_seconds: int,
+    *,
+    insecure_tls: bool = False,
+) -> tuple[int | str, dict[str, str], bytes]:
+    request = urllib.request.Request(url, method="GET", headers={"Accept": "*/*"})
+    context = ssl._create_unverified_context() if insecure_tls and url.startswith("https://") else None
+    kwargs: dict[str, Any] = {}
+    if context is not None:
+        kwargs["context"] = context
+
+    try:
+        with urllib.request.urlopen(request, timeout=timeout_seconds, **kwargs) as response:
+            return response.status, dict(response.headers), response.read()
+    except urllib.error.HTTPError as exc:
+        return exc.code, dict(exc.headers), exc.read()
+    except Exception as exc:
+        return "exception", {}, str(exc).encode("utf-8", "replace")
 
 
 def load_json_file(path: Path) -> Any:
@@ -601,7 +623,7 @@ def run_smoke(args: argparse.Namespace) -> dict[str, Any]:
     run_edge_checks(recorder, client, run_id)
     run_auth_dry_run_checks(recorder, client, run_id)
     run_mail_checks(recorder, client, run_id)
-    run_powerpoint_checks(recorder, client, run_id)
+    run_powerpoint_checks(recorder, client, args, run_id)
 
     completed_at = utc_now()
     return {
@@ -854,7 +876,22 @@ def run_mail_checks(recorder: Recorder, client: SmokeClient, run_id: str) -> Non
     )
 
 
-def run_powerpoint_checks(recorder: Recorder, client: SmokeClient, run_id: str) -> None:
+def run_powerpoint_checks(recorder: Recorder, client: SmokeClient, args: argparse.Namespace, run_id: str) -> None:
+    if not args.skip_powerpoint_addin:
+        status, headers, body = fetch_url(args.powerpoint_addin_url, args.timeout_seconds, insecure_tls=True)
+        recorder.add(
+            "powerpoint_addin_taskpane",
+            status == 200 and b"Windows Operator PowerPoint" in body,
+            status,
+            (
+                f"bytes={len(body)} type={headers.get('Content-Type')}"
+                if isinstance(status, int)
+                else body.decode("utf-8", "replace")[:160]
+            ),
+            url=args.powerpoint_addin_url,
+            contentType=headers.get("Content-Type"),
+        )
+
     job_id = f"{run_id}-ppt"
     artifact_id = "live-pixel"
     job = {
@@ -985,6 +1022,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--notepad-wait-seconds", type=int, default=20)
     parser.add_argument("--notepad-launch-script", default="scripts/windows/start-notepad-smoke.ps1")
     parser.add_argument("--notepad-cleanup-script", default="scripts/windows/stop-notepad-smoke.ps1")
+    parser.add_argument(
+        "--powerpoint-addin-url",
+        default=os.environ.get("WINDOWS_OPERATOR_POWERPOINT_ADDIN_URL", "https://127.0.0.1:3003/taskpane.html"),
+        help="PowerPoint add-in taskpane URL to verify.",
+    )
+    parser.add_argument("--skip-powerpoint-addin", action="store_true", help="Skip PowerPoint taskpane HTTPS check.")
     args = parser.parse_args()
     args.run_id = args.run_id.strip().lower()
     return args

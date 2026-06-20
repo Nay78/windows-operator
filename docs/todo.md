@@ -25,7 +25,7 @@ Backlog from current Windows VM provisioning and automation session.
   - PowerPoint add-in HTTPS served `https://localhost:3003/taskpane.html` from the Host scheduled task
   - Notepad-specific live smoke opened Notepad in the logged-in desktop, activated it, typed through UIA, captured a screenshot, and cleaned up
   - Repeatable command: `scripts/linux/live-smoke.py --include-notepad`
-  - Latest report: `/var/lib/windows-server/shared/operator-exchange/runs/live-smoke-20260620t221317z/live-smoke-report.json` (`39` passed, `0` failed)
+  - Latest report: `/var/lib/windows-server/shared/operator-exchange/runs/live-smoke-20260620t221641z/live-smoke-report.json` (`40` passed, `0` failed)
 
 ## High Priority
 

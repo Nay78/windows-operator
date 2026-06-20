@@ -221,7 +221,9 @@ Full desktop mutation smoke:
 scripts/linux/live-smoke.py --include-notepad
 ```
 
-The Notepad path launches Notepad through the Windows script runner as the logged-in interactive user, then verifies the visible behavior through Host REST: window catalog, activation, UIA `Document` query, UIA type, screenshot artifact, and cleanup. Latest live report: `/var/lib/windows-server/shared/operator-exchange/runs/live-smoke-20260620t221317z/live-smoke-report.json` with 39 passed, 0 failed.
+The Notepad path launches Notepad through the Windows script runner as the logged-in interactive user, then verifies the visible behavior through Host REST: window catalog, activation, UIA `Document` query, UIA type, screenshot artifact, and cleanup.
+
+The smoke also verifies the PowerPoint add-in taskpane at `https://127.0.0.1:3003/taskpane.html` unless `--skip-powerpoint-addin` is passed. Latest full report: `/var/lib/windows-server/shared/operator-exchange/runs/live-smoke-20260620t221641z/live-smoke-report.json` with 40 passed, 0 failed.
 
 ## Manual smoke flow
 
