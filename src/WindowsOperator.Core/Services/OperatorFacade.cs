@@ -6,10 +6,10 @@ namespace WindowsOperator.Core.Services;
 
 public sealed class OperatorFacade : IOperatorFacade
 {
+    private readonly IEdgeBrowserService _edgeBrowserService;
     private readonly IInputService _inputService;
     private readonly IMailService _mailService;
     private readonly IMicrosoftAuthService _microsoftAuthService;
-    private readonly IPowerPointService _powerPointService;
     private readonly IUiAutomationService _uiAutomationService;
     private readonly IOptions<OperatorOptions> _options;
     private readonly IScreenshotService _screenshotService;
@@ -22,9 +22,9 @@ public sealed class OperatorFacade : IOperatorFacade
         IUiAutomationService uiAutomationService,
         IScreenshotService screenshotService,
         IInputService inputService,
+        IEdgeBrowserService edgeBrowserService,
         IMailService mailService,
         IMicrosoftAuthService microsoftAuthService,
-        IPowerPointService powerPointService,
         IOptions<OperatorOptions> options)
     {
         _windowCatalogService = windowCatalogService;
@@ -32,9 +32,9 @@ public sealed class OperatorFacade : IOperatorFacade
         _uiAutomationService = uiAutomationService;
         _screenshotService = screenshotService;
         _inputService = inputService;
+        _edgeBrowserService = edgeBrowserService;
         _mailService = mailService;
         _microsoftAuthService = microsoftAuthService;
-        _powerPointService = powerPointService;
         _options = options;
     }
 
@@ -81,26 +81,74 @@ public sealed class OperatorFacade : IOperatorFacade
     public Task<ActionResult> TypeUiAsync(UiaTypeRequest request, CancellationToken cancellationToken) =>
         _uiAutomationService.TypeAsync(request, cancellationToken);
 
+    public Task<ActionResult> ClickScreenAsync(ScreenClickRequest request, CancellationToken cancellationToken) =>
+        _inputService.ClickScreenAsync(request, cancellationToken);
+
     public Task<ActionResult> SendHotkeyAsync(HotkeyRequest request, CancellationToken cancellationToken) =>
         _inputService.SendHotkeyAsync(request, cancellationToken);
+
+    public Task<BrowserEdgeResetResult> ResetEdgeBrowserAsync(
+        BrowserEdgeResetRequest request,
+        CancellationToken cancellationToken) =>
+        _edgeBrowserService.ResetAsync(request, cancellationToken);
+
+    public Task<BrowserEdgeSessionStateResult> StartEdgeBrowserSessionAsync(
+        BrowserEdgeSessionStartRequest request,
+        CancellationToken cancellationToken) =>
+        _edgeBrowserService.StartSessionAsync(request, cancellationToken);
+
+    public Task<BrowserEdgeSessionStateResult> GetEdgeBrowserSessionStateAsync(
+        string sessionId,
+        CancellationToken cancellationToken) =>
+        _edgeBrowserService.GetSessionStateAsync(sessionId, cancellationToken);
+
+    public Task<BrowserEdgeSessionStateResult> NavigateEdgeBrowserSessionAsync(
+        string sessionId,
+        BrowserEdgeSessionNavigateRequest request,
+        CancellationToken cancellationToken) =>
+        _edgeBrowserService.NavigateSessionAsync(sessionId, request, cancellationToken);
+
+    public Task<BrowserEdgeSessionDomActionResult> ClickEdgeBrowserDomAsync(
+        string sessionId,
+        BrowserEdgeSessionDomClickRequest request,
+        CancellationToken cancellationToken) =>
+        _edgeBrowserService.ClickDomAsync(sessionId, request, cancellationToken);
+
+    public Task<BrowserEdgeSessionDomActionResult> FillEdgeBrowserDomAsync(
+        string sessionId,
+        BrowserEdgeSessionDomFillRequest request,
+        CancellationToken cancellationToken) =>
+        _edgeBrowserService.FillDomAsync(sessionId, request, cancellationToken);
+
+    public Task<BrowserEdgeSessionStateResult> CloseEdgeBrowserSessionAsync(
+        string sessionId,
+        CancellationToken cancellationToken) =>
+        _edgeBrowserService.CloseSessionAsync(sessionId, cancellationToken);
+
+    public Task<MicrosoftAuthCleanupResult> CleanupMicrosoftAuthWindowsAsync(
+        MicrosoftAuthCleanupRequest request,
+        CancellationToken cancellationToken) =>
+        _microsoftAuthService.CleanupAuthWindowsAsync(request, cancellationToken);
+
+    public Task<MicrosoftAuthorizeProbeResult> StartMicrosoftAuthorizeProbeAsync(
+        MicrosoftAuthorizeProbeRequest request,
+        CancellationToken cancellationToken) =>
+        _microsoftAuthService.StartAuthorizeProbeAsync(request, cancellationToken);
+
+    public Task<MicrosoftAuthorizeProbeResult> GetMicrosoftAuthorizeProbeStatusAsync(
+        string runId,
+        CancellationToken cancellationToken) =>
+        _microsoftAuthService.GetAuthorizeProbeStatusAsync(runId, cancellationToken);
 
     public Task<MicrosoftDeviceLoginResult> StartMicrosoftDeviceLoginAsync(
         MicrosoftDeviceLoginRequest request,
         CancellationToken cancellationToken) =>
         _microsoftAuthService.StartDeviceLoginAsync(request, cancellationToken);
 
-    public Task<PowerPointInspectResult> InspectPowerPointAsync(
-        PowerPointInspectRequest request,
+    public Task<MicrosoftDeviceLoginResult> GetMicrosoftDeviceLoginStatusAsync(
+        string runId,
         CancellationToken cancellationToken) =>
-        _powerPointService.InspectAsync(request, cancellationToken);
-
-    public Task<PowerPointEditResult> EditPowerPointAsync(
-        PowerPointEditRequest request,
-        CancellationToken cancellationToken) =>
-        _powerPointService.EditAsync(request, cancellationToken);
-
-    public Task<PowerPointEditResult> GetPowerPointJobAsync(string jobId, CancellationToken cancellationToken) =>
-        _powerPointService.GetJobAsync(jobId, cancellationToken);
+        _microsoftAuthService.GetDeviceLoginStatusAsync(runId, cancellationToken);
 
     public Task<MailFoldersResult> ListMailFoldersAsync(MailListFoldersRequest request, CancellationToken cancellationToken) =>
         _mailService.ListFoldersAsync(request, cancellationToken);

@@ -3,10 +3,11 @@ using Microsoft.Extensions.Options;
 using WindowsOperator.Core;
 using WindowsOperator.Core.Contracts;
 using WindowsOperator.Core.Json;
+using WindowsOperator.Core.Services;
 
 namespace WindowsOperator.Host.Services;
 
-public sealed class DesktopAgentClient
+public sealed class DesktopAgentClient : IWorkbenchService
 {
     private readonly HttpClient _httpClient;
     private readonly IOptions<DesktopAgentOptions> _options;
@@ -25,6 +26,14 @@ public sealed class DesktopAgentClient
 
     public Task<ActionResult> ActivateWindowAsync(long hwnd, CancellationToken cancellationToken) =>
         SendAsync<ActionResult>(HttpMethod.Post, $"/v1/windows/{hwnd}/activate", null, cancellationToken);
+
+    public Task<WindowRef> GetForegroundWindowAsync(CancellationToken cancellationToken) =>
+        SendAsync<WindowRef>(HttpMethod.Get, "/v1/desktop/foreground", null, cancellationToken);
+
+    public Task<DesktopScreenshotResult> CaptureDesktopScreenshotAsync(
+        DesktopScreenshotRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<DesktopScreenshotResult>(HttpMethod.Post, "/v1/desktop/screenshot", request, cancellationToken);
 
     public Task<ScreenshotResult> CaptureWindowAsync(long hwnd, ScreenshotFormat? format, CancellationToken cancellationToken)
     {
@@ -46,26 +55,126 @@ public sealed class DesktopAgentClient
     public Task<ActionResult> TypeUiAsync(UiaTypeRequest request, CancellationToken cancellationToken) =>
         SendAsync<ActionResult>(HttpMethod.Post, "/v1/uia/type", request, cancellationToken);
 
+    public Task<ActionResult> ClickScreenAsync(ScreenClickRequest request, CancellationToken cancellationToken) =>
+        SendAsync<ActionResult>(HttpMethod.Post, "/v1/input/click", request, cancellationToken);
+
     public Task<ActionResult> SendHotkeyAsync(HotkeyRequest request, CancellationToken cancellationToken) =>
         SendAsync<ActionResult>(HttpMethod.Post, "/v1/input/hotkey", request, cancellationToken);
+
+    public Task<BrowserEdgeResetResult> ResetEdgeBrowserAsync(
+        BrowserEdgeResetRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<BrowserEdgeResetResult>(HttpMethod.Post, "/v1/browser/edge/reset", request, cancellationToken);
+
+    public Task<BrowserEdgeSessionStateResult> StartEdgeBrowserSessionAsync(
+        BrowserEdgeSessionStartRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<BrowserEdgeSessionStateResult>(HttpMethod.Post, "/v1/browser/edge/session/start", request, cancellationToken);
+
+    public Task<BrowserEdgeOpenUrlResult> OpenEdgeUrlAsync(
+        BrowserEdgeOpenUrlRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<BrowserEdgeOpenUrlResult>(HttpMethod.Post, "/v1/browser/edge/open-url", request, cancellationToken);
+
+    public Task<BrowserEdgeSessionStateResult> GetEdgeBrowserSessionStateAsync(
+        string sessionId,
+        CancellationToken cancellationToken) =>
+        SendAsync<BrowserEdgeSessionStateResult>(
+            HttpMethod.Get,
+            $"/v1/browser/edge/session/{Uri.EscapeDataString(sessionId)}/state",
+            null,
+            cancellationToken);
+
+    public Task<BrowserEdgeSessionStateResult> NavigateEdgeBrowserSessionAsync(
+        string sessionId,
+        BrowserEdgeSessionNavigateRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<BrowserEdgeSessionStateResult>(
+            HttpMethod.Post,
+            $"/v1/browser/edge/session/{Uri.EscapeDataString(sessionId)}/navigate",
+            request,
+            cancellationToken);
+
+    public Task<BrowserEdgeSessionDomActionResult> ClickEdgeBrowserDomAsync(
+        string sessionId,
+        BrowserEdgeSessionDomClickRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<BrowserEdgeSessionDomActionResult>(
+            HttpMethod.Post,
+            $"/v1/browser/edge/session/{Uri.EscapeDataString(sessionId)}/dom/click",
+            request,
+            cancellationToken);
+
+    public Task<BrowserEdgeSessionDomActionResult> FillEdgeBrowserDomAsync(
+        string sessionId,
+        BrowserEdgeSessionDomFillRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<BrowserEdgeSessionDomActionResult>(
+            HttpMethod.Post,
+            $"/v1/browser/edge/session/{Uri.EscapeDataString(sessionId)}/dom/fill",
+            request,
+            cancellationToken);
+
+    public Task<BrowserEdgeSessionStateResult> CloseEdgeBrowserSessionAsync(
+        string sessionId,
+        CancellationToken cancellationToken) =>
+        SendAsync<BrowserEdgeSessionStateResult>(
+            HttpMethod.Post,
+            $"/v1/browser/edge/session/{Uri.EscapeDataString(sessionId)}/close",
+            null,
+            cancellationToken);
+
+    public Task<DesktopScreenshotResult> CaptureEdgeSessionScreenshotAsync(
+        string sessionId,
+        DesktopScreenshotRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<DesktopScreenshotResult>(
+            HttpMethod.Post,
+            $"/v1/browser/edge/session/{Uri.EscapeDataString(sessionId)}/screenshot",
+            request,
+            cancellationToken);
+
+    public Task<BrowserEdgeSessionStateResult> CleanupEdgeSessionAsync(
+        string sessionId,
+        CancellationToken cancellationToken) =>
+        SendAsync<BrowserEdgeSessionStateResult>(
+            HttpMethod.Post,
+            $"/v1/browser/edge/session/{Uri.EscapeDataString(sessionId)}/cleanup",
+            null,
+            cancellationToken);
+
+    public Task<MicrosoftAuthCleanupResult> CleanupMicrosoftAuthWindowsAsync(
+        MicrosoftAuthCleanupRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<MicrosoftAuthCleanupResult>(HttpMethod.Post, "/v1/auth/microsoft/cleanup", request, cancellationToken);
+
+    public Task<MicrosoftAuthorizeProbeResult> StartMicrosoftAuthorizeProbeAsync(
+        MicrosoftAuthorizeProbeRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<MicrosoftAuthorizeProbeResult>(HttpMethod.Post, "/v1/auth/microsoft/authorize-probe", request, cancellationToken);
+
+    public Task<MicrosoftAuthorizeProbeResult> GetMicrosoftAuthorizeProbeStatusAsync(
+        string runId,
+        CancellationToken cancellationToken) =>
+        SendAsync<MicrosoftAuthorizeProbeResult>(
+            HttpMethod.Get,
+            $"/v1/auth/microsoft/authorize-probe/status/{Uri.EscapeDataString(runId)}",
+            null,
+            cancellationToken);
 
     public Task<MicrosoftDeviceLoginResult> StartMicrosoftDeviceLoginAsync(
         MicrosoftDeviceLoginRequest request,
         CancellationToken cancellationToken) =>
         SendAsync<MicrosoftDeviceLoginResult>(HttpMethod.Post, "/v1/auth/microsoft/device-login", request, cancellationToken);
 
-    public Task<PowerPointInspectResult> InspectPowerPointAsync(
-        PowerPointInspectRequest request,
+    public Task<MicrosoftDeviceLoginResult> GetMicrosoftDeviceLoginStatusAsync(
+        string runId,
         CancellationToken cancellationToken) =>
-        SendAsync<PowerPointInspectResult>(HttpMethod.Post, "/v1/powerpoint/inspect", request, cancellationToken);
-
-    public Task<PowerPointEditResult> EditPowerPointAsync(
-        PowerPointEditRequest request,
-        CancellationToken cancellationToken) =>
-        SendAsync<PowerPointEditResult>(HttpMethod.Post, "/v1/powerpoint/edit", request, cancellationToken);
-
-    public Task<PowerPointEditResult> GetPowerPointJobAsync(string jobId, CancellationToken cancellationToken) =>
-        SendAsync<PowerPointEditResult>(HttpMethod.Get, $"/v1/powerpoint/jobs/{Uri.EscapeDataString(jobId)}", null, cancellationToken);
+        SendAsync<MicrosoftDeviceLoginResult>(
+            HttpMethod.Get,
+            $"/v1/auth/microsoft/device-login/status/{Uri.EscapeDataString(runId)}",
+            null,
+            cancellationToken);
 
     public Task<MailFoldersResult> ListMailFoldersAsync(MailListFoldersRequest request, CancellationToken cancellationToken) =>
         SendAsync<MailFoldersResult>(HttpMethod.Post, "/v1/mail/folders", request, cancellationToken);

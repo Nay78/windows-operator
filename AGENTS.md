@@ -16,7 +16,7 @@ This repo is the Codex session root for Windows-side automation work.
 - Desktop Agent runs in logged-in Windows desktop session and owns UI automation on Windows loopback `127.0.0.1:43119`.
 - No elevation by default for desktop automation.
 - Codex app-server binds Windows loopback `127.0.0.1:43118`.
-- Autostart uses per-user Task Scheduler tasks:
+- Autostart uses Task Scheduler tasks:
   - `WindowsOperator.Host` (startup, SYSTEM, headless REST/proxy)
   - `WindowsOperator.Agent`
   - `Codex.AppServer`
@@ -33,7 +33,7 @@ Shared source is read/write code. Mutable Windows state stays local:
 - `artifacts\obj`
 - logs and run state
 
-Planned shared exchange root:
+Shared exchange root:
 
 - Linux: `/var/lib/windows-server/shared/operator-exchange`
 - Windows: `Z:\operator-exchange`
@@ -71,6 +71,10 @@ Linux host checks use the NixOS Operator REST tunnel on `127.0.0.1:43117`.
 ## Development Rules
 
 - Response axiom: if no root/admin permission or architectural decision blocks action, return a concrete solution path, not a half-baked blocker report.
+- Verification axiom: do not call a fix done because code compiles, schemas regenerate, mocks pass, or "plumbing works"; prove the user-visible behavior against the live Windows runtime whenever the feature depends on Windows, desktop apps, browser state, COM, tunnels, scheduled tasks, or external services.
+- Negative-path axiom: when a live success path needs real credentials, tokens, MFA, mailbox contents, or third-party approval, run a safe negative live test with synthetic input and prove the expected real failure mode instead of stopping at dry-run.
+- Evidence axiom: final responses must name the exact live endpoint/command exercised, the observed status/result, and any remaining gap. If verification is impossible, say what blocked it and what concrete evidence is missing.
+- Dry-run axiom: dry-run verifies only serialization, routing, and command construction. Never present dry-run as proof that browser, COM, Outlook, PowerPoint, or external authentication behavior works.
 - Edit source in this repo.
 - Keep generated artifacts out of shared source.
 - Keep PowerShell scripts idempotent.

@@ -5,5 +5,6 @@ public sealed record MailMessageRef(
     string FolderPath,
     string Subject,
     DateTimeOffset? ReceivedTime,
+    DateTimeOffset? ModifiedTime,
     int AttachmentCount,
     IReadOnlyList<MailAttachmentRef> Attachments);

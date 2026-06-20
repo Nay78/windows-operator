@@ -36,6 +36,29 @@ function Resolve-Dotnet {
     throw "dotnet executable not found: $Candidate"
 }
 
+function Stop-ExistingHost {
+    param([string]$HostRoot)
+
+    $task = Get-ScheduledTask -TaskName "WindowsOperator.Host" -ErrorAction SilentlyContinue
+    if ($task) {
+        Write-Step "Stopping existing WindowsOperator.Host task."
+        Stop-ScheduledTask -TaskName "WindowsOperator.Host" -ErrorAction SilentlyContinue
+    }
+
+    $escapedHostRoot = [System.Management.Automation.WildcardPattern]::Escape($HostRoot)
+    $hostProcesses = Get-CimInstance Win32_Process |
+        Where-Object {
+            $_.CommandLine -and
+            $_.CommandLine -like "*$escapedHostRoot*" -and
+            $_.CommandLine -like "*WindowsOperator.Host.dll*"
+        }
+
+    foreach ($process in $hostProcesses) {
+        Write-Step "Stopping existing WindowsOperator.Host process PID=$($process.ProcessId)."
+        Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
+    }
+}
+
 if (-not (Test-Path -LiteralPath $RepoRoot)) {
     throw "RepoRoot missing: $RepoRoot"
 }
@@ -52,6 +75,8 @@ New-Item -ItemType Directory -Path $hostRoot -Force | Out-Null
 New-Item -ItemType Directory -Path $runRoot -Force | Out-Null
 
 $resolvedDotnetPath = Resolve-Dotnet -Candidate $DotnetPath
+
+Stop-ExistingHost -HostRoot $hostRoot
 
 Write-Step "Publishing WindowsOperator.Host."
 & $resolvedDotnetPath publish $hostProjectPath -c Debug -o $hostRoot --no-self-contained

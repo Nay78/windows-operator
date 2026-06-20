@@ -10,6 +10,7 @@ Good:
 
 - REST: `/v1/mail/...`
 - REST: `/v1/auth/microsoft/...`
+- REST: `/v1/browser/edge/...` for direct browser sessions
 - REST: `/v1/powerpoint/...`
 - MCP: `mail_list_folders`
 - MCP: `auth_microsoft_device_login`
@@ -31,9 +32,10 @@ Use stable `/v1/<domain>/<provider-or-resource>/<action>` paths.
 
 Rules:
 
-- Domain is short and durable: `mail`, `auth`, `windows`, `uia`, `input`.
+- Domain is short and durable: `mail`, `auth`, `browser`, `powerpoint`, `windows`, `uia`, `input`.
 - Provider appears when behavior is provider-specific: `auth/microsoft`.
-- Action is explicit and boring: `device-login`, `inspect`, `download`.
+- Browser session endpoints use implementation namespace only when callers explicitly request browser control. Auth flows stay under `auth/microsoft`.
+- Action is explicit and boring: `device-login`, `claim`, `complete`, `download`.
 - Keep HTTP verbs meaningful. Use `GET` only for read-only status operations. Use `POST` for desktop actions, browser launches, refresh-aware reads, downloads, and anything with side effects.
 - Keep Host and Agent routes identical. Host may proxy, Agent owns desktop work.
 
@@ -41,8 +43,11 @@ Examples:
 
 ```text
 POST /v1/auth/microsoft/device-login
-POST /v1/powerpoint/inspect
-POST /v1/powerpoint/edit
+POST /v1/browser/edge/session/start
+POST /v1/powerpoint/jobs
+POST /v1/powerpoint/jobs/claim
+POST /v1/powerpoint/jobs/{jobId}/complete
+POST /v1/powerpoint/jobs/{jobId}/fail
 GET  /v1/powerpoint/jobs/{jobId}
 GET  /v1/mail/status
 POST /v1/mail/folders

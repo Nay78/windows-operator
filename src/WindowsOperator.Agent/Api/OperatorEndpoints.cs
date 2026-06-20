@@ -22,6 +22,19 @@ public static class OperatorEndpoints
             await OperatorHttp.ExecuteAsync(
                 () => facade.ListWindowsAsync(cancellationToken)));
 
+        group.MapGet("/desktop/foreground", async Task<Results<Ok<WindowRef>, JsonHttpResult<OperatorError>>> (
+            IWorkbenchService workbench,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => workbench.GetForegroundWindowAsync(cancellationToken)));
+
+        group.MapPost("/desktop/screenshot", async Task<Results<Ok<DesktopScreenshotResult>, JsonHttpResult<OperatorError>>> (
+            DesktopScreenshotRequest request,
+            IWorkbenchService workbench,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => workbench.CaptureDesktopScreenshotAsync(request, cancellationToken)));
+
         group.MapPost("/windows/{id:long}/activate", async Task<Results<Ok<ActionResult>, JsonHttpResult<OperatorError>>> (
             long id,
             IOperatorFacade facade,
@@ -58,12 +71,120 @@ public static class OperatorEndpoints
             await OperatorHttp.ExecuteAsync(
                 () => facade.TypeUiAsync(request, cancellationToken)));
 
+        group.MapPost("/input/click", async Task<Results<Ok<ActionResult>, JsonHttpResult<OperatorError>>> (
+            ScreenClickRequest request,
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => facade.ClickScreenAsync(request, cancellationToken)));
+
         group.MapPost("/input/hotkey", async Task<Results<Ok<ActionResult>, JsonHttpResult<OperatorError>>> (
             HotkeyRequest request,
             IOperatorFacade facade,
             CancellationToken cancellationToken) =>
             await OperatorHttp.ExecuteAsync(
                 () => facade.SendHotkeyAsync(request, cancellationToken)));
+
+        group.MapPost("/browser/edge/reset", async Task<Results<Ok<BrowserEdgeResetResult>, JsonHttpResult<OperatorError>>> (
+            BrowserEdgeResetRequest request,
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => facade.ResetEdgeBrowserAsync(request, cancellationToken)));
+
+        group.MapPost("/browser/edge/session/start", async Task<Results<Ok<BrowserEdgeSessionStateResult>, JsonHttpResult<OperatorError>>> (
+            BrowserEdgeSessionStartRequest request,
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => facade.StartEdgeBrowserSessionAsync(request, cancellationToken)));
+
+        group.MapPost("/browser/edge/open-url", async Task<Results<Ok<BrowserEdgeOpenUrlResult>, JsonHttpResult<OperatorError>>> (
+            BrowserEdgeOpenUrlRequest request,
+            IWorkbenchService workbench,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => workbench.OpenEdgeUrlAsync(request, cancellationToken)));
+
+        group.MapGet("/browser/edge/session/{sessionId}/state", async Task<Results<Ok<BrowserEdgeSessionStateResult>, JsonHttpResult<OperatorError>>> (
+            string sessionId,
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => facade.GetEdgeBrowserSessionStateAsync(sessionId, cancellationToken)));
+
+        group.MapPost("/browser/edge/session/{sessionId}/navigate", async Task<Results<Ok<BrowserEdgeSessionStateResult>, JsonHttpResult<OperatorError>>> (
+            string sessionId,
+            BrowserEdgeSessionNavigateRequest request,
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => facade.NavigateEdgeBrowserSessionAsync(sessionId, request, cancellationToken)));
+
+        group.MapPost("/browser/edge/session/{sessionId}/dom/click", async Task<Results<Ok<BrowserEdgeSessionDomActionResult>, JsonHttpResult<OperatorError>>> (
+            string sessionId,
+            BrowserEdgeSessionDomClickRequest request,
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => facade.ClickEdgeBrowserDomAsync(sessionId, request, cancellationToken)));
+
+        group.MapPost("/browser/edge/session/{sessionId}/dom/fill", async Task<Results<Ok<BrowserEdgeSessionDomActionResult>, JsonHttpResult<OperatorError>>> (
+            string sessionId,
+            BrowserEdgeSessionDomFillRequest request,
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => facade.FillEdgeBrowserDomAsync(sessionId, request, cancellationToken)));
+
+        group.MapPost("/browser/edge/session/{sessionId}/close", async Task<Results<Ok<BrowserEdgeSessionStateResult>, JsonHttpResult<OperatorError>>> (
+            string sessionId,
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => facade.CloseEdgeBrowserSessionAsync(sessionId, cancellationToken)));
+
+        group.MapPost("/browser/edge/session/{sessionId}/screenshot", async Task<Results<Ok<DesktopScreenshotResult>, JsonHttpResult<OperatorError>>> (
+            string sessionId,
+            DesktopScreenshotRequest request,
+            IWorkbenchService workbench,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => workbench.CaptureEdgeSessionScreenshotAsync(sessionId, request, cancellationToken)));
+
+        group.MapPost("/browser/edge/session/{sessionId}/cleanup", async Task<Results<Ok<BrowserEdgeSessionStateResult>, JsonHttpResult<OperatorError>>> (
+            string sessionId,
+            IWorkbenchService workbench,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => workbench.CleanupEdgeSessionAsync(sessionId, cancellationToken)));
+
+        group.MapPost("/auth/microsoft/cleanup", async Task<Results<Ok<MicrosoftAuthCleanupResult>, JsonHttpResult<OperatorError>>> (
+            MicrosoftAuthCleanupRequest request,
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => facade.CleanupMicrosoftAuthWindowsAsync(request, cancellationToken)));
+
+        group.MapPost("/auth/microsoft/authorize-probe", async Task<Results<Ok<MicrosoftAuthorizeProbeResult>, JsonHttpResult<OperatorError>>> (
+            MicrosoftAuthorizeProbeRequest request,
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => facade.StartMicrosoftAuthorizeProbeAsync(request, cancellationToken)));
+
+        group.MapGet("/auth/microsoft/authorize-probe/status/latest", async Task<Results<Ok<MicrosoftAuthorizeProbeResult>, JsonHttpResult<OperatorError>>> (
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => facade.GetMicrosoftAuthorizeProbeStatusAsync("latest", cancellationToken)));
+
+        group.MapGet("/auth/microsoft/authorize-probe/status/{runId}", async Task<Results<Ok<MicrosoftAuthorizeProbeResult>, JsonHttpResult<OperatorError>>> (
+            string runId,
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => facade.GetMicrosoftAuthorizeProbeStatusAsync(runId, cancellationToken)));
 
         group.MapPost("/auth/microsoft/device-login", async Task<Results<Ok<MicrosoftDeviceLoginResult>, JsonHttpResult<OperatorError>>> (
             MicrosoftDeviceLoginRequest request,
@@ -72,26 +193,18 @@ public static class OperatorEndpoints
             await OperatorHttp.ExecuteAsync(
                 () => facade.StartMicrosoftDeviceLoginAsync(request, cancellationToken)));
 
-        group.MapPost("/powerpoint/inspect", async Task<Results<Ok<PowerPointInspectResult>, JsonHttpResult<OperatorError>>> (
-            PowerPointInspectRequest request,
+        group.MapGet("/auth/microsoft/device-login/status/latest", async Task<Results<Ok<MicrosoftDeviceLoginResult>, JsonHttpResult<OperatorError>>> (
             IOperatorFacade facade,
             CancellationToken cancellationToken) =>
             await OperatorHttp.ExecuteAsync(
-                () => facade.InspectPowerPointAsync(request, cancellationToken)));
+                () => facade.GetMicrosoftDeviceLoginStatusAsync("latest", cancellationToken)));
 
-        group.MapPost("/powerpoint/edit", async Task<Results<Ok<PowerPointEditResult>, JsonHttpResult<OperatorError>>> (
-            PowerPointEditRequest request,
+        group.MapGet("/auth/microsoft/device-login/status/{runId}", async Task<Results<Ok<MicrosoftDeviceLoginResult>, JsonHttpResult<OperatorError>>> (
+            string runId,
             IOperatorFacade facade,
             CancellationToken cancellationToken) =>
             await OperatorHttp.ExecuteAsync(
-                () => facade.EditPowerPointAsync(request, cancellationToken)));
-
-        group.MapGet("/powerpoint/jobs/{jobId}", async Task<Results<Ok<PowerPointEditResult>, JsonHttpResult<OperatorError>>> (
-            string jobId,
-            IOperatorFacade facade,
-            CancellationToken cancellationToken) =>
-            await OperatorHttp.ExecuteAsync(
-                () => facade.GetPowerPointJobAsync(jobId, cancellationToken)));
+                () => facade.GetMicrosoftDeviceLoginStatusAsync(runId, cancellationToken)));
 
         group.MapPost("/mail/folders", async Task<Results<Ok<MailFoldersResult>, JsonHttpResult<OperatorError>>> (
             MailListFoldersRequest request,

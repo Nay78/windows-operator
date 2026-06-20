@@ -17,6 +17,33 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for BrowserEdgeProfileMode.
+const (
+	Temp BrowserEdgeProfileMode = "temp"
+	Work BrowserEdgeProfileMode = "work"
+)
+
+// Defines values for MicrosoftAuthorizeProbeStatus.
+const (
+	MicrosoftAuthorizeProbeStatusDryRun           MicrosoftAuthorizeProbeStatus = "dryRun"
+	MicrosoftAuthorizeProbeStatusFailed           MicrosoftAuthorizeProbeStatus = "failed"
+	MicrosoftAuthorizeProbeStatusNeedsUserAction  MicrosoftAuthorizeProbeStatus = "needsUserAction"
+	MicrosoftAuthorizeProbeStatusOpened           MicrosoftAuthorizeProbeStatus = "opened"
+	MicrosoftAuthorizeProbeStatusRedirectObserved MicrosoftAuthorizeProbeStatus = "redirectObserved"
+	MicrosoftAuthorizeProbeStatusTimedOut         MicrosoftAuthorizeProbeStatus = "timedOut"
+)
+
+// Defines values for MicrosoftDeviceLoginStatus.
+const (
+	MicrosoftDeviceLoginStatusBrowserAccepted MicrosoftDeviceLoginStatus = "browserAccepted"
+	MicrosoftDeviceLoginStatusDryRun          MicrosoftDeviceLoginStatus = "dryRun"
+	MicrosoftDeviceLoginStatusFailed          MicrosoftDeviceLoginStatus = "failed"
+	MicrosoftDeviceLoginStatusInvalidCode     MicrosoftDeviceLoginStatus = "invalidCode"
+	MicrosoftDeviceLoginStatusNeedsUserAction MicrosoftDeviceLoginStatus = "needsUserAction"
+	MicrosoftDeviceLoginStatusSubmitted       MicrosoftDeviceLoginStatus = "submitted"
+	MicrosoftDeviceLoginStatusTimedOut        MicrosoftDeviceLoginStatus = "timedOut"
+)
+
 // Defines values for ScreenshotFormat.
 const (
 	Jpeg ScreenshotFormat = "jpeg"
@@ -28,6 +55,151 @@ type ActionResult struct {
 	Message  string             `json:"message"`
 	Metadata *map[string]string `json:"metadata"`
 	Success  bool               `json:"success"`
+}
+
+// BrowserEdgeOpenUrlRequest defines model for BrowserEdgeOpenUrlRequest.
+type BrowserEdgeOpenUrlRequest struct {
+	Capture     *bool                   `json:"capture,omitempty"`
+	InPrivate   *bool                   `json:"inPrivate,omitempty"`
+	Label       *string                 `json:"label"`
+	ProfileMode *BrowserEdgeProfileMode `json:"profileMode,omitempty"`
+	RunId       *string                 `json:"runId"`
+	SessionId   *string                 `json:"sessionId"`
+	Url         *string                 `json:"url,omitempty"`
+	WaitSeconds *int32                  `json:"waitSeconds,omitempty"`
+}
+
+// BrowserEdgeOpenUrlResult defines model for BrowserEdgeOpenUrlResult.
+type BrowserEdgeOpenUrlResult struct {
+	Actions    []string                      `json:"actions"`
+	Screenshot *DesktopScreenshotResult      `json:"screenshot"`
+	State      BrowserEdgeSessionStateResult `json:"state"`
+	Success    bool                          `json:"success"`
+	Warnings   []string                      `json:"warnings"`
+}
+
+// BrowserEdgeProfileMode defines model for BrowserEdgeProfileMode.
+type BrowserEdgeProfileMode string
+
+// BrowserEdgeResetRequest defines model for BrowserEdgeResetRequest.
+type BrowserEdgeResetRequest struct {
+	DryRun *bool `json:"dryRun,omitempty"`
+}
+
+// BrowserEdgeResetResult defines model for BrowserEdgeResetResult.
+type BrowserEdgeResetResult struct {
+	Actions          []string  `json:"actions"`
+	CompletedAtUtc   time.Time `json:"completedAtUtc"`
+	Errors           []string  `json:"errors"`
+	KilledProcesses  int32     `json:"killedProcesses"`
+	MatchedProcesses int32     `json:"matchedProcesses"`
+	Success          bool      `json:"success"`
+}
+
+// BrowserEdgeSessionDomActionResult defines model for BrowserEdgeSessionDomActionResult.
+type BrowserEdgeSessionDomActionResult struct {
+	Action        string    `json:"action"`
+	Actions       []string  `json:"actions"`
+	BodyText      *string   `json:"bodyText"`
+	Errors        []string  `json:"errors"`
+	MatchedBy     *string   `json:"matchedBy"`
+	MatchedText   *string   `json:"matchedText"`
+	ObservedAtUtc time.Time `json:"observedAtUtc"`
+	SessionId     string    `json:"sessionId"`
+	StatePath     *string   `json:"statePath"`
+	Success       bool      `json:"success"`
+	TagName       *string   `json:"tagName"`
+	Title         *string   `json:"title"`
+	Url           *string   `json:"url"`
+}
+
+// BrowserEdgeSessionDomClickRequest defines model for BrowserEdgeSessionDomClickRequest.
+type BrowserEdgeSessionDomClickRequest struct {
+	LabelText      *string `json:"labelText"`
+	MatchIndex     *int32  `json:"matchIndex,omitempty"`
+	Selector       *string `json:"selector"`
+	TimeoutSeconds *int32  `json:"timeoutSeconds,omitempty"`
+	VisibleText    *string `json:"visibleText"`
+}
+
+// BrowserEdgeSessionDomFillRequest defines model for BrowserEdgeSessionDomFillRequest.
+type BrowserEdgeSessionDomFillRequest struct {
+	LabelText      *string `json:"labelText"`
+	MatchIndex     *int32  `json:"matchIndex,omitempty"`
+	Selector       *string `json:"selector"`
+	TimeoutSeconds *int32  `json:"timeoutSeconds,omitempty"`
+	Value          *string `json:"value,omitempty"`
+	VisibleText    *string `json:"visibleText"`
+}
+
+// BrowserEdgeSessionElementRef defines model for BrowserEdgeSessionElementRef.
+type BrowserEdgeSessionElementRef struct {
+	Id      *string `json:"id"`
+	Label   *string `json:"label"`
+	Name    *string `json:"name"`
+	TagName string  `json:"tagName"`
+	Text    *string `json:"text"`
+	Type    *string `json:"type"`
+}
+
+// BrowserEdgeSessionNavigateRequest defines model for BrowserEdgeSessionNavigateRequest.
+type BrowserEdgeSessionNavigateRequest struct {
+	Url         *string `json:"url,omitempty"`
+	WaitSeconds *int32  `json:"waitSeconds,omitempty"`
+}
+
+// BrowserEdgeSessionStartRequest defines model for BrowserEdgeSessionStartRequest.
+type BrowserEdgeSessionStartRequest struct {
+	DryRun          *bool                   `json:"dryRun,omitempty"`
+	InPrivate       *bool                   `json:"inPrivate,omitempty"`
+	PageLoadSeconds *int32                  `json:"pageLoadSeconds,omitempty"`
+	ProfileMode     *BrowserEdgeProfileMode `json:"profileMode,omitempty"`
+	SessionId       *string                 `json:"sessionId"`
+	StartUrl        *string                 `json:"startUrl,omitempty"`
+}
+
+// BrowserEdgeSessionStateResult defines model for BrowserEdgeSessionStateResult.
+type BrowserEdgeSessionStateResult struct {
+	Actions       []string                        `json:"actions"`
+	BodyText      *string                         `json:"bodyText"`
+	BrowserState  *string                         `json:"browserState"`
+	DevToolsPort  *int32                          `json:"devToolsPort"`
+	Elements      *[]BrowserEdgeSessionElementRef `json:"elements"`
+	Errors        []string                        `json:"errors"`
+	Hwnd          *int64                          `json:"hwnd"`
+	InPrivate     bool                            `json:"inPrivate"`
+	IsAlive       bool                            `json:"isAlive"`
+	ObservedAtUtc time.Time                       `json:"observedAtUtc"`
+	ProcessId     *int32                          `json:"processId"`
+	ProfileMode   BrowserEdgeProfileMode          `json:"profileMode"`
+	SessionId     string                          `json:"sessionId"`
+	StatePath     *string                         `json:"statePath"`
+	Success       bool                            `json:"success"`
+	Title         *string                         `json:"title"`
+	Url           *string                         `json:"url"`
+}
+
+// DesktopScreenshotRequest defines model for DesktopScreenshotRequest.
+type DesktopScreenshotRequest struct {
+	Format        *ScreenshotFormat `json:"format,omitempty"`
+	Hwnd          *int64            `json:"hwnd"`
+	Label         *string           `json:"label"`
+	RunId         *string           `json:"runId"`
+	Target        *string           `json:"target,omitempty"`
+	TitleContains *string           `json:"titleContains"`
+}
+
+// DesktopScreenshotResult defines model for DesktopScreenshotResult.
+type DesktopScreenshotResult struct {
+	Actions       []string             `json:"actions"`
+	Artifact      WorkbenchArtifactRef `json:"artifact"`
+	Backend       string               `json:"backend"`
+	CapturedAtUtc time.Time            `json:"capturedAtUtc"`
+	PixelHeight   int32                `json:"pixelHeight"`
+	PixelWidth    int32                `json:"pixelWidth"`
+	Success       bool                 `json:"success"`
+	Warnings      []string             `json:"warnings"`
+	Window        WindowRef            `json:"window"`
 }
 
 // HealthResult defines model for HealthResult.
@@ -120,6 +292,7 @@ type MailMessageRef struct {
 	Attachments     []MailAttachmentRef `json:"attachments"`
 	FolderPath      string              `json:"folderPath"`
 	MessageId       string              `json:"messageId"`
+	ModifiedTime    *time.Time          `json:"modifiedTime"`
 	ReceivedTime    *time.Time          `json:"receivedTime"`
 	Subject         string              `json:"subject"`
 }
@@ -189,24 +362,88 @@ type MailStatusResult struct {
 	WorkerAvailable      bool      `json:"workerAvailable"`
 }
 
+// MicrosoftAuthCleanupRequest defines model for MicrosoftAuthCleanupRequest.
+type MicrosoftAuthCleanupRequest struct {
+	DryRun                *bool  `json:"dryRun,omitempty"`
+	PreserveRecentSeconds *int32 `json:"preserveRecentSeconds,omitempty"`
+}
+
+// MicrosoftAuthCleanupResult defines model for MicrosoftAuthCleanupResult.
+type MicrosoftAuthCleanupResult struct {
+	Actions          []string  `json:"actions"`
+	ClosedWindows    int32     `json:"closedWindows"`
+	CompletedAtUtc   time.Time `json:"completedAtUtc"`
+	Errors           []string  `json:"errors"`
+	FailedWindows    int32     `json:"failedWindows"`
+	MatchedWindows   int32     `json:"matchedWindows"`
+	PreservedWindows int32     `json:"preservedWindows"`
+	Success          bool      `json:"success"`
+}
+
+// MicrosoftAuthorizeProbeRequest defines model for MicrosoftAuthorizeProbeRequest.
+type MicrosoftAuthorizeProbeRequest struct {
+	AuthorizeUrl              *string `json:"authorizeUrl,omitempty"`
+	DryRun                    *bool   `json:"dryRun,omitempty"`
+	InPrivate                 *bool   `json:"inPrivate,omitempty"`
+	ObservationTimeoutSeconds *int32  `json:"observationTimeoutSeconds,omitempty"`
+	PageLoadSeconds           *int32  `json:"pageLoadSeconds,omitempty"`
+	ReuseExistingProfile      *bool   `json:"reuseExistingProfile,omitempty"`
+	RunId                     *string `json:"runId"`
+}
+
+// MicrosoftAuthorizeProbeResult defines model for MicrosoftAuthorizeProbeResult.
+type MicrosoftAuthorizeProbeResult struct {
+	Actions             []string                      `json:"actions"`
+	AuthorizeUrl        string                        `json:"authorizeUrl"`
+	BrowserState        *string                       `json:"browserState"`
+	BrowserTitle        *string                       `json:"browserTitle"`
+	CompletedAtUtc      time.Time                     `json:"completedAtUtc"`
+	Errors              []string                      `json:"errors"`
+	InPrivate           bool                          `json:"inPrivate"`
+	ObservedAtUtc       *time.Time                    `json:"observedAtUtc"`
+	ObservedCodePresent bool                          `json:"observedCodePresent"`
+	ObservedError       *string                       `json:"observedError"`
+	ObservedOrigin      *string                       `json:"observedOrigin"`
+	ObservedUrl         *string                       `json:"observedUrl"`
+	RunId               *string                       `json:"runId"`
+	Status              MicrosoftAuthorizeProbeStatus `json:"status"`
+	StatusPath          *string                       `json:"statusPath"`
+	Success             bool                          `json:"success"`
+}
+
+// MicrosoftAuthorizeProbeStatus defines model for MicrosoftAuthorizeProbeStatus.
+type MicrosoftAuthorizeProbeStatus string
+
 // MicrosoftDeviceLoginRequest defines model for MicrosoftDeviceLoginRequest.
 type MicrosoftDeviceLoginRequest struct {
-	DeviceCode      *string `json:"deviceCode,omitempty"`
-	DryRun          *bool   `json:"dryRun,omitempty"`
-	InPrivate       *bool   `json:"inPrivate,omitempty"`
-	LoginUrl        *string `json:"loginUrl,omitempty"`
-	PageLoadSeconds *int32  `json:"pageLoadSeconds,omitempty"`
+	DeviceCode              *string `json:"deviceCode,omitempty"`
+	DryRun                  *bool   `json:"dryRun,omitempty"`
+	InPrivate               *bool   `json:"inPrivate,omitempty"`
+	LoginUrl                *string `json:"loginUrl,omitempty"`
+	PageLoadSeconds         *int32  `json:"pageLoadSeconds,omitempty"`
+	ReuseExistingProfile    *bool   `json:"reuseExistingProfile,omitempty"`
+	RunId                   *string `json:"runId"`
+	VerificationWaitSeconds *int32  `json:"verificationWaitSeconds,omitempty"`
 }
 
 // MicrosoftDeviceLoginResult defines model for MicrosoftDeviceLoginResult.
 type MicrosoftDeviceLoginResult struct {
-	Actions        []string  `json:"actions"`
-	CompletedAtUtc time.Time `json:"completedAtUtc"`
-	Errors         []string  `json:"errors"`
-	InPrivate      bool      `json:"inPrivate"`
-	LoginUrl       string    `json:"loginUrl"`
-	Success        bool      `json:"success"`
+	Actions        []string                   `json:"actions"`
+	BrowserState   *string                    `json:"browserState"`
+	BrowserTitle   *string                    `json:"browserTitle"`
+	CompletedAtUtc time.Time                  `json:"completedAtUtc"`
+	Errors         []string                   `json:"errors"`
+	InPrivate      bool                       `json:"inPrivate"`
+	LoginUrl       string                     `json:"loginUrl"`
+	ObservedAtUtc  *time.Time                 `json:"observedAtUtc"`
+	RunId          *string                    `json:"runId"`
+	Status         MicrosoftDeviceLoginStatus `json:"status"`
+	StatusPath     *string                    `json:"statusPath"`
+	Success        bool                       `json:"success"`
 }
+
+// MicrosoftDeviceLoginStatus defines model for MicrosoftDeviceLoginStatus.
+type MicrosoftDeviceLoginStatus string
 
 // OperatorError defines model for OperatorError.
 type OperatorError struct {
@@ -216,139 +453,87 @@ type OperatorError struct {
 	Remediation *string            `json:"remediation,omitempty"`
 }
 
-// PowerPointEditAssert defines model for PowerPointEditAssert.
-type PowerPointEditAssert struct {
-	AllowMultiple    bool `json:"allowMultiple"`
-	ExactlyOneTarget bool `json:"exactlyOneTarget"`
+// PowerPointArtifactRef defines model for PowerPointArtifactRef.
+type PowerPointArtifactRef struct {
+	ArtifactId string     `json:"artifactId"`
+	ExpiresAt  *time.Time `json:"expiresAt"`
+	MediaType  string     `json:"mediaType"`
+	Sha256     *string    `json:"sha256"`
+	Url        *string    `json:"url"`
 }
 
-// PowerPointEditOperation defines model for PowerPointEditOperation.
-type PowerPointEditOperation struct {
-	Assert     *PowerPointEditAssert `json:"assert"`
-	Column     *int32                `json:"column"`
-	FillColor  *string               `json:"fillColor"`
-	Find       *string               `json:"find"`
-	Fit        *string               `json:"fit"`
-	Id         string                `json:"id"`
-	ImagePath  *string               `json:"imagePath"`
-	Op         string                `json:"op"`
-	OutputPath *string               `json:"outputPath"`
-	Row        *int32                `json:"row"`
-	Target     *PowerPointEditTarget `json:"target"`
-	Value      *string               `json:"value"`
-	Visible    *bool                 `json:"visible"`
+// PowerPointClaimJobRequest defines model for PowerPointClaimJobRequest.
+type PowerPointClaimJobRequest struct {
+	DocumentUrl *string `json:"documentUrl"`
+	WorkerId    *string `json:"workerId"`
 }
 
-// PowerPointEditOutcome defines model for PowerPointEditOutcome.
-type PowerPointEditOutcome struct {
-	After    *string  `json:"after"`
-	Before   *string  `json:"before"`
-	Changed  int32    `json:"changed"`
-	Errors   []string `json:"errors"`
-	Id       string   `json:"id"`
-	Matched  int32    `json:"matched"`
-	Op       string   `json:"op"`
-	Warnings []string `json:"warnings"`
+// PowerPointJobRecord defines model for PowerPointJobRecord.
+type PowerPointJobRecord struct {
+	ClaimedAtUtc       *time.Time              `json:"claimedAtUtc"`
+	ClaimedBy          *string                 `json:"claimedBy"`
+	ClaimedDocumentUrl *string                 `json:"claimedDocumentUrl"`
+	CompletedAtUtc     *time.Time              `json:"completedAtUtc"`
+	EnqueuedAtUtc      time.Time               `json:"enqueuedAtUtc"`
+	Error              *PowerPointUpdateError  `json:"error"`
+	Job                PowerPointUpdateJob     `json:"job"`
+	JobId              string                  `json:"jobId"`
+	Result             *PowerPointUpdateResult `json:"result"`
+	Status             string                  `json:"status"`
+	UpdatedAtUtc       time.Time               `json:"updatedAtUtc"`
 }
 
-// PowerPointEditRequest defines model for PowerPointEditRequest.
-type PowerPointEditRequest struct {
-	AllowMacroEnabled *bool                      `json:"allowMacroEnabled,omitempty"`
-	DryRun            *bool                      `json:"dryRun,omitempty"`
-	Edits             *[]PowerPointEditOperation `json:"edits,omitempty"`
-	ExchangePath      *string                    `json:"exchangePath"`
-	Mode              *string                    `json:"mode,omitempty"`
-	OutputPath        *string                    `json:"outputPath"`
-	PresentationPath  *string                    `json:"presentationPath"`
-	PresentationUrl   *string                    `json:"presentationUrl"`
-	SaveMode          *string                    `json:"saveMode,omitempty"`
+// PowerPointTargetResult defines model for PowerPointTargetResult.
+type PowerPointTargetResult struct {
+	Error         *PowerPointUpdateError `json:"error"`
+	OperationKind string                 `json:"operationKind"`
+	Status        string                 `json:"status"`
+	TargetId      string                 `json:"targetId"`
 }
 
-// PowerPointEditResult defines model for PowerPointEditResult.
-type PowerPointEditResult struct {
-	CompletedAtUtc   time.Time               `json:"completedAtUtc"`
-	DryRun           bool                    `json:"dryRun"`
-	Edits            []PowerPointEditOutcome `json:"edits"`
-	Errors           []string                `json:"errors"`
-	JobId            string                  `json:"jobId"`
-	OutputPath       *string                 `json:"outputPath"`
-	PresentationPath *string                 `json:"presentationPath"`
-	Success          bool                    `json:"success"`
-	Warnings         []string                `json:"warnings"`
+// PowerPointUpdateError defines model for PowerPointUpdateError.
+type PowerPointUpdateError struct {
+	Code             string  `json:"code"`
+	OperatorMessage  string  `json:"operatorMessage"`
+	Retryable        bool    `json:"retryable"`
+	TechnicalMessage *string `json:"technicalMessage"`
 }
 
-// PowerPointEditTarget defines model for PowerPointEditTarget.
-type PowerPointEditTarget struct {
-	Shape *PowerPointShapeSelector `json:"shape"`
-	Slide *PowerPointSlideSelector `json:"slide"`
+// PowerPointUpdateJob defines model for PowerPointUpdateJob.
+type PowerPointUpdateJob struct {
+	CreatedAt           time.Time                   `json:"createdAt"`
+	ExpectedDocumentUrl *string                     `json:"expectedDocumentUrl"`
+	JobId               string                      `json:"jobId"`
+	Operations          []PowerPointUpdateOperation `json:"operations"`
+	RequestedBy         string                      `json:"requestedBy"`
 }
 
-// PowerPointInspectRequest defines model for PowerPointInspectRequest.
-type PowerPointInspectRequest struct {
-	ExchangePath     *string `json:"exchangePath"`
-	IncludeHidden    *bool   `json:"includeHidden,omitempty"`
-	IncludeText      *bool   `json:"includeText,omitempty"`
-	PresentationPath *string `json:"presentationPath"`
-	PresentationUrl  *string `json:"presentationUrl"`
+// PowerPointUpdateOperation defines model for PowerPointUpdateOperation.
+type PowerPointUpdateOperation struct {
+	AllowEmpty *bool                  `json:"allowEmpty"`
+	AltText    *string                `json:"altText"`
+	Artifact   *PowerPointArtifactRef `json:"artifact"`
+	Fit        *string                `json:"fit"`
+	Kind       string                 `json:"kind"`
+	Mode       *string                `json:"mode"`
+	TargetId   string                 `json:"targetId"`
+	Text       *string                `json:"text"`
 }
 
-// PowerPointInspectResult defines model for PowerPointInspectResult.
-type PowerPointInspectResult struct {
-	CompletedAtUtc time.Time                  `json:"completedAtUtc"`
-	Errors         []string                   `json:"errors"`
-	Presentation   *PowerPointPresentationRef `json:"presentation"`
-	Slides         []PowerPointSlideRef       `json:"slides"`
-	Success        bool                       `json:"success"`
-	Warnings       []string                   `json:"warnings"`
+// PowerPointUpdateResult defines model for PowerPointUpdateResult.
+type PowerPointUpdateResult struct {
+	FinishedAt time.Time                `json:"finishedAt"`
+	JobId      string                   `json:"jobId"`
+	StartedAt  time.Time                `json:"startedAt"`
+	Status     string                   `json:"status"`
+	Targets    []PowerPointTargetResult `json:"targets"`
 }
 
-// PowerPointPresentationRef defines model for PowerPointPresentationRef.
-type PowerPointPresentationRef struct {
-	Name       string  `json:"name"`
-	Path       *string `json:"path"`
-	SlideCount int32   `json:"slideCount"`
-}
-
-// PowerPointShapeRef defines model for PowerPointShapeRef.
-type PowerPointShapeRef struct {
-	AltText    *string           `json:"altText"`
-	HasChart   bool              `json:"hasChart"`
-	HasTable   bool              `json:"hasTable"`
-	HasText    bool              `json:"hasText"`
-	Id         int32             `json:"id"`
-	Level      int32             `json:"level"`
-	Name       string            `json:"name"`
-	ParentName *string           `json:"parentName"`
-	Tags       map[string]string `json:"tags"`
-	Text       *string           `json:"text"`
-	Type       string            `json:"type"`
-	Visible    bool              `json:"visible"`
-}
-
-// PowerPointShapeSelector defines model for PowerPointShapeSelector.
-type PowerPointShapeSelector struct {
-	AltText      *string            `json:"altText"`
-	Id           *int32             `json:"id"`
-	Name         *string            `json:"name"`
-	Tag          *map[string]string `json:"tag"`
-	TextContains *string            `json:"textContains"`
-}
-
-// PowerPointSlideRef defines model for PowerPointSlideRef.
-type PowerPointSlideRef struct {
-	Index   int32                `json:"index"`
-	Shapes  []PowerPointShapeRef `json:"shapes"`
-	SlideId int32                `json:"slideId"`
-	Tags    map[string]string    `json:"tags"`
-	Title   *string              `json:"title"`
-}
-
-// PowerPointSlideSelector defines model for PowerPointSlideSelector.
-type PowerPointSlideSelector struct {
-	Index   *int32             `json:"index"`
-	SlideId *int32             `json:"slideId"`
-	Tag     *map[string]string `json:"tag"`
-	Title   *string            `json:"title"`
+// ScreenClickRequest defines model for ScreenClickRequest.
+type ScreenClickRequest struct {
+	DoubleClick *bool  `json:"doubleClick,omitempty"`
+	X           *int32 `json:"x,omitempty"`
+	Y           *int32 `json:"y,omitempty"`
 }
 
 // ScreenshotFormat defines model for ScreenshotFormat.
@@ -428,13 +613,55 @@ type WindowRef struct {
 	Title         string       `json:"title"`
 }
 
+// WorkbenchArtifactRef defines model for WorkbenchArtifactRef.
+type WorkbenchArtifactRef struct {
+	Bytes        int64  `json:"bytes"`
+	HostPath     string `json:"hostPath"`
+	MediaType    string `json:"mediaType"`
+	Path         string `json:"path"`
+	RelativePath string `json:"relativePath"`
+}
+
 // CaptureWindowParams defines parameters for CaptureWindow.
 type CaptureWindowParams struct {
 	Format *ScreenshotFormat `form:"format,omitempty" json:"format,omitempty"`
 }
 
+// StartMicrosoftAuthorizeProbeJSONRequestBody defines body for StartMicrosoftAuthorizeProbe for application/json ContentType.
+type StartMicrosoftAuthorizeProbeJSONRequestBody = MicrosoftAuthorizeProbeRequest
+
+// CleanupMicrosoftAuthWindowsJSONRequestBody defines body for CleanupMicrosoftAuthWindows for application/json ContentType.
+type CleanupMicrosoftAuthWindowsJSONRequestBody = MicrosoftAuthCleanupRequest
+
 // StartMicrosoftDeviceLoginJSONRequestBody defines body for StartMicrosoftDeviceLogin for application/json ContentType.
 type StartMicrosoftDeviceLoginJSONRequestBody = MicrosoftDeviceLoginRequest
+
+// OpenEdgeUrlJSONRequestBody defines body for OpenEdgeUrl for application/json ContentType.
+type OpenEdgeUrlJSONRequestBody = BrowserEdgeOpenUrlRequest
+
+// ResetEdgeBrowserJSONRequestBody defines body for ResetEdgeBrowser for application/json ContentType.
+type ResetEdgeBrowserJSONRequestBody = BrowserEdgeResetRequest
+
+// StartEdgeBrowserSessionJSONRequestBody defines body for StartEdgeBrowserSession for application/json ContentType.
+type StartEdgeBrowserSessionJSONRequestBody = BrowserEdgeSessionStartRequest
+
+// ClickEdgeBrowserDomJSONRequestBody defines body for ClickEdgeBrowserDom for application/json ContentType.
+type ClickEdgeBrowserDomJSONRequestBody = BrowserEdgeSessionDomClickRequest
+
+// FillEdgeBrowserDomJSONRequestBody defines body for FillEdgeBrowserDom for application/json ContentType.
+type FillEdgeBrowserDomJSONRequestBody = BrowserEdgeSessionDomFillRequest
+
+// NavigateEdgeBrowserSessionJSONRequestBody defines body for NavigateEdgeBrowserSession for application/json ContentType.
+type NavigateEdgeBrowserSessionJSONRequestBody = BrowserEdgeSessionNavigateRequest
+
+// CaptureEdgeBrowserSessionScreenshotJSONRequestBody defines body for CaptureEdgeBrowserSessionScreenshot for application/json ContentType.
+type CaptureEdgeBrowserSessionScreenshotJSONRequestBody = DesktopScreenshotRequest
+
+// CaptureDesktopScreenshotJSONRequestBody defines body for CaptureDesktopScreenshot for application/json ContentType.
+type CaptureDesktopScreenshotJSONRequestBody = DesktopScreenshotRequest
+
+// ClickScreenJSONRequestBody defines body for ClickScreen for application/json ContentType.
+type ClickScreenJSONRequestBody = ScreenClickRequest
 
 // SendHotkeyJSONRequestBody defines body for SendHotkey for application/json ContentType.
 type SendHotkeyJSONRequestBody = HotkeyRequest
@@ -448,11 +675,17 @@ type ListMailFoldersJSONRequestBody = MailListFoldersRequest
 // SearchMailMessagesJSONRequestBody defines body for SearchMailMessages for application/json ContentType.
 type SearchMailMessagesJSONRequestBody = MailSearchRequest
 
-// EditPowerPointJSONRequestBody defines body for EditPowerPoint for application/json ContentType.
-type EditPowerPointJSONRequestBody = PowerPointEditRequest
+// EnqueuePowerPointJobJSONRequestBody defines body for EnqueuePowerPointJob for application/json ContentType.
+type EnqueuePowerPointJobJSONRequestBody = PowerPointUpdateJob
 
-// InspectPowerPointJSONRequestBody defines body for InspectPowerPoint for application/json ContentType.
-type InspectPowerPointJSONRequestBody = PowerPointInspectRequest
+// ClaimPowerPointJobJSONRequestBody defines body for ClaimPowerPointJob for application/json ContentType.
+type ClaimPowerPointJobJSONRequestBody = PowerPointClaimJobRequest
+
+// CompletePowerPointJobJSONRequestBody defines body for CompletePowerPointJob for application/json ContentType.
+type CompletePowerPointJobJSONRequestBody = PowerPointUpdateResult
+
+// FailPowerPointJobJSONRequestBody defines body for FailPowerPointJob for application/json ContentType.
+type FailPowerPointJobJSONRequestBody = PowerPointUpdateError
 
 // ClickUiJSONRequestBody defines body for ClickUi for application/json ContentType.
 type ClickUiJSONRequestBody = UiaClickRequest
@@ -536,13 +769,92 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+	// StartMicrosoftAuthorizeProbeWithBody request with any body
+	StartMicrosoftAuthorizeProbeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	StartMicrosoftAuthorizeProbe(ctx context.Context, body StartMicrosoftAuthorizeProbeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetLatestMicrosoftAuthorizeProbeStatus request
+	GetLatestMicrosoftAuthorizeProbeStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetMicrosoftAuthorizeProbeStatus request
+	GetMicrosoftAuthorizeProbeStatus(ctx context.Context, runId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CleanupMicrosoftAuthWindowsWithBody request with any body
+	CleanupMicrosoftAuthWindowsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CleanupMicrosoftAuthWindows(ctx context.Context, body CleanupMicrosoftAuthWindowsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// StartMicrosoftDeviceLoginWithBody request with any body
 	StartMicrosoftDeviceLoginWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	StartMicrosoftDeviceLogin(ctx context.Context, body StartMicrosoftDeviceLoginJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetLatestMicrosoftDeviceLoginStatus request
+	GetLatestMicrosoftDeviceLoginStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetMicrosoftDeviceLoginStatus request
+	GetMicrosoftDeviceLoginStatus(ctx context.Context, runId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// OpenEdgeUrlWithBody request with any body
+	OpenEdgeUrlWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	OpenEdgeUrl(ctx context.Context, body OpenEdgeUrlJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ResetEdgeBrowserWithBody request with any body
+	ResetEdgeBrowserWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	ResetEdgeBrowser(ctx context.Context, body ResetEdgeBrowserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StartEdgeBrowserSessionWithBody request with any body
+	StartEdgeBrowserSessionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	StartEdgeBrowserSession(ctx context.Context, body StartEdgeBrowserSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CleanupEdgeBrowserSession request
+	CleanupEdgeBrowserSession(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CloseEdgeBrowserSession request
+	CloseEdgeBrowserSession(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ClickEdgeBrowserDomWithBody request with any body
+	ClickEdgeBrowserDomWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	ClickEdgeBrowserDom(ctx context.Context, sessionId string, body ClickEdgeBrowserDomJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// FillEdgeBrowserDomWithBody request with any body
+	FillEdgeBrowserDomWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	FillEdgeBrowserDom(ctx context.Context, sessionId string, body FillEdgeBrowserDomJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// NavigateEdgeBrowserSessionWithBody request with any body
+	NavigateEdgeBrowserSessionWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	NavigateEdgeBrowserSession(ctx context.Context, sessionId string, body NavigateEdgeBrowserSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CaptureEdgeBrowserSessionScreenshotWithBody request with any body
+	CaptureEdgeBrowserSessionScreenshotWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CaptureEdgeBrowserSessionScreenshot(ctx context.Context, sessionId string, body CaptureEdgeBrowserSessionScreenshotJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetEdgeBrowserSessionState request
+	GetEdgeBrowserSessionState(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetDesktopForeground request
+	GetDesktopForeground(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CaptureDesktopScreenshotWithBody request with any body
+	CaptureDesktopScreenshotWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CaptureDesktopScreenshot(ctx context.Context, body CaptureDesktopScreenshotJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetHealth request
 	GetHealth(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ClickScreenWithBody request with any body
+	ClickScreenWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	ClickScreen(ctx context.Context, body ClickScreenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SendHotkeyWithBody request with any body
 	SendHotkeyWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -570,18 +882,31 @@ type ClientInterface interface {
 	// GetMailStatus request
 	GetMailStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// EditPowerPointWithBody request with any body
-	EditPowerPointWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// EnqueuePowerPointJobWithBody request with any body
+	EnqueuePowerPointJobWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	EditPowerPoint(ctx context.Context, body EditPowerPointJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	EnqueuePowerPointJob(ctx context.Context, body EnqueuePowerPointJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// InspectPowerPointWithBody request with any body
-	InspectPowerPointWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ClaimPowerPointJobWithBody request with any body
+	ClaimPowerPointJobWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	InspectPowerPoint(ctx context.Context, body InspectPowerPointJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ClaimPowerPointJob(ctx context.Context, body ClaimPowerPointJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetPowerPointJob request
 	GetPowerPointJob(ctx context.Context, jobId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetPowerPointJobArtifact request
+	GetPowerPointJobArtifact(ctx context.Context, jobId string, artifactId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CompletePowerPointJobWithBody request with any body
+	CompletePowerPointJobWithBody(ctx context.Context, jobId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CompletePowerPointJob(ctx context.Context, jobId string, body CompletePowerPointJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// FailPowerPointJobWithBody request with any body
+	FailPowerPointJobWithBody(ctx context.Context, jobId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	FailPowerPointJob(ctx context.Context, jobId string, body FailPowerPointJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ClickUiWithBody request with any body
 	ClickUiWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -608,6 +933,78 @@ type ClientInterface interface {
 	CaptureWindow(ctx context.Context, id int64, params *CaptureWindowParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
+func (c *Client) StartMicrosoftAuthorizeProbeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartMicrosoftAuthorizeProbeRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StartMicrosoftAuthorizeProbe(ctx context.Context, body StartMicrosoftAuthorizeProbeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartMicrosoftAuthorizeProbeRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetLatestMicrosoftAuthorizeProbeStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetLatestMicrosoftAuthorizeProbeStatusRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetMicrosoftAuthorizeProbeStatus(ctx context.Context, runId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetMicrosoftAuthorizeProbeStatusRequest(c.Server, runId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CleanupMicrosoftAuthWindowsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCleanupMicrosoftAuthWindowsRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CleanupMicrosoftAuthWindows(ctx context.Context, body CleanupMicrosoftAuthWindowsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCleanupMicrosoftAuthWindowsRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) StartMicrosoftDeviceLoginWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewStartMicrosoftDeviceLoginRequestWithBody(c.Server, contentType, body)
 	if err != nil {
@@ -632,8 +1029,296 @@ func (c *Client) StartMicrosoftDeviceLogin(ctx context.Context, body StartMicros
 	return c.Client.Do(req)
 }
 
+func (c *Client) GetLatestMicrosoftDeviceLoginStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetLatestMicrosoftDeviceLoginStatusRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetMicrosoftDeviceLoginStatus(ctx context.Context, runId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetMicrosoftDeviceLoginStatusRequest(c.Server, runId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) OpenEdgeUrlWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewOpenEdgeUrlRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) OpenEdgeUrl(ctx context.Context, body OpenEdgeUrlJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewOpenEdgeUrlRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ResetEdgeBrowserWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewResetEdgeBrowserRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ResetEdgeBrowser(ctx context.Context, body ResetEdgeBrowserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewResetEdgeBrowserRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StartEdgeBrowserSessionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartEdgeBrowserSessionRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StartEdgeBrowserSession(ctx context.Context, body StartEdgeBrowserSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartEdgeBrowserSessionRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CleanupEdgeBrowserSession(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCleanupEdgeBrowserSessionRequest(c.Server, sessionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CloseEdgeBrowserSession(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCloseEdgeBrowserSessionRequest(c.Server, sessionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ClickEdgeBrowserDomWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewClickEdgeBrowserDomRequestWithBody(c.Server, sessionId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ClickEdgeBrowserDom(ctx context.Context, sessionId string, body ClickEdgeBrowserDomJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewClickEdgeBrowserDomRequest(c.Server, sessionId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) FillEdgeBrowserDomWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewFillEdgeBrowserDomRequestWithBody(c.Server, sessionId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) FillEdgeBrowserDom(ctx context.Context, sessionId string, body FillEdgeBrowserDomJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewFillEdgeBrowserDomRequest(c.Server, sessionId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) NavigateEdgeBrowserSessionWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewNavigateEdgeBrowserSessionRequestWithBody(c.Server, sessionId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) NavigateEdgeBrowserSession(ctx context.Context, sessionId string, body NavigateEdgeBrowserSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewNavigateEdgeBrowserSessionRequest(c.Server, sessionId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CaptureEdgeBrowserSessionScreenshotWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCaptureEdgeBrowserSessionScreenshotRequestWithBody(c.Server, sessionId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CaptureEdgeBrowserSessionScreenshot(ctx context.Context, sessionId string, body CaptureEdgeBrowserSessionScreenshotJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCaptureEdgeBrowserSessionScreenshotRequest(c.Server, sessionId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetEdgeBrowserSessionState(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetEdgeBrowserSessionStateRequest(c.Server, sessionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetDesktopForeground(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDesktopForegroundRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CaptureDesktopScreenshotWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCaptureDesktopScreenshotRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CaptureDesktopScreenshot(ctx context.Context, body CaptureDesktopScreenshotJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCaptureDesktopScreenshotRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetHealth(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetHealthRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ClickScreenWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewClickScreenRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ClickScreen(ctx context.Context, body ClickScreenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewClickScreenRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -764,8 +1449,8 @@ func (c *Client) GetMailStatus(ctx context.Context, reqEditors ...RequestEditorF
 	return c.Client.Do(req)
 }
 
-func (c *Client) EditPowerPointWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewEditPowerPointRequestWithBody(c.Server, contentType, body)
+func (c *Client) EnqueuePowerPointJobWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEnqueuePowerPointJobRequestWithBody(c.Server, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -776,8 +1461,8 @@ func (c *Client) EditPowerPointWithBody(ctx context.Context, contentType string,
 	return c.Client.Do(req)
 }
 
-func (c *Client) EditPowerPoint(ctx context.Context, body EditPowerPointJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewEditPowerPointRequest(c.Server, body)
+func (c *Client) EnqueuePowerPointJob(ctx context.Context, body EnqueuePowerPointJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEnqueuePowerPointJobRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -788,8 +1473,8 @@ func (c *Client) EditPowerPoint(ctx context.Context, body EditPowerPointJSONRequ
 	return c.Client.Do(req)
 }
 
-func (c *Client) InspectPowerPointWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewInspectPowerPointRequestWithBody(c.Server, contentType, body)
+func (c *Client) ClaimPowerPointJobWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewClaimPowerPointJobRequestWithBody(c.Server, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -800,8 +1485,8 @@ func (c *Client) InspectPowerPointWithBody(ctx context.Context, contentType stri
 	return c.Client.Do(req)
 }
 
-func (c *Client) InspectPowerPoint(ctx context.Context, body InspectPowerPointJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewInspectPowerPointRequest(c.Server, body)
+func (c *Client) ClaimPowerPointJob(ctx context.Context, body ClaimPowerPointJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewClaimPowerPointJobRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -814,6 +1499,66 @@ func (c *Client) InspectPowerPoint(ctx context.Context, body InspectPowerPointJS
 
 func (c *Client) GetPowerPointJob(ctx context.Context, jobId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetPowerPointJobRequest(c.Server, jobId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetPowerPointJobArtifact(ctx context.Context, jobId string, artifactId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetPowerPointJobArtifactRequest(c.Server, jobId, artifactId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CompletePowerPointJobWithBody(ctx context.Context, jobId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCompletePowerPointJobRequestWithBody(c.Server, jobId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CompletePowerPointJob(ctx context.Context, jobId string, body CompletePowerPointJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCompletePowerPointJobRequest(c.Server, jobId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) FailPowerPointJobWithBody(ctx context.Context, jobId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewFailPowerPointJobRequestWithBody(c.Server, jobId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) FailPowerPointJob(ctx context.Context, jobId string, body FailPowerPointJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewFailPowerPointJobRequest(c.Server, jobId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -932,6 +1677,147 @@ func (c *Client) CaptureWindow(ctx context.Context, id int64, params *CaptureWin
 	return c.Client.Do(req)
 }
 
+// NewStartMicrosoftAuthorizeProbeRequest calls the generic StartMicrosoftAuthorizeProbe builder with application/json body
+func NewStartMicrosoftAuthorizeProbeRequest(server string, body StartMicrosoftAuthorizeProbeJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewStartMicrosoftAuthorizeProbeRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewStartMicrosoftAuthorizeProbeRequestWithBody generates requests for StartMicrosoftAuthorizeProbe with any type of body
+func NewStartMicrosoftAuthorizeProbeRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/auth/microsoft/authorize-probe")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetLatestMicrosoftAuthorizeProbeStatusRequest generates requests for GetLatestMicrosoftAuthorizeProbeStatus
+func NewGetLatestMicrosoftAuthorizeProbeStatusRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/auth/microsoft/authorize-probe/status/latest")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetMicrosoftAuthorizeProbeStatusRequest generates requests for GetMicrosoftAuthorizeProbeStatus
+func NewGetMicrosoftAuthorizeProbeStatusRequest(server string, runId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "runId", runtime.ParamLocationPath, runId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/auth/microsoft/authorize-probe/status/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCleanupMicrosoftAuthWindowsRequest calls the generic CleanupMicrosoftAuthWindows builder with application/json body
+func NewCleanupMicrosoftAuthWindowsRequest(server string, body CleanupMicrosoftAuthWindowsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCleanupMicrosoftAuthWindowsRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCleanupMicrosoftAuthWindowsRequestWithBody generates requests for CleanupMicrosoftAuthWindows with any type of body
+func NewCleanupMicrosoftAuthWindowsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/auth/microsoft/cleanup")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewStartMicrosoftDeviceLoginRequest calls the generic StartMicrosoftDeviceLogin builder with application/json body
 func NewStartMicrosoftDeviceLoginRequest(server string, body StartMicrosoftDeviceLoginJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -953,6 +1839,544 @@ func NewStartMicrosoftDeviceLoginRequestWithBody(server string, contentType stri
 	}
 
 	operationPath := fmt.Sprintf("/v1/auth/microsoft/device-login")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetLatestMicrosoftDeviceLoginStatusRequest generates requests for GetLatestMicrosoftDeviceLoginStatus
+func NewGetLatestMicrosoftDeviceLoginStatusRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/auth/microsoft/device-login/status/latest")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetMicrosoftDeviceLoginStatusRequest generates requests for GetMicrosoftDeviceLoginStatus
+func NewGetMicrosoftDeviceLoginStatusRequest(server string, runId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "runId", runtime.ParamLocationPath, runId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/auth/microsoft/device-login/status/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewOpenEdgeUrlRequest calls the generic OpenEdgeUrl builder with application/json body
+func NewOpenEdgeUrlRequest(server string, body OpenEdgeUrlJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewOpenEdgeUrlRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewOpenEdgeUrlRequestWithBody generates requests for OpenEdgeUrl with any type of body
+func NewOpenEdgeUrlRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/browser/edge/open-url")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewResetEdgeBrowserRequest calls the generic ResetEdgeBrowser builder with application/json body
+func NewResetEdgeBrowserRequest(server string, body ResetEdgeBrowserJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewResetEdgeBrowserRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewResetEdgeBrowserRequestWithBody generates requests for ResetEdgeBrowser with any type of body
+func NewResetEdgeBrowserRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/browser/edge/reset")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewStartEdgeBrowserSessionRequest calls the generic StartEdgeBrowserSession builder with application/json body
+func NewStartEdgeBrowserSessionRequest(server string, body StartEdgeBrowserSessionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewStartEdgeBrowserSessionRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewStartEdgeBrowserSessionRequestWithBody generates requests for StartEdgeBrowserSession with any type of body
+func NewStartEdgeBrowserSessionRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/browser/edge/session/start")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewCleanupEdgeBrowserSessionRequest generates requests for CleanupEdgeBrowserSession
+func NewCleanupEdgeBrowserSessionRequest(server string, sessionId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sessionId", runtime.ParamLocationPath, sessionId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/browser/edge/session/%s/cleanup", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCloseEdgeBrowserSessionRequest generates requests for CloseEdgeBrowserSession
+func NewCloseEdgeBrowserSessionRequest(server string, sessionId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sessionId", runtime.ParamLocationPath, sessionId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/browser/edge/session/%s/close", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewClickEdgeBrowserDomRequest calls the generic ClickEdgeBrowserDom builder with application/json body
+func NewClickEdgeBrowserDomRequest(server string, sessionId string, body ClickEdgeBrowserDomJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewClickEdgeBrowserDomRequestWithBody(server, sessionId, "application/json", bodyReader)
+}
+
+// NewClickEdgeBrowserDomRequestWithBody generates requests for ClickEdgeBrowserDom with any type of body
+func NewClickEdgeBrowserDomRequestWithBody(server string, sessionId string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sessionId", runtime.ParamLocationPath, sessionId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/browser/edge/session/%s/dom/click", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewFillEdgeBrowserDomRequest calls the generic FillEdgeBrowserDom builder with application/json body
+func NewFillEdgeBrowserDomRequest(server string, sessionId string, body FillEdgeBrowserDomJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewFillEdgeBrowserDomRequestWithBody(server, sessionId, "application/json", bodyReader)
+}
+
+// NewFillEdgeBrowserDomRequestWithBody generates requests for FillEdgeBrowserDom with any type of body
+func NewFillEdgeBrowserDomRequestWithBody(server string, sessionId string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sessionId", runtime.ParamLocationPath, sessionId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/browser/edge/session/%s/dom/fill", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewNavigateEdgeBrowserSessionRequest calls the generic NavigateEdgeBrowserSession builder with application/json body
+func NewNavigateEdgeBrowserSessionRequest(server string, sessionId string, body NavigateEdgeBrowserSessionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewNavigateEdgeBrowserSessionRequestWithBody(server, sessionId, "application/json", bodyReader)
+}
+
+// NewNavigateEdgeBrowserSessionRequestWithBody generates requests for NavigateEdgeBrowserSession with any type of body
+func NewNavigateEdgeBrowserSessionRequestWithBody(server string, sessionId string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sessionId", runtime.ParamLocationPath, sessionId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/browser/edge/session/%s/navigate", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewCaptureEdgeBrowserSessionScreenshotRequest calls the generic CaptureEdgeBrowserSessionScreenshot builder with application/json body
+func NewCaptureEdgeBrowserSessionScreenshotRequest(server string, sessionId string, body CaptureEdgeBrowserSessionScreenshotJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCaptureEdgeBrowserSessionScreenshotRequestWithBody(server, sessionId, "application/json", bodyReader)
+}
+
+// NewCaptureEdgeBrowserSessionScreenshotRequestWithBody generates requests for CaptureEdgeBrowserSessionScreenshot with any type of body
+func NewCaptureEdgeBrowserSessionScreenshotRequestWithBody(server string, sessionId string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sessionId", runtime.ParamLocationPath, sessionId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/browser/edge/session/%s/screenshot", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetEdgeBrowserSessionStateRequest generates requests for GetEdgeBrowserSessionState
+func NewGetEdgeBrowserSessionStateRequest(server string, sessionId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sessionId", runtime.ParamLocationPath, sessionId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/browser/edge/session/%s/state", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetDesktopForegroundRequest generates requests for GetDesktopForeground
+func NewGetDesktopForegroundRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/desktop/foreground")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCaptureDesktopScreenshotRequest calls the generic CaptureDesktopScreenshot builder with application/json body
+func NewCaptureDesktopScreenshotRequest(server string, body CaptureDesktopScreenshotJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCaptureDesktopScreenshotRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCaptureDesktopScreenshotRequestWithBody generates requests for CaptureDesktopScreenshot with any type of body
+func NewCaptureDesktopScreenshotRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/desktop/screenshot")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -995,6 +2419,46 @@ func NewGetHealthRequest(server string) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewClickScreenRequest calls the generic ClickScreen builder with application/json body
+func NewClickScreenRequest(server string, body ClickScreenJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewClickScreenRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewClickScreenRequestWithBody generates requests for ClickScreen with any type of body
+func NewClickScreenRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/input/click")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -1220,19 +2684,19 @@ func NewGetMailStatusRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
-// NewEditPowerPointRequest calls the generic EditPowerPoint builder with application/json body
-func NewEditPowerPointRequest(server string, body EditPowerPointJSONRequestBody) (*http.Request, error) {
+// NewEnqueuePowerPointJobRequest calls the generic EnqueuePowerPointJob builder with application/json body
+func NewEnqueuePowerPointJobRequest(server string, body EnqueuePowerPointJobJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewEditPowerPointRequestWithBody(server, "application/json", bodyReader)
+	return NewEnqueuePowerPointJobRequestWithBody(server, "application/json", bodyReader)
 }
 
-// NewEditPowerPointRequestWithBody generates requests for EditPowerPoint with any type of body
-func NewEditPowerPointRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewEnqueuePowerPointJobRequestWithBody generates requests for EnqueuePowerPointJob with any type of body
+func NewEnqueuePowerPointJobRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -1240,7 +2704,7 @@ func NewEditPowerPointRequestWithBody(server string, contentType string, body io
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/v1/powerpoint/edit")
+	operationPath := fmt.Sprintf("/v1/powerpoint/jobs")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1260,19 +2724,19 @@ func NewEditPowerPointRequestWithBody(server string, contentType string, body io
 	return req, nil
 }
 
-// NewInspectPowerPointRequest calls the generic InspectPowerPoint builder with application/json body
-func NewInspectPowerPointRequest(server string, body InspectPowerPointJSONRequestBody) (*http.Request, error) {
+// NewClaimPowerPointJobRequest calls the generic ClaimPowerPointJob builder with application/json body
+func NewClaimPowerPointJobRequest(server string, body ClaimPowerPointJobJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewInspectPowerPointRequestWithBody(server, "application/json", bodyReader)
+	return NewClaimPowerPointJobRequestWithBody(server, "application/json", bodyReader)
 }
 
-// NewInspectPowerPointRequestWithBody generates requests for InspectPowerPoint with any type of body
-func NewInspectPowerPointRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewClaimPowerPointJobRequestWithBody generates requests for ClaimPowerPointJob with any type of body
+func NewClaimPowerPointJobRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -1280,7 +2744,7 @@ func NewInspectPowerPointRequestWithBody(server string, contentType string, body
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/v1/powerpoint/inspect")
+	operationPath := fmt.Sprintf("/v1/powerpoint/jobs/claim")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1330,6 +2794,141 @@ func NewGetPowerPointJobRequest(server string, jobId string) (*http.Request, err
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewGetPowerPointJobArtifactRequest generates requests for GetPowerPointJobArtifact
+func NewGetPowerPointJobArtifactRequest(server string, jobId string, artifactId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "jobId", runtime.ParamLocationPath, jobId)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "artifactId", runtime.ParamLocationPath, artifactId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/powerpoint/jobs/%s/artifacts/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCompletePowerPointJobRequest calls the generic CompletePowerPointJob builder with application/json body
+func NewCompletePowerPointJobRequest(server string, jobId string, body CompletePowerPointJobJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCompletePowerPointJobRequestWithBody(server, jobId, "application/json", bodyReader)
+}
+
+// NewCompletePowerPointJobRequestWithBody generates requests for CompletePowerPointJob with any type of body
+func NewCompletePowerPointJobRequestWithBody(server string, jobId string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "jobId", runtime.ParamLocationPath, jobId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/powerpoint/jobs/%s/complete", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewFailPowerPointJobRequest calls the generic FailPowerPointJob builder with application/json body
+func NewFailPowerPointJobRequest(server string, jobId string, body FailPowerPointJobJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewFailPowerPointJobRequestWithBody(server, jobId, "application/json", bodyReader)
+}
+
+// NewFailPowerPointJobRequestWithBody generates requests for FailPowerPointJob with any type of body
+func NewFailPowerPointJobRequestWithBody(server string, jobId string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "jobId", runtime.ParamLocationPath, jobId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/powerpoint/jobs/%s/fail", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -1614,13 +3213,92 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
+	// StartMicrosoftAuthorizeProbeWithBodyWithResponse request with any body
+	StartMicrosoftAuthorizeProbeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartMicrosoftAuthorizeProbeResponse, error)
+
+	StartMicrosoftAuthorizeProbeWithResponse(ctx context.Context, body StartMicrosoftAuthorizeProbeJSONRequestBody, reqEditors ...RequestEditorFn) (*StartMicrosoftAuthorizeProbeResponse, error)
+
+	// GetLatestMicrosoftAuthorizeProbeStatusWithResponse request
+	GetLatestMicrosoftAuthorizeProbeStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetLatestMicrosoftAuthorizeProbeStatusResponse, error)
+
+	// GetMicrosoftAuthorizeProbeStatusWithResponse request
+	GetMicrosoftAuthorizeProbeStatusWithResponse(ctx context.Context, runId string, reqEditors ...RequestEditorFn) (*GetMicrosoftAuthorizeProbeStatusResponse, error)
+
+	// CleanupMicrosoftAuthWindowsWithBodyWithResponse request with any body
+	CleanupMicrosoftAuthWindowsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CleanupMicrosoftAuthWindowsResponse, error)
+
+	CleanupMicrosoftAuthWindowsWithResponse(ctx context.Context, body CleanupMicrosoftAuthWindowsJSONRequestBody, reqEditors ...RequestEditorFn) (*CleanupMicrosoftAuthWindowsResponse, error)
+
 	// StartMicrosoftDeviceLoginWithBodyWithResponse request with any body
 	StartMicrosoftDeviceLoginWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartMicrosoftDeviceLoginResponse, error)
 
 	StartMicrosoftDeviceLoginWithResponse(ctx context.Context, body StartMicrosoftDeviceLoginJSONRequestBody, reqEditors ...RequestEditorFn) (*StartMicrosoftDeviceLoginResponse, error)
 
+	// GetLatestMicrosoftDeviceLoginStatusWithResponse request
+	GetLatestMicrosoftDeviceLoginStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetLatestMicrosoftDeviceLoginStatusResponse, error)
+
+	// GetMicrosoftDeviceLoginStatusWithResponse request
+	GetMicrosoftDeviceLoginStatusWithResponse(ctx context.Context, runId string, reqEditors ...RequestEditorFn) (*GetMicrosoftDeviceLoginStatusResponse, error)
+
+	// OpenEdgeUrlWithBodyWithResponse request with any body
+	OpenEdgeUrlWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*OpenEdgeUrlResponse, error)
+
+	OpenEdgeUrlWithResponse(ctx context.Context, body OpenEdgeUrlJSONRequestBody, reqEditors ...RequestEditorFn) (*OpenEdgeUrlResponse, error)
+
+	// ResetEdgeBrowserWithBodyWithResponse request with any body
+	ResetEdgeBrowserWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ResetEdgeBrowserResponse, error)
+
+	ResetEdgeBrowserWithResponse(ctx context.Context, body ResetEdgeBrowserJSONRequestBody, reqEditors ...RequestEditorFn) (*ResetEdgeBrowserResponse, error)
+
+	// StartEdgeBrowserSessionWithBodyWithResponse request with any body
+	StartEdgeBrowserSessionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartEdgeBrowserSessionResponse, error)
+
+	StartEdgeBrowserSessionWithResponse(ctx context.Context, body StartEdgeBrowserSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*StartEdgeBrowserSessionResponse, error)
+
+	// CleanupEdgeBrowserSessionWithResponse request
+	CleanupEdgeBrowserSessionWithResponse(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*CleanupEdgeBrowserSessionResponse, error)
+
+	// CloseEdgeBrowserSessionWithResponse request
+	CloseEdgeBrowserSessionWithResponse(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*CloseEdgeBrowserSessionResponse, error)
+
+	// ClickEdgeBrowserDomWithBodyWithResponse request with any body
+	ClickEdgeBrowserDomWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ClickEdgeBrowserDomResponse, error)
+
+	ClickEdgeBrowserDomWithResponse(ctx context.Context, sessionId string, body ClickEdgeBrowserDomJSONRequestBody, reqEditors ...RequestEditorFn) (*ClickEdgeBrowserDomResponse, error)
+
+	// FillEdgeBrowserDomWithBodyWithResponse request with any body
+	FillEdgeBrowserDomWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*FillEdgeBrowserDomResponse, error)
+
+	FillEdgeBrowserDomWithResponse(ctx context.Context, sessionId string, body FillEdgeBrowserDomJSONRequestBody, reqEditors ...RequestEditorFn) (*FillEdgeBrowserDomResponse, error)
+
+	// NavigateEdgeBrowserSessionWithBodyWithResponse request with any body
+	NavigateEdgeBrowserSessionWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*NavigateEdgeBrowserSessionResponse, error)
+
+	NavigateEdgeBrowserSessionWithResponse(ctx context.Context, sessionId string, body NavigateEdgeBrowserSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*NavigateEdgeBrowserSessionResponse, error)
+
+	// CaptureEdgeBrowserSessionScreenshotWithBodyWithResponse request with any body
+	CaptureEdgeBrowserSessionScreenshotWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CaptureEdgeBrowserSessionScreenshotResponse, error)
+
+	CaptureEdgeBrowserSessionScreenshotWithResponse(ctx context.Context, sessionId string, body CaptureEdgeBrowserSessionScreenshotJSONRequestBody, reqEditors ...RequestEditorFn) (*CaptureEdgeBrowserSessionScreenshotResponse, error)
+
+	// GetEdgeBrowserSessionStateWithResponse request
+	GetEdgeBrowserSessionStateWithResponse(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*GetEdgeBrowserSessionStateResponse, error)
+
+	// GetDesktopForegroundWithResponse request
+	GetDesktopForegroundWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDesktopForegroundResponse, error)
+
+	// CaptureDesktopScreenshotWithBodyWithResponse request with any body
+	CaptureDesktopScreenshotWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CaptureDesktopScreenshotResponse, error)
+
+	CaptureDesktopScreenshotWithResponse(ctx context.Context, body CaptureDesktopScreenshotJSONRequestBody, reqEditors ...RequestEditorFn) (*CaptureDesktopScreenshotResponse, error)
+
 	// GetHealthWithResponse request
 	GetHealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetHealthResponse, error)
+
+	// ClickScreenWithBodyWithResponse request with any body
+	ClickScreenWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ClickScreenResponse, error)
+
+	ClickScreenWithResponse(ctx context.Context, body ClickScreenJSONRequestBody, reqEditors ...RequestEditorFn) (*ClickScreenResponse, error)
 
 	// SendHotkeyWithBodyWithResponse request with any body
 	SendHotkeyWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SendHotkeyResponse, error)
@@ -1648,18 +3326,31 @@ type ClientWithResponsesInterface interface {
 	// GetMailStatusWithResponse request
 	GetMailStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMailStatusResponse, error)
 
-	// EditPowerPointWithBodyWithResponse request with any body
-	EditPowerPointWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EditPowerPointResponse, error)
+	// EnqueuePowerPointJobWithBodyWithResponse request with any body
+	EnqueuePowerPointJobWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EnqueuePowerPointJobResponse, error)
 
-	EditPowerPointWithResponse(ctx context.Context, body EditPowerPointJSONRequestBody, reqEditors ...RequestEditorFn) (*EditPowerPointResponse, error)
+	EnqueuePowerPointJobWithResponse(ctx context.Context, body EnqueuePowerPointJobJSONRequestBody, reqEditors ...RequestEditorFn) (*EnqueuePowerPointJobResponse, error)
 
-	// InspectPowerPointWithBodyWithResponse request with any body
-	InspectPowerPointWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InspectPowerPointResponse, error)
+	// ClaimPowerPointJobWithBodyWithResponse request with any body
+	ClaimPowerPointJobWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ClaimPowerPointJobResponse, error)
 
-	InspectPowerPointWithResponse(ctx context.Context, body InspectPowerPointJSONRequestBody, reqEditors ...RequestEditorFn) (*InspectPowerPointResponse, error)
+	ClaimPowerPointJobWithResponse(ctx context.Context, body ClaimPowerPointJobJSONRequestBody, reqEditors ...RequestEditorFn) (*ClaimPowerPointJobResponse, error)
 
 	// GetPowerPointJobWithResponse request
 	GetPowerPointJobWithResponse(ctx context.Context, jobId string, reqEditors ...RequestEditorFn) (*GetPowerPointJobResponse, error)
+
+	// GetPowerPointJobArtifactWithResponse request
+	GetPowerPointJobArtifactWithResponse(ctx context.Context, jobId string, artifactId string, reqEditors ...RequestEditorFn) (*GetPowerPointJobArtifactResponse, error)
+
+	// CompletePowerPointJobWithBodyWithResponse request with any body
+	CompletePowerPointJobWithBodyWithResponse(ctx context.Context, jobId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CompletePowerPointJobResponse, error)
+
+	CompletePowerPointJobWithResponse(ctx context.Context, jobId string, body CompletePowerPointJobJSONRequestBody, reqEditors ...RequestEditorFn) (*CompletePowerPointJobResponse, error)
+
+	// FailPowerPointJobWithBodyWithResponse request with any body
+	FailPowerPointJobWithBodyWithResponse(ctx context.Context, jobId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*FailPowerPointJobResponse, error)
+
+	FailPowerPointJobWithResponse(ctx context.Context, jobId string, body FailPowerPointJobJSONRequestBody, reqEditors ...RequestEditorFn) (*FailPowerPointJobResponse, error)
 
 	// ClickUiWithBodyWithResponse request with any body
 	ClickUiWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ClickUiResponse, error)
@@ -1686,6 +3377,102 @@ type ClientWithResponsesInterface interface {
 	CaptureWindowWithResponse(ctx context.Context, id int64, params *CaptureWindowParams, reqEditors ...RequestEditorFn) (*CaptureWindowResponse, error)
 }
 
+type StartMicrosoftAuthorizeProbeResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *MicrosoftAuthorizeProbeResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r StartMicrosoftAuthorizeProbeResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StartMicrosoftAuthorizeProbeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetLatestMicrosoftAuthorizeProbeStatusResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *MicrosoftAuthorizeProbeResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetLatestMicrosoftAuthorizeProbeStatusResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetLatestMicrosoftAuthorizeProbeStatusResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetMicrosoftAuthorizeProbeStatusResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *MicrosoftAuthorizeProbeResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetMicrosoftAuthorizeProbeStatusResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetMicrosoftAuthorizeProbeStatusResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CleanupMicrosoftAuthWindowsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *MicrosoftAuthCleanupResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r CleanupMicrosoftAuthWindowsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CleanupMicrosoftAuthWindowsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type StartMicrosoftDeviceLoginResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -1710,6 +3497,342 @@ func (r StartMicrosoftDeviceLoginResponse) StatusCode() int {
 	return 0
 }
 
+type GetLatestMicrosoftDeviceLoginStatusResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *MicrosoftDeviceLoginResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetLatestMicrosoftDeviceLoginStatusResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetLatestMicrosoftDeviceLoginStatusResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetMicrosoftDeviceLoginStatusResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *MicrosoftDeviceLoginResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetMicrosoftDeviceLoginStatusResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetMicrosoftDeviceLoginStatusResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type OpenEdgeUrlResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *BrowserEdgeOpenUrlResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r OpenEdgeUrlResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r OpenEdgeUrlResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ResetEdgeBrowserResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *BrowserEdgeResetResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r ResetEdgeBrowserResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ResetEdgeBrowserResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type StartEdgeBrowserSessionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *BrowserEdgeSessionStateResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r StartEdgeBrowserSessionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StartEdgeBrowserSessionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CleanupEdgeBrowserSessionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *BrowserEdgeSessionStateResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r CleanupEdgeBrowserSessionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CleanupEdgeBrowserSessionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CloseEdgeBrowserSessionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *BrowserEdgeSessionStateResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r CloseEdgeBrowserSessionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CloseEdgeBrowserSessionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ClickEdgeBrowserDomResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *BrowserEdgeSessionDomActionResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r ClickEdgeBrowserDomResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ClickEdgeBrowserDomResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type FillEdgeBrowserDomResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *BrowserEdgeSessionDomActionResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r FillEdgeBrowserDomResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r FillEdgeBrowserDomResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type NavigateEdgeBrowserSessionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *BrowserEdgeSessionStateResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r NavigateEdgeBrowserSessionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r NavigateEdgeBrowserSessionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CaptureEdgeBrowserSessionScreenshotResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DesktopScreenshotResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r CaptureEdgeBrowserSessionScreenshotResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CaptureEdgeBrowserSessionScreenshotResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetEdgeBrowserSessionStateResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *BrowserEdgeSessionStateResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetEdgeBrowserSessionStateResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetEdgeBrowserSessionStateResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetDesktopForegroundResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *WindowRef
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetDesktopForegroundResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDesktopForegroundResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CaptureDesktopScreenshotResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DesktopScreenshotResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r CaptureDesktopScreenshotResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CaptureDesktopScreenshotResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetHealthResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -1728,6 +3851,30 @@ func (r GetHealthResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetHealthResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ClickScreenResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ActionResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r ClickScreenResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ClickScreenResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1878,16 +4025,16 @@ func (r GetMailStatusResponse) StatusCode() int {
 	return 0
 }
 
-type EditPowerPointResponse struct {
+type EnqueuePowerPointJobResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *PowerPointEditResult
+	JSON200      *PowerPointJobRecord
 	JSON4XX      *OperatorError
 	JSON5XX      *OperatorError
 }
 
 // Status returns HTTPResponse.Status
-func (r EditPowerPointResponse) Status() string {
+func (r EnqueuePowerPointJobResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -1895,23 +4042,23 @@ func (r EditPowerPointResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r EditPowerPointResponse) StatusCode() int {
+func (r EnqueuePowerPointJobResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type InspectPowerPointResponse struct {
+type ClaimPowerPointJobResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *PowerPointInspectResult
+	JSON200      *PowerPointUpdateJob
 	JSON4XX      *OperatorError
 	JSON5XX      *OperatorError
 }
 
 // Status returns HTTPResponse.Status
-func (r InspectPowerPointResponse) Status() string {
+func (r ClaimPowerPointJobResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -1919,7 +4066,7 @@ func (r InspectPowerPointResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r InspectPowerPointResponse) StatusCode() int {
+func (r ClaimPowerPointJobResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1929,7 +4076,7 @@ func (r InspectPowerPointResponse) StatusCode() int {
 type GetPowerPointJobResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *PowerPointEditResult
+	JSON200      *PowerPointJobRecord
 	JSON4XX      *OperatorError
 	JSON5XX      *OperatorError
 }
@@ -1944,6 +4091,77 @@ func (r GetPowerPointJobResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetPowerPointJobResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetPowerPointJobArtifactResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetPowerPointJobArtifactResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetPowerPointJobArtifactResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CompletePowerPointJobResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *PowerPointJobRecord
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r CompletePowerPointJobResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CompletePowerPointJobResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type FailPowerPointJobResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *PowerPointJobRecord
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r FailPowerPointJobResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r FailPowerPointJobResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -2094,6 +4312,58 @@ func (r CaptureWindowResponse) StatusCode() int {
 	return 0
 }
 
+// StartMicrosoftAuthorizeProbeWithBodyWithResponse request with arbitrary body returning *StartMicrosoftAuthorizeProbeResponse
+func (c *ClientWithResponses) StartMicrosoftAuthorizeProbeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartMicrosoftAuthorizeProbeResponse, error) {
+	rsp, err := c.StartMicrosoftAuthorizeProbeWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartMicrosoftAuthorizeProbeResponse(rsp)
+}
+
+func (c *ClientWithResponses) StartMicrosoftAuthorizeProbeWithResponse(ctx context.Context, body StartMicrosoftAuthorizeProbeJSONRequestBody, reqEditors ...RequestEditorFn) (*StartMicrosoftAuthorizeProbeResponse, error) {
+	rsp, err := c.StartMicrosoftAuthorizeProbe(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartMicrosoftAuthorizeProbeResponse(rsp)
+}
+
+// GetLatestMicrosoftAuthorizeProbeStatusWithResponse request returning *GetLatestMicrosoftAuthorizeProbeStatusResponse
+func (c *ClientWithResponses) GetLatestMicrosoftAuthorizeProbeStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetLatestMicrosoftAuthorizeProbeStatusResponse, error) {
+	rsp, err := c.GetLatestMicrosoftAuthorizeProbeStatus(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetLatestMicrosoftAuthorizeProbeStatusResponse(rsp)
+}
+
+// GetMicrosoftAuthorizeProbeStatusWithResponse request returning *GetMicrosoftAuthorizeProbeStatusResponse
+func (c *ClientWithResponses) GetMicrosoftAuthorizeProbeStatusWithResponse(ctx context.Context, runId string, reqEditors ...RequestEditorFn) (*GetMicrosoftAuthorizeProbeStatusResponse, error) {
+	rsp, err := c.GetMicrosoftAuthorizeProbeStatus(ctx, runId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetMicrosoftAuthorizeProbeStatusResponse(rsp)
+}
+
+// CleanupMicrosoftAuthWindowsWithBodyWithResponse request with arbitrary body returning *CleanupMicrosoftAuthWindowsResponse
+func (c *ClientWithResponses) CleanupMicrosoftAuthWindowsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CleanupMicrosoftAuthWindowsResponse, error) {
+	rsp, err := c.CleanupMicrosoftAuthWindowsWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCleanupMicrosoftAuthWindowsResponse(rsp)
+}
+
+func (c *ClientWithResponses) CleanupMicrosoftAuthWindowsWithResponse(ctx context.Context, body CleanupMicrosoftAuthWindowsJSONRequestBody, reqEditors ...RequestEditorFn) (*CleanupMicrosoftAuthWindowsResponse, error) {
+	rsp, err := c.CleanupMicrosoftAuthWindows(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCleanupMicrosoftAuthWindowsResponse(rsp)
+}
+
 // StartMicrosoftDeviceLoginWithBodyWithResponse request with arbitrary body returning *StartMicrosoftDeviceLoginResponse
 func (c *ClientWithResponses) StartMicrosoftDeviceLoginWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartMicrosoftDeviceLoginResponse, error) {
 	rsp, err := c.StartMicrosoftDeviceLoginWithBody(ctx, contentType, body, reqEditors...)
@@ -2111,6 +4381,196 @@ func (c *ClientWithResponses) StartMicrosoftDeviceLoginWithResponse(ctx context.
 	return ParseStartMicrosoftDeviceLoginResponse(rsp)
 }
 
+// GetLatestMicrosoftDeviceLoginStatusWithResponse request returning *GetLatestMicrosoftDeviceLoginStatusResponse
+func (c *ClientWithResponses) GetLatestMicrosoftDeviceLoginStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetLatestMicrosoftDeviceLoginStatusResponse, error) {
+	rsp, err := c.GetLatestMicrosoftDeviceLoginStatus(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetLatestMicrosoftDeviceLoginStatusResponse(rsp)
+}
+
+// GetMicrosoftDeviceLoginStatusWithResponse request returning *GetMicrosoftDeviceLoginStatusResponse
+func (c *ClientWithResponses) GetMicrosoftDeviceLoginStatusWithResponse(ctx context.Context, runId string, reqEditors ...RequestEditorFn) (*GetMicrosoftDeviceLoginStatusResponse, error) {
+	rsp, err := c.GetMicrosoftDeviceLoginStatus(ctx, runId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetMicrosoftDeviceLoginStatusResponse(rsp)
+}
+
+// OpenEdgeUrlWithBodyWithResponse request with arbitrary body returning *OpenEdgeUrlResponse
+func (c *ClientWithResponses) OpenEdgeUrlWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*OpenEdgeUrlResponse, error) {
+	rsp, err := c.OpenEdgeUrlWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseOpenEdgeUrlResponse(rsp)
+}
+
+func (c *ClientWithResponses) OpenEdgeUrlWithResponse(ctx context.Context, body OpenEdgeUrlJSONRequestBody, reqEditors ...RequestEditorFn) (*OpenEdgeUrlResponse, error) {
+	rsp, err := c.OpenEdgeUrl(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseOpenEdgeUrlResponse(rsp)
+}
+
+// ResetEdgeBrowserWithBodyWithResponse request with arbitrary body returning *ResetEdgeBrowserResponse
+func (c *ClientWithResponses) ResetEdgeBrowserWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ResetEdgeBrowserResponse, error) {
+	rsp, err := c.ResetEdgeBrowserWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseResetEdgeBrowserResponse(rsp)
+}
+
+func (c *ClientWithResponses) ResetEdgeBrowserWithResponse(ctx context.Context, body ResetEdgeBrowserJSONRequestBody, reqEditors ...RequestEditorFn) (*ResetEdgeBrowserResponse, error) {
+	rsp, err := c.ResetEdgeBrowser(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseResetEdgeBrowserResponse(rsp)
+}
+
+// StartEdgeBrowserSessionWithBodyWithResponse request with arbitrary body returning *StartEdgeBrowserSessionResponse
+func (c *ClientWithResponses) StartEdgeBrowserSessionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartEdgeBrowserSessionResponse, error) {
+	rsp, err := c.StartEdgeBrowserSessionWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartEdgeBrowserSessionResponse(rsp)
+}
+
+func (c *ClientWithResponses) StartEdgeBrowserSessionWithResponse(ctx context.Context, body StartEdgeBrowserSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*StartEdgeBrowserSessionResponse, error) {
+	rsp, err := c.StartEdgeBrowserSession(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartEdgeBrowserSessionResponse(rsp)
+}
+
+// CleanupEdgeBrowserSessionWithResponse request returning *CleanupEdgeBrowserSessionResponse
+func (c *ClientWithResponses) CleanupEdgeBrowserSessionWithResponse(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*CleanupEdgeBrowserSessionResponse, error) {
+	rsp, err := c.CleanupEdgeBrowserSession(ctx, sessionId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCleanupEdgeBrowserSessionResponse(rsp)
+}
+
+// CloseEdgeBrowserSessionWithResponse request returning *CloseEdgeBrowserSessionResponse
+func (c *ClientWithResponses) CloseEdgeBrowserSessionWithResponse(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*CloseEdgeBrowserSessionResponse, error) {
+	rsp, err := c.CloseEdgeBrowserSession(ctx, sessionId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCloseEdgeBrowserSessionResponse(rsp)
+}
+
+// ClickEdgeBrowserDomWithBodyWithResponse request with arbitrary body returning *ClickEdgeBrowserDomResponse
+func (c *ClientWithResponses) ClickEdgeBrowserDomWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ClickEdgeBrowserDomResponse, error) {
+	rsp, err := c.ClickEdgeBrowserDomWithBody(ctx, sessionId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseClickEdgeBrowserDomResponse(rsp)
+}
+
+func (c *ClientWithResponses) ClickEdgeBrowserDomWithResponse(ctx context.Context, sessionId string, body ClickEdgeBrowserDomJSONRequestBody, reqEditors ...RequestEditorFn) (*ClickEdgeBrowserDomResponse, error) {
+	rsp, err := c.ClickEdgeBrowserDom(ctx, sessionId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseClickEdgeBrowserDomResponse(rsp)
+}
+
+// FillEdgeBrowserDomWithBodyWithResponse request with arbitrary body returning *FillEdgeBrowserDomResponse
+func (c *ClientWithResponses) FillEdgeBrowserDomWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*FillEdgeBrowserDomResponse, error) {
+	rsp, err := c.FillEdgeBrowserDomWithBody(ctx, sessionId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseFillEdgeBrowserDomResponse(rsp)
+}
+
+func (c *ClientWithResponses) FillEdgeBrowserDomWithResponse(ctx context.Context, sessionId string, body FillEdgeBrowserDomJSONRequestBody, reqEditors ...RequestEditorFn) (*FillEdgeBrowserDomResponse, error) {
+	rsp, err := c.FillEdgeBrowserDom(ctx, sessionId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseFillEdgeBrowserDomResponse(rsp)
+}
+
+// NavigateEdgeBrowserSessionWithBodyWithResponse request with arbitrary body returning *NavigateEdgeBrowserSessionResponse
+func (c *ClientWithResponses) NavigateEdgeBrowserSessionWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*NavigateEdgeBrowserSessionResponse, error) {
+	rsp, err := c.NavigateEdgeBrowserSessionWithBody(ctx, sessionId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseNavigateEdgeBrowserSessionResponse(rsp)
+}
+
+func (c *ClientWithResponses) NavigateEdgeBrowserSessionWithResponse(ctx context.Context, sessionId string, body NavigateEdgeBrowserSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*NavigateEdgeBrowserSessionResponse, error) {
+	rsp, err := c.NavigateEdgeBrowserSession(ctx, sessionId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseNavigateEdgeBrowserSessionResponse(rsp)
+}
+
+// CaptureEdgeBrowserSessionScreenshotWithBodyWithResponse request with arbitrary body returning *CaptureEdgeBrowserSessionScreenshotResponse
+func (c *ClientWithResponses) CaptureEdgeBrowserSessionScreenshotWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CaptureEdgeBrowserSessionScreenshotResponse, error) {
+	rsp, err := c.CaptureEdgeBrowserSessionScreenshotWithBody(ctx, sessionId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCaptureEdgeBrowserSessionScreenshotResponse(rsp)
+}
+
+func (c *ClientWithResponses) CaptureEdgeBrowserSessionScreenshotWithResponse(ctx context.Context, sessionId string, body CaptureEdgeBrowserSessionScreenshotJSONRequestBody, reqEditors ...RequestEditorFn) (*CaptureEdgeBrowserSessionScreenshotResponse, error) {
+	rsp, err := c.CaptureEdgeBrowserSessionScreenshot(ctx, sessionId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCaptureEdgeBrowserSessionScreenshotResponse(rsp)
+}
+
+// GetEdgeBrowserSessionStateWithResponse request returning *GetEdgeBrowserSessionStateResponse
+func (c *ClientWithResponses) GetEdgeBrowserSessionStateWithResponse(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*GetEdgeBrowserSessionStateResponse, error) {
+	rsp, err := c.GetEdgeBrowserSessionState(ctx, sessionId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetEdgeBrowserSessionStateResponse(rsp)
+}
+
+// GetDesktopForegroundWithResponse request returning *GetDesktopForegroundResponse
+func (c *ClientWithResponses) GetDesktopForegroundWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDesktopForegroundResponse, error) {
+	rsp, err := c.GetDesktopForeground(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDesktopForegroundResponse(rsp)
+}
+
+// CaptureDesktopScreenshotWithBodyWithResponse request with arbitrary body returning *CaptureDesktopScreenshotResponse
+func (c *ClientWithResponses) CaptureDesktopScreenshotWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CaptureDesktopScreenshotResponse, error) {
+	rsp, err := c.CaptureDesktopScreenshotWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCaptureDesktopScreenshotResponse(rsp)
+}
+
+func (c *ClientWithResponses) CaptureDesktopScreenshotWithResponse(ctx context.Context, body CaptureDesktopScreenshotJSONRequestBody, reqEditors ...RequestEditorFn) (*CaptureDesktopScreenshotResponse, error) {
+	rsp, err := c.CaptureDesktopScreenshot(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCaptureDesktopScreenshotResponse(rsp)
+}
+
 // GetHealthWithResponse request returning *GetHealthResponse
 func (c *ClientWithResponses) GetHealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetHealthResponse, error) {
 	rsp, err := c.GetHealth(ctx, reqEditors...)
@@ -2118,6 +4578,23 @@ func (c *ClientWithResponses) GetHealthWithResponse(ctx context.Context, reqEdit
 		return nil, err
 	}
 	return ParseGetHealthResponse(rsp)
+}
+
+// ClickScreenWithBodyWithResponse request with arbitrary body returning *ClickScreenResponse
+func (c *ClientWithResponses) ClickScreenWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ClickScreenResponse, error) {
+	rsp, err := c.ClickScreenWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseClickScreenResponse(rsp)
+}
+
+func (c *ClientWithResponses) ClickScreenWithResponse(ctx context.Context, body ClickScreenJSONRequestBody, reqEditors ...RequestEditorFn) (*ClickScreenResponse, error) {
+	rsp, err := c.ClickScreen(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseClickScreenResponse(rsp)
 }
 
 // SendHotkeyWithBodyWithResponse request with arbitrary body returning *SendHotkeyResponse
@@ -2206,38 +4683,38 @@ func (c *ClientWithResponses) GetMailStatusWithResponse(ctx context.Context, req
 	return ParseGetMailStatusResponse(rsp)
 }
 
-// EditPowerPointWithBodyWithResponse request with arbitrary body returning *EditPowerPointResponse
-func (c *ClientWithResponses) EditPowerPointWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EditPowerPointResponse, error) {
-	rsp, err := c.EditPowerPointWithBody(ctx, contentType, body, reqEditors...)
+// EnqueuePowerPointJobWithBodyWithResponse request with arbitrary body returning *EnqueuePowerPointJobResponse
+func (c *ClientWithResponses) EnqueuePowerPointJobWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EnqueuePowerPointJobResponse, error) {
+	rsp, err := c.EnqueuePowerPointJobWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseEditPowerPointResponse(rsp)
+	return ParseEnqueuePowerPointJobResponse(rsp)
 }
 
-func (c *ClientWithResponses) EditPowerPointWithResponse(ctx context.Context, body EditPowerPointJSONRequestBody, reqEditors ...RequestEditorFn) (*EditPowerPointResponse, error) {
-	rsp, err := c.EditPowerPoint(ctx, body, reqEditors...)
+func (c *ClientWithResponses) EnqueuePowerPointJobWithResponse(ctx context.Context, body EnqueuePowerPointJobJSONRequestBody, reqEditors ...RequestEditorFn) (*EnqueuePowerPointJobResponse, error) {
+	rsp, err := c.EnqueuePowerPointJob(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseEditPowerPointResponse(rsp)
+	return ParseEnqueuePowerPointJobResponse(rsp)
 }
 
-// InspectPowerPointWithBodyWithResponse request with arbitrary body returning *InspectPowerPointResponse
-func (c *ClientWithResponses) InspectPowerPointWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InspectPowerPointResponse, error) {
-	rsp, err := c.InspectPowerPointWithBody(ctx, contentType, body, reqEditors...)
+// ClaimPowerPointJobWithBodyWithResponse request with arbitrary body returning *ClaimPowerPointJobResponse
+func (c *ClientWithResponses) ClaimPowerPointJobWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ClaimPowerPointJobResponse, error) {
+	rsp, err := c.ClaimPowerPointJobWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseInspectPowerPointResponse(rsp)
+	return ParseClaimPowerPointJobResponse(rsp)
 }
 
-func (c *ClientWithResponses) InspectPowerPointWithResponse(ctx context.Context, body InspectPowerPointJSONRequestBody, reqEditors ...RequestEditorFn) (*InspectPowerPointResponse, error) {
-	rsp, err := c.InspectPowerPoint(ctx, body, reqEditors...)
+func (c *ClientWithResponses) ClaimPowerPointJobWithResponse(ctx context.Context, body ClaimPowerPointJobJSONRequestBody, reqEditors ...RequestEditorFn) (*ClaimPowerPointJobResponse, error) {
+	rsp, err := c.ClaimPowerPointJob(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseInspectPowerPointResponse(rsp)
+	return ParseClaimPowerPointJobResponse(rsp)
 }
 
 // GetPowerPointJobWithResponse request returning *GetPowerPointJobResponse
@@ -2247,6 +4724,49 @@ func (c *ClientWithResponses) GetPowerPointJobWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseGetPowerPointJobResponse(rsp)
+}
+
+// GetPowerPointJobArtifactWithResponse request returning *GetPowerPointJobArtifactResponse
+func (c *ClientWithResponses) GetPowerPointJobArtifactWithResponse(ctx context.Context, jobId string, artifactId string, reqEditors ...RequestEditorFn) (*GetPowerPointJobArtifactResponse, error) {
+	rsp, err := c.GetPowerPointJobArtifact(ctx, jobId, artifactId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetPowerPointJobArtifactResponse(rsp)
+}
+
+// CompletePowerPointJobWithBodyWithResponse request with arbitrary body returning *CompletePowerPointJobResponse
+func (c *ClientWithResponses) CompletePowerPointJobWithBodyWithResponse(ctx context.Context, jobId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CompletePowerPointJobResponse, error) {
+	rsp, err := c.CompletePowerPointJobWithBody(ctx, jobId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCompletePowerPointJobResponse(rsp)
+}
+
+func (c *ClientWithResponses) CompletePowerPointJobWithResponse(ctx context.Context, jobId string, body CompletePowerPointJobJSONRequestBody, reqEditors ...RequestEditorFn) (*CompletePowerPointJobResponse, error) {
+	rsp, err := c.CompletePowerPointJob(ctx, jobId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCompletePowerPointJobResponse(rsp)
+}
+
+// FailPowerPointJobWithBodyWithResponse request with arbitrary body returning *FailPowerPointJobResponse
+func (c *ClientWithResponses) FailPowerPointJobWithBodyWithResponse(ctx context.Context, jobId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*FailPowerPointJobResponse, error) {
+	rsp, err := c.FailPowerPointJobWithBody(ctx, jobId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseFailPowerPointJobResponse(rsp)
+}
+
+func (c *ClientWithResponses) FailPowerPointJobWithResponse(ctx context.Context, jobId string, body FailPowerPointJobJSONRequestBody, reqEditors ...RequestEditorFn) (*FailPowerPointJobResponse, error) {
+	rsp, err := c.FailPowerPointJob(ctx, jobId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseFailPowerPointJobResponse(rsp)
 }
 
 // ClickUiWithBodyWithResponse request with arbitrary body returning *ClickUiResponse
@@ -2327,6 +4847,166 @@ func (c *ClientWithResponses) CaptureWindowWithResponse(ctx context.Context, id 
 	return ParseCaptureWindowResponse(rsp)
 }
 
+// ParseStartMicrosoftAuthorizeProbeResponse parses an HTTP response from a StartMicrosoftAuthorizeProbeWithResponse call
+func ParseStartMicrosoftAuthorizeProbeResponse(rsp *http.Response) (*StartMicrosoftAuthorizeProbeResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StartMicrosoftAuthorizeProbeResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MicrosoftAuthorizeProbeResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetLatestMicrosoftAuthorizeProbeStatusResponse parses an HTTP response from a GetLatestMicrosoftAuthorizeProbeStatusWithResponse call
+func ParseGetLatestMicrosoftAuthorizeProbeStatusResponse(rsp *http.Response) (*GetLatestMicrosoftAuthorizeProbeStatusResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetLatestMicrosoftAuthorizeProbeStatusResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MicrosoftAuthorizeProbeResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetMicrosoftAuthorizeProbeStatusResponse parses an HTTP response from a GetMicrosoftAuthorizeProbeStatusWithResponse call
+func ParseGetMicrosoftAuthorizeProbeStatusResponse(rsp *http.Response) (*GetMicrosoftAuthorizeProbeStatusResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetMicrosoftAuthorizeProbeStatusResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MicrosoftAuthorizeProbeResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCleanupMicrosoftAuthWindowsResponse parses an HTTP response from a CleanupMicrosoftAuthWindowsWithResponse call
+func ParseCleanupMicrosoftAuthWindowsResponse(rsp *http.Response) (*CleanupMicrosoftAuthWindowsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CleanupMicrosoftAuthWindowsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MicrosoftAuthCleanupResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseStartMicrosoftDeviceLoginResponse parses an HTTP response from a StartMicrosoftDeviceLoginWithResponse call
 func ParseStartMicrosoftDeviceLoginResponse(rsp *http.Response) (*StartMicrosoftDeviceLoginResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -2367,6 +5047,566 @@ func ParseStartMicrosoftDeviceLoginResponse(rsp *http.Response) (*StartMicrosoft
 	return response, nil
 }
 
+// ParseGetLatestMicrosoftDeviceLoginStatusResponse parses an HTTP response from a GetLatestMicrosoftDeviceLoginStatusWithResponse call
+func ParseGetLatestMicrosoftDeviceLoginStatusResponse(rsp *http.Response) (*GetLatestMicrosoftDeviceLoginStatusResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetLatestMicrosoftDeviceLoginStatusResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MicrosoftDeviceLoginResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetMicrosoftDeviceLoginStatusResponse parses an HTTP response from a GetMicrosoftDeviceLoginStatusWithResponse call
+func ParseGetMicrosoftDeviceLoginStatusResponse(rsp *http.Response) (*GetMicrosoftDeviceLoginStatusResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetMicrosoftDeviceLoginStatusResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MicrosoftDeviceLoginResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseOpenEdgeUrlResponse parses an HTTP response from a OpenEdgeUrlWithResponse call
+func ParseOpenEdgeUrlResponse(rsp *http.Response) (*OpenEdgeUrlResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &OpenEdgeUrlResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BrowserEdgeOpenUrlResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseResetEdgeBrowserResponse parses an HTTP response from a ResetEdgeBrowserWithResponse call
+func ParseResetEdgeBrowserResponse(rsp *http.Response) (*ResetEdgeBrowserResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ResetEdgeBrowserResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BrowserEdgeResetResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseStartEdgeBrowserSessionResponse parses an HTTP response from a StartEdgeBrowserSessionWithResponse call
+func ParseStartEdgeBrowserSessionResponse(rsp *http.Response) (*StartEdgeBrowserSessionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StartEdgeBrowserSessionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BrowserEdgeSessionStateResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCleanupEdgeBrowserSessionResponse parses an HTTP response from a CleanupEdgeBrowserSessionWithResponse call
+func ParseCleanupEdgeBrowserSessionResponse(rsp *http.Response) (*CleanupEdgeBrowserSessionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CleanupEdgeBrowserSessionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BrowserEdgeSessionStateResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCloseEdgeBrowserSessionResponse parses an HTTP response from a CloseEdgeBrowserSessionWithResponse call
+func ParseCloseEdgeBrowserSessionResponse(rsp *http.Response) (*CloseEdgeBrowserSessionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CloseEdgeBrowserSessionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BrowserEdgeSessionStateResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseClickEdgeBrowserDomResponse parses an HTTP response from a ClickEdgeBrowserDomWithResponse call
+func ParseClickEdgeBrowserDomResponse(rsp *http.Response) (*ClickEdgeBrowserDomResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ClickEdgeBrowserDomResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BrowserEdgeSessionDomActionResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseFillEdgeBrowserDomResponse parses an HTTP response from a FillEdgeBrowserDomWithResponse call
+func ParseFillEdgeBrowserDomResponse(rsp *http.Response) (*FillEdgeBrowserDomResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &FillEdgeBrowserDomResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BrowserEdgeSessionDomActionResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseNavigateEdgeBrowserSessionResponse parses an HTTP response from a NavigateEdgeBrowserSessionWithResponse call
+func ParseNavigateEdgeBrowserSessionResponse(rsp *http.Response) (*NavigateEdgeBrowserSessionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &NavigateEdgeBrowserSessionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BrowserEdgeSessionStateResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCaptureEdgeBrowserSessionScreenshotResponse parses an HTTP response from a CaptureEdgeBrowserSessionScreenshotWithResponse call
+func ParseCaptureEdgeBrowserSessionScreenshotResponse(rsp *http.Response) (*CaptureEdgeBrowserSessionScreenshotResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CaptureEdgeBrowserSessionScreenshotResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DesktopScreenshotResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetEdgeBrowserSessionStateResponse parses an HTTP response from a GetEdgeBrowserSessionStateWithResponse call
+func ParseGetEdgeBrowserSessionStateResponse(rsp *http.Response) (*GetEdgeBrowserSessionStateResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetEdgeBrowserSessionStateResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BrowserEdgeSessionStateResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetDesktopForegroundResponse parses an HTTP response from a GetDesktopForegroundWithResponse call
+func ParseGetDesktopForegroundResponse(rsp *http.Response) (*GetDesktopForegroundResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDesktopForegroundResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest WindowRef
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCaptureDesktopScreenshotResponse parses an HTTP response from a CaptureDesktopScreenshotWithResponse call
+func ParseCaptureDesktopScreenshotResponse(rsp *http.Response) (*CaptureDesktopScreenshotResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CaptureDesktopScreenshotResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DesktopScreenshotResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetHealthResponse parses an HTTP response from a GetHealthWithResponse call
 func ParseGetHealthResponse(rsp *http.Response) (*GetHealthResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -2383,6 +5623,46 @@ func ParseGetHealthResponse(rsp *http.Response) (*GetHealthResponse, error) {
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest HealthResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseClickScreenResponse parses an HTTP response from a ClickScreenWithResponse call
+func ParseClickScreenResponse(rsp *http.Response) (*ClickScreenResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ClickScreenResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ActionResult
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2647,22 +5927,22 @@ func ParseGetMailStatusResponse(rsp *http.Response) (*GetMailStatusResponse, err
 	return response, nil
 }
 
-// ParseEditPowerPointResponse parses an HTTP response from a EditPowerPointWithResponse call
-func ParseEditPowerPointResponse(rsp *http.Response) (*EditPowerPointResponse, error) {
+// ParseEnqueuePowerPointJobResponse parses an HTTP response from a EnqueuePowerPointJobWithResponse call
+func ParseEnqueuePowerPointJobResponse(rsp *http.Response) (*EnqueuePowerPointJobResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &EditPowerPointResponse{
+	response := &EnqueuePowerPointJobResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest PowerPointEditResult
+		var dest PowerPointJobRecord
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2687,22 +5967,22 @@ func ParseEditPowerPointResponse(rsp *http.Response) (*EditPowerPointResponse, e
 	return response, nil
 }
 
-// ParseInspectPowerPointResponse parses an HTTP response from a InspectPowerPointWithResponse call
-func ParseInspectPowerPointResponse(rsp *http.Response) (*InspectPowerPointResponse, error) {
+// ParseClaimPowerPointJobResponse parses an HTTP response from a ClaimPowerPointJobWithResponse call
+func ParseClaimPowerPointJobResponse(rsp *http.Response) (*ClaimPowerPointJobResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &InspectPowerPointResponse{
+	response := &ClaimPowerPointJobResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest PowerPointInspectResult
+		var dest PowerPointUpdateJob
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2742,7 +6022,120 @@ func ParseGetPowerPointJobResponse(rsp *http.Response) (*GetPowerPointJobRespons
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest PowerPointEditResult
+		var dest PowerPointJobRecord
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetPowerPointJobArtifactResponse parses an HTTP response from a GetPowerPointJobArtifactWithResponse call
+func ParseGetPowerPointJobArtifactResponse(rsp *http.Response) (*GetPowerPointJobArtifactResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetPowerPointJobArtifactResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCompletePowerPointJobResponse parses an HTTP response from a CompletePowerPointJobWithResponse call
+func ParseCompletePowerPointJobResponse(rsp *http.Response) (*CompletePowerPointJobResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CompletePowerPointJobResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PowerPointJobRecord
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseFailPowerPointJobResponse parses an HTTP response from a FailPowerPointJobWithResponse call
+func ParseFailPowerPointJobResponse(rsp *http.Response) (*FailPowerPointJobResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &FailPowerPointJobResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PowerPointJobRecord
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

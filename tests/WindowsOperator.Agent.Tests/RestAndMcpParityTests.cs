@@ -74,6 +74,169 @@ public sealed class RestAndMcpParityTests
     }
 
     [Fact]
+    public async Task BrowserEdgeSessionStart_RestEndpoint_ReturnsResult()
+    {
+        using var app = OperatorApp.Build(
+            Array.Empty<string>(),
+            services =>
+            {
+                ReplaceOperatorFacade(services);
+            },
+            useTestServer: true);
+        await app.StartAsync();
+        var client = app.GetTestClient();
+        var request = new BrowserEdgeSessionStartRequest
+        {
+            SessionId = "entra-session",
+            StartUrl = "https://microsoft.com/devicelogin",
+            ProfileMode = BrowserEdgeProfileMode.Work,
+        };
+
+        var response = await client.PostAsJsonAsync(
+            "/v1/browser/edge/session/start",
+            request,
+            OperatorJson.SerializerOptions);
+        var result = await response.Content.ReadFromJsonAsync<BrowserEdgeSessionStateResult>(OperatorJson.SerializerOptions);
+
+        response.EnsureSuccessStatusCode();
+        Assert.NotNull(result);
+        Assert.True(result!.Success);
+        Assert.Equal("entra-session", result.SessionId);
+        Assert.True(result.IsAlive);
+    }
+
+    [Fact]
+    public async Task DesktopForeground_RestEndpoint_ReturnsWindow()
+    {
+        using var app = OperatorApp.Build(
+            Array.Empty<string>(),
+            services =>
+            {
+                ReplaceOperatorFacade(services);
+            },
+            useTestServer: true);
+        await app.StartAsync();
+        var client = app.GetTestClient();
+
+        var result = await client.GetFromJsonAsync<WindowRef>(
+            "/v1/desktop/foreground",
+            OperatorJson.SerializerOptions);
+
+        Assert.NotNull(result);
+        Assert.True(result!.IsForeground);
+        Assert.Equal(101, result.Hwnd);
+    }
+
+    [Fact]
+    public async Task DesktopScreenshot_RestEndpoint_ReturnsArtifactRef()
+    {
+        using var app = OperatorApp.Build(
+            Array.Empty<string>(),
+            services =>
+            {
+                ReplaceOperatorFacade(services);
+            },
+            useTestServer: true);
+        await app.StartAsync();
+        var client = app.GetTestClient();
+
+        var response = await client.PostAsJsonAsync(
+            "/v1/desktop/screenshot",
+            new DesktopScreenshotRequest { Target = "foreground", Label = "foreground" },
+            OperatorJson.SerializerOptions);
+        var result = await response.Content.ReadFromJsonAsync<DesktopScreenshotResult>(OperatorJson.SerializerOptions);
+
+        response.EnsureSuccessStatusCode();
+        Assert.NotNull(result);
+        Assert.True(result!.Success);
+        Assert.Equal("image/png", result.Artifact.MediaType);
+        Assert.Equal("runs/workbench-test/screenshots/foreground.png", result.Artifact.RelativePath);
+        Assert.DoesNotContain("base64", JsonSerializer.Serialize(result, OperatorJson.SerializerOptions), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task BrowserEdgeOpenUrl_RestEndpoint_ReturnsStateAndOptionalScreenshot()
+    {
+        using var app = OperatorApp.Build(
+            Array.Empty<string>(),
+            services =>
+            {
+                ReplaceOperatorFacade(services);
+            },
+            useTestServer: true);
+        await app.StartAsync();
+        var client = app.GetTestClient();
+        var request = new BrowserEdgeOpenUrlRequest
+        {
+            Url = "https://example.com",
+            SessionId = "example-session",
+            Capture = true,
+            Label = "edge-open",
+        };
+
+        var response = await client.PostAsJsonAsync(
+            "/v1/browser/edge/open-url",
+            request,
+            OperatorJson.SerializerOptions);
+        var result = await response.Content.ReadFromJsonAsync<BrowserEdgeOpenUrlResult>(OperatorJson.SerializerOptions);
+
+        response.EnsureSuccessStatusCode();
+        Assert.NotNull(result);
+        Assert.True(result!.Success);
+        Assert.Equal("example-session", result.State.SessionId);
+        Assert.Equal("https://example.com", result.State.Url);
+        Assert.NotNull(result.Screenshot);
+        Assert.Equal("runs/workbench-test/screenshots/edge-open.png", result.Screenshot!.Artifact.RelativePath);
+    }
+
+    [Fact]
+    public async Task BrowserEdgeSessionScreenshot_RestEndpoint_ReturnsArtifactRef()
+    {
+        using var app = OperatorApp.Build(
+            Array.Empty<string>(),
+            services =>
+            {
+                ReplaceOperatorFacade(services);
+            },
+            useTestServer: true);
+        await app.StartAsync();
+        var client = app.GetTestClient();
+
+        var response = await client.PostAsJsonAsync(
+            "/v1/browser/edge/session/example-session/screenshot",
+            new DesktopScreenshotRequest { Label = "edge-session" },
+            OperatorJson.SerializerOptions);
+        var result = await response.Content.ReadFromJsonAsync<DesktopScreenshotResult>(OperatorJson.SerializerOptions);
+
+        response.EnsureSuccessStatusCode();
+        Assert.NotNull(result);
+        Assert.True(result!.Success);
+        Assert.Equal("runs/workbench-test/screenshots/edge-session.png", result.Artifact.RelativePath);
+    }
+
+    [Fact]
+    public async Task BrowserEdgeSessionCleanup_RestEndpoint_ReturnsClosedState()
+    {
+        using var app = OperatorApp.Build(
+            Array.Empty<string>(),
+            services =>
+            {
+                ReplaceOperatorFacade(services);
+            },
+            useTestServer: true);
+        await app.StartAsync();
+        var client = app.GetTestClient();
+
+        var response = await client.PostAsync("/v1/browser/edge/session/example-session/cleanup", null);
+        var result = await response.Content.ReadFromJsonAsync<BrowserEdgeSessionStateResult>(OperatorJson.SerializerOptions);
+
+        response.EnsureSuccessStatusCode();
+        Assert.NotNull(result);
+        Assert.False(result!.IsAlive);
+        Assert.Contains("session_window_closed", result.Actions);
+    }
+
+    [Fact]
     public async Task MicrosoftDeviceLogin_RestEndpoint_ReturnsResult()
     {
         using var app = OperatorApp.Build(
@@ -101,10 +264,12 @@ public sealed class RestAndMcpParityTests
         Assert.NotNull(result);
         Assert.True(result!.Success);
         Assert.Contains("dry_run", result.Actions);
+        Assert.Equal(MicrosoftDeviceLoginStatus.DryRun, result.Status);
+        Assert.NotNull(result.RunId);
     }
 
     [Fact]
-    public async Task PowerPointInspect_RestEndpoint_ReturnsInventory()
+    public async Task MicrosoftAuthCleanup_RestEndpoint_ReturnsResult()
     {
         using var app = OperatorApp.Build(
             Array.Empty<string>(),
@@ -115,76 +280,114 @@ public sealed class RestAndMcpParityTests
             useTestServer: true);
         await app.StartAsync();
         var client = app.GetTestClient();
-        var request = new PowerPointInspectRequest
+        var request = new MicrosoftAuthCleanupRequest
         {
-            PresentationPath = @"C:\Reports\report.pptx",
-            IncludeText = true,
-        };
-
-        var response = await client.PostAsJsonAsync(
-            "/v1/powerpoint/inspect",
-            request,
-            OperatorJson.SerializerOptions);
-        var result = await response.Content.ReadFromJsonAsync<PowerPointInspectResult>(OperatorJson.SerializerOptions);
-
-        response.EnsureSuccessStatusCode();
-        Assert.NotNull(result);
-        Assert.True(result!.Success);
-        Assert.Single(result.Slides);
-        Assert.Equal("Summary.Status", result.Slides[0].Shapes[0].Name);
-    }
-
-    [Fact]
-    public async Task PowerPointEdit_RestEndpoint_ReturnsEditResult()
-    {
-        using var app = OperatorApp.Build(
-            Array.Empty<string>(),
-            services =>
-            {
-                ReplaceOperatorFacade(services);
-            },
-            useTestServer: true);
-        await app.StartAsync();
-        var client = app.GetTestClient();
-        var request = new PowerPointEditRequest
-        {
-            PresentationPath = @"C:\Reports\report.pptx",
             DryRun = true,
-            Edits = new[]
-            {
-                new PowerPointEditOperation
-                {
-                    Id = "summary-status",
-                    Op = "replaceText",
-                    Target = new PowerPointEditTarget
-                    {
-                        Slide = new PowerPointSlideSelector
-                        {
-                            Tag = new Dictionary<string, string> { ["WO_SLIDE"] = "EXEC_SUMMARY" },
-                        },
-                        Shape = new PowerPointShapeSelector
-                        {
-                            Tag = new Dictionary<string, string> { ["WO_FIELD"] = "STATUS" },
-                        },
-                    },
-                    Find = "{{STATUS}}",
-                    Value = "On track",
-                },
-            },
         };
 
         var response = await client.PostAsJsonAsync(
-            "/v1/powerpoint/edit",
+            "/v1/auth/microsoft/cleanup",
             request,
             OperatorJson.SerializerOptions);
-        var result = await response.Content.ReadFromJsonAsync<PowerPointEditResult>(OperatorJson.SerializerOptions);
+        var result = await response.Content.ReadFromJsonAsync<MicrosoftAuthCleanupResult>(OperatorJson.SerializerOptions);
 
         response.EnsureSuccessStatusCode();
         Assert.NotNull(result);
         Assert.True(result!.Success);
-        Assert.True(result.DryRun);
-        Assert.Single(result.Edits);
-        Assert.Equal("summary-status", result.Edits[0].Id);
+        Assert.Contains("cleanup_dry_run", result.Actions);
+        Assert.Equal(3, result.MatchedWindows);
+    }
+
+    [Fact]
+    public async Task MicrosoftAuthorizeProbe_RestEndpoint_ReturnsResult()
+    {
+        using var app = OperatorApp.Build(
+            Array.Empty<string>(),
+            services =>
+            {
+                ReplaceOperatorFacade(services);
+            },
+            useTestServer: true);
+        await app.StartAsync();
+        var client = app.GetTestClient();
+        var request = new MicrosoftAuthorizeProbeRequest
+        {
+            AuthorizeUrl = "https://login.microsoftonline.com/tenant/oauth2/v2.0/authorize",
+            DryRun = true,
+        };
+
+        var response = await client.PostAsJsonAsync(
+            "/v1/auth/microsoft/authorize-probe",
+            request,
+            OperatorJson.SerializerOptions);
+        var result = await response.Content.ReadFromJsonAsync<MicrosoftAuthorizeProbeResult>(OperatorJson.SerializerOptions);
+
+        response.EnsureSuccessStatusCode();
+        Assert.NotNull(result);
+        Assert.True(result!.Success);
+        Assert.Contains("dry_run", result.Actions);
+        Assert.Equal(MicrosoftAuthorizeProbeStatus.DryRun, result.Status);
+        Assert.NotNull(result.RunId);
+    }
+
+    [Fact]
+    public async Task MicrosoftDeviceLoginStatus_RestAndMcp_UseSameResultShape()
+    {
+        using var app = OperatorApp.Build(
+            Array.Empty<string>(),
+            services =>
+            {
+                ReplaceOperatorFacade(services);
+            },
+            useTestServer: true);
+        await app.StartAsync();
+        var client = app.GetTestClient();
+
+        var rest = await client.GetFromJsonAsync<MicrosoftDeviceLoginResult>(
+            "/v1/auth/microsoft/device-login/status/fake-run",
+            OperatorJson.SerializerOptions);
+
+        var catalog = app.Services.GetRequiredService<McpToolCatalog>();
+        var node = await catalog.ExecuteToolAsync(
+            "auth_microsoft_device_login_status",
+            new JsonObject { ["runId"] = "fake-run" },
+            CancellationToken.None);
+        var mcp = JsonSerializer.Deserialize<MicrosoftDeviceLoginResult>(node!.ToJsonString(), OperatorJson.SerializerOptions);
+
+        Assert.Equal(
+            JsonSerializer.Serialize(rest, OperatorJson.SerializerOptions),
+            JsonSerializer.Serialize(mcp, OperatorJson.SerializerOptions));
+        Assert.Equal(MicrosoftDeviceLoginStatus.Submitted, rest!.Status);
+    }
+
+    [Fact]
+    public async Task MicrosoftAuthorizeProbeStatus_RestAndMcp_UseSameResultShape()
+    {
+        using var app = OperatorApp.Build(
+            Array.Empty<string>(),
+            services =>
+            {
+                ReplaceOperatorFacade(services);
+            },
+            useTestServer: true);
+        await app.StartAsync();
+        var client = app.GetTestClient();
+
+        var rest = await client.GetFromJsonAsync<MicrosoftAuthorizeProbeResult>(
+            "/v1/auth/microsoft/authorize-probe/status/fake-run",
+            OperatorJson.SerializerOptions);
+
+        var catalog = app.Services.GetRequiredService<McpToolCatalog>();
+        var node = await catalog.ExecuteToolAsync(
+            "auth_microsoft_authorize_probe_status",
+            new JsonObject { ["runId"] = "fake-run" },
+            CancellationToken.None);
+        var mcp = JsonSerializer.Deserialize<MicrosoftAuthorizeProbeResult>(node!.ToJsonString(), OperatorJson.SerializerOptions);
+
+        Assert.Equal(
+            JsonSerializer.Serialize(rest, OperatorJson.SerializerOptions),
+            JsonSerializer.Serialize(mcp, OperatorJson.SerializerOptions));
+        Assert.Equal(MicrosoftAuthorizeProbeStatus.Opened, rest!.Status);
     }
 
     [Fact]
@@ -226,7 +429,7 @@ public sealed class RestAndMcpParityTests
         await app.StartAsync();
         var client = app.GetTestClient();
 
-        Assert.Equal(System.Net.HttpStatusCode.NotFound, (await client.GetAsync("/v1/mail/folders")).StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.MethodNotAllowed, (await client.GetAsync("/v1/mail/folders")).StatusCode);
         Assert.Equal(System.Net.HttpStatusCode.NotFound, (await client.PostAsJsonAsync("/v1/mail/sync", new { })).StatusCode);
         Assert.Equal(System.Net.HttpStatusCode.NotFound, (await client.PostAsJsonAsync("/v1/mail/recover", new { })).StatusCode);
     }
@@ -236,5 +439,9 @@ public sealed class RestAndMcpParityTests
         var existing = services.Single(descriptor => descriptor.ServiceType == typeof(IOperatorFacade));
         services.Remove(existing);
         services.AddSingleton<IOperatorFacade, FakeOperatorFacade>();
+
+        var existingWorkbench = services.Single(descriptor => descriptor.ServiceType == typeof(IWorkbenchService));
+        services.Remove(existingWorkbench);
+        services.AddSingleton<IWorkbenchService, FakeWorkbenchService>();
     }
 }

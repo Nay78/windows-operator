@@ -103,6 +103,7 @@ public sealed class OutlookMailService : IMailService
             requestPath,
             JsonSerializer.Serialize(request, OperatorJson.SerializerOptions),
             cancellationToken);
+        var progressPath = Path.Combine(runRoot, "progress.log");
 
         using var process = new Process();
         process.StartInfo = new ProcessStartInfo
@@ -121,6 +122,7 @@ public sealed class OutlookMailService : IMailService
             throw MailUnavailable("Unable to start mail worker.");
         }
 
+        var startedAt = Stopwatch.StartNew();
         var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
         var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -133,7 +135,15 @@ public sealed class OutlookMailService : IMailService
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             KillProcessTree(process);
-            SetLastWorkerError($"Mail worker timed out after {WorkerTimeout.TotalSeconds:n0}s. Operation root: {runRoot}");
+            SetLastWorkerError(BuildWorkerTimeoutDetail(
+                operationId,
+                runRoot,
+                requestPath,
+                responsePath,
+                progressPath,
+                process.Id,
+                WorkerTimeout,
+                startedAt.ElapsedMilliseconds));
             throw MailUnavailable(_lastWorkerError!);
         }
         catch
@@ -174,6 +184,53 @@ public sealed class OutlookMailService : IMailService
 
         SetLastWorkerError(null);
         return response;
+    }
+
+    internal static string BuildWorkerTimeoutDetail(
+        string operationId,
+        string runRoot,
+        string requestPath,
+        string responsePath,
+        string progressPath,
+        int? processId,
+        TimeSpan timeout,
+        long elapsedMs)
+    {
+        var detail = $"Mail worker timed out after {timeout.TotalSeconds:n0}s. " +
+            $"OperationId={operationId}. ElapsedMs={elapsedMs}. OperationRoot={runRoot}. " +
+            $"RequestPath={requestPath}. ResponsePath={responsePath}. ProgressPath={progressPath}.";
+        if (processId is int pid && pid > 0)
+        {
+            detail += $" WorkerPid={pid}.";
+        }
+
+        var lastStage = ReadLastProgressStage(progressPath);
+        if (!string.IsNullOrWhiteSpace(lastStage))
+        {
+            detail += $" LastStage={lastStage}.";
+        }
+
+        return detail;
+    }
+
+    internal static string? ReadLastProgressStage(string progressPath)
+    {
+        if (!File.Exists(progressPath))
+        {
+            return null;
+        }
+
+        var lastLine = File.ReadLines(progressPath)
+            .LastOrDefault(line => !string.IsNullOrWhiteSpace(line));
+        if (string.IsNullOrWhiteSpace(lastLine))
+        {
+            return null;
+        }
+
+        var separator = lastLine.IndexOf('\t');
+        return separator >= 0
+            ? lastLine[(separator + 1)..].Trim()
+            : lastLine.Trim();
     }
 
     private static string DotnetPath() =>

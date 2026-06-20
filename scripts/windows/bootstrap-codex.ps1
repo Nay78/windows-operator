@@ -150,6 +150,34 @@ function Find-CodexPath {
     return $null
 }
 
+function Stop-ExistingCodex {
+    param([string]$Path)
+
+    $task = Get-ScheduledTask -TaskName "Codex.AppServer" -ErrorAction SilentlyContinue
+    if ($task) {
+        Write-Step "Stopping existing Codex.AppServer task."
+        Stop-ScheduledTask -TaskName "Codex.AppServer" -ErrorAction SilentlyContinue
+    }
+
+    $npmPrefix = Join-Path $Path "npm-global"
+    $escapedPrefix = [System.Management.Automation.WildcardPattern]::Escape($npmPrefix)
+    $codexProcesses = Get-CimInstance Win32_Process |
+        Where-Object {
+            $_.CommandLine -and (
+                $_.CommandLine -like "*$escapedPrefix*" -or
+                $_.CommandLine -like "*codex app-server*" -or
+                $_.CommandLine -like "*codex.exe*"
+            )
+        }
+
+    foreach ($process in $codexProcesses) {
+        if ($process.ProcessId -ne $PID) {
+            Write-Step "Stopping existing Codex process PID=$($process.ProcessId)."
+            Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
 function Set-CodexEnvironment {
     param(
         [string]$Path,
@@ -280,6 +308,8 @@ Write-Step "Persisting Codex npm prefix on user PATH."
 Ensure-UserPathEntry -PathEntry $npmPrefix
 Publish-EnvironmentChange
 Ensure-CodexShims -StateRoot $resolvedStateRoot
+
+Stop-ExistingCodex -Path $resolvedStateRoot
 
 Write-Step "Configuring npm local prefix and cache."
 & $nodePaths.Npm config set prefix $npmPrefix --location=user

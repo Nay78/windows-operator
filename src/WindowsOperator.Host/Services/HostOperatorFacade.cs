@@ -54,26 +54,74 @@ public sealed class HostOperatorFacade : IOperatorFacade
     public Task<ActionResult> TypeUiAsync(UiaTypeRequest request, CancellationToken cancellationToken) =>
         _desktopAgent.TypeUiAsync(request, cancellationToken);
 
+    public Task<ActionResult> ClickScreenAsync(ScreenClickRequest request, CancellationToken cancellationToken) =>
+        _desktopAgent.ClickScreenAsync(request, cancellationToken);
+
     public Task<ActionResult> SendHotkeyAsync(HotkeyRequest request, CancellationToken cancellationToken) =>
         _desktopAgent.SendHotkeyAsync(request, cancellationToken);
+
+    public Task<BrowserEdgeResetResult> ResetEdgeBrowserAsync(
+        BrowserEdgeResetRequest request,
+        CancellationToken cancellationToken) =>
+        _desktopAgent.ResetEdgeBrowserAsync(request, cancellationToken);
+
+    public Task<BrowserEdgeSessionStateResult> StartEdgeBrowserSessionAsync(
+        BrowserEdgeSessionStartRequest request,
+        CancellationToken cancellationToken) =>
+        _desktopAgent.StartEdgeBrowserSessionAsync(request, cancellationToken);
+
+    public Task<BrowserEdgeSessionStateResult> GetEdgeBrowserSessionStateAsync(
+        string sessionId,
+        CancellationToken cancellationToken) =>
+        _desktopAgent.GetEdgeBrowserSessionStateAsync(sessionId, cancellationToken);
+
+    public Task<BrowserEdgeSessionStateResult> NavigateEdgeBrowserSessionAsync(
+        string sessionId,
+        BrowserEdgeSessionNavigateRequest request,
+        CancellationToken cancellationToken) =>
+        _desktopAgent.NavigateEdgeBrowserSessionAsync(sessionId, request, cancellationToken);
+
+    public Task<BrowserEdgeSessionDomActionResult> ClickEdgeBrowserDomAsync(
+        string sessionId,
+        BrowserEdgeSessionDomClickRequest request,
+        CancellationToken cancellationToken) =>
+        _desktopAgent.ClickEdgeBrowserDomAsync(sessionId, request, cancellationToken);
+
+    public Task<BrowserEdgeSessionDomActionResult> FillEdgeBrowserDomAsync(
+        string sessionId,
+        BrowserEdgeSessionDomFillRequest request,
+        CancellationToken cancellationToken) =>
+        _desktopAgent.FillEdgeBrowserDomAsync(sessionId, request, cancellationToken);
+
+    public Task<BrowserEdgeSessionStateResult> CloseEdgeBrowserSessionAsync(
+        string sessionId,
+        CancellationToken cancellationToken) =>
+        _desktopAgent.CloseEdgeBrowserSessionAsync(sessionId, cancellationToken);
+
+    public Task<MicrosoftAuthCleanupResult> CleanupMicrosoftAuthWindowsAsync(
+        MicrosoftAuthCleanupRequest request,
+        CancellationToken cancellationToken) =>
+        _desktopAgent.CleanupMicrosoftAuthWindowsAsync(request, cancellationToken);
+
+    public Task<MicrosoftAuthorizeProbeResult> StartMicrosoftAuthorizeProbeAsync(
+        MicrosoftAuthorizeProbeRequest request,
+        CancellationToken cancellationToken) =>
+        _desktopAgent.StartMicrosoftAuthorizeProbeAsync(request, cancellationToken);
+
+    public Task<MicrosoftAuthorizeProbeResult> GetMicrosoftAuthorizeProbeStatusAsync(
+        string runId,
+        CancellationToken cancellationToken) =>
+        _desktopAgent.GetMicrosoftAuthorizeProbeStatusAsync(runId, cancellationToken);
 
     public Task<MicrosoftDeviceLoginResult> StartMicrosoftDeviceLoginAsync(
         MicrosoftDeviceLoginRequest request,
         CancellationToken cancellationToken) =>
         _desktopAgent.StartMicrosoftDeviceLoginAsync(request, cancellationToken);
 
-    public Task<PowerPointInspectResult> InspectPowerPointAsync(
-        PowerPointInspectRequest request,
+    public Task<MicrosoftDeviceLoginResult> GetMicrosoftDeviceLoginStatusAsync(
+        string runId,
         CancellationToken cancellationToken) =>
-        _desktopAgent.InspectPowerPointAsync(request, cancellationToken);
-
-    public Task<PowerPointEditResult> EditPowerPointAsync(
-        PowerPointEditRequest request,
-        CancellationToken cancellationToken) =>
-        _desktopAgent.EditPowerPointAsync(request, cancellationToken);
-
-    public Task<PowerPointEditResult> GetPowerPointJobAsync(string jobId, CancellationToken cancellationToken) =>
-        _desktopAgent.GetPowerPointJobAsync(jobId, cancellationToken);
+        _desktopAgent.GetMicrosoftDeviceLoginStatusAsync(runId, cancellationToken);
 
     public Task<MailFoldersResult> ListMailFoldersAsync(MailListFoldersRequest request, CancellationToken cancellationToken) =>
         _desktopAgent.ListMailFoldersAsync(request, cancellationToken);

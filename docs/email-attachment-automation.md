@@ -4,6 +4,8 @@ Goal: download files from email without Microsoft Graph access.
 
 Target runtime architecture: [Outlook mail automation target architecture](outlook-mail-automation-architecture.md).
 
+Entra app-registration inspection notes: [Entra app inspection](entra-app-inspection.md).
+
 ## Ranking
 
 1. Classic Outlook COM + PowerShell.
@@ -62,24 +64,21 @@ Mail tools:
 
 Folder list, search, and download use automatic Outlook refresh and recovery by default. Callers may set `freshness` to `auto`, `cached`, or `fresh`; they do not call separate sync or recovery operations. Search and download also support folder path, subject substring, received-time bounds, attachment presence, max result/message limits, selected message IDs, selected attachment indexes, explicit run IDs, and dry runs.
 
-## Proposed Output
+## Current v1 Output
 
 ```text
-Z:\operator-exchange\downloads\mail\<account>\<yyyy-mm-dd>\...
-Z:\operator-exchange\runs\mail-download-<timestamp>\result.json
+Z:\operator-exchange\downloads\mail\default\<yyyy-mm-dd>\...
+Z:\operator-exchange\runs\<run-id>\result.json
 ```
 
-`result.json` should include:
+`result.json` includes:
 
-- account
-- folder
 - filters
-- message subject
-- sender
-- received time
+- message subject and received time
 - Outlook EntryID
 - saved attachment paths
 - skipped attachment reasons
+- action/warning/error envelope
 - errors
 
 ## State
@@ -125,14 +124,15 @@ Implemented v1 keeps mailbox read-only: no mark-read, move, delete, or body read
 
 Classic Outlook COM shares the user's Outlook profile and OST. Treat it as an exclusive resource:
 
-- Do not keep interactive Outlook open while mail automation runs.
 - Mail automation must serialize access with a local mutex.
+- Attach to existing visible Classic Outlook when healthy.
+- Leave visible user-owned Outlook open after normal operations.
 - REST mail calls run Outlook COM in a short-lived worker process. If COM or RPC wedges, the Agent kills the worker process tree and leaves the next request with fresh COM state.
-- Startup must reject visible interactive Outlook and clear stale headless `OUTLOOK.EXE` instances before creating COM.
-- Shutdown must release COM, request Outlook quit, wait briefly, then kill leftover headless Outlook processes.
+- When no Outlook process exists, startup clears stale Outlook temp files before creating COM.
+- Shutdown releases COM and closes only operator-owned/headless Outlook by default.
 - Worker startup must have a watchdog timeout. If Outlook shows hidden recovery UI or hangs, kill only worker-owned/headless Outlook and return a bounded mail error.
 - When Outlook is idle after cleanup, remove stale `~*.tmp` files from `%LOCALAPPDATA%\Microsoft\Outlook`.
-- If Outlook must stay open for humans while automation runs, move automation to a separate Windows user/profile or replace COM with Graph/EWS.
+- Restart/force-kill recovery is opt-in via local `Mail` config for dedicated automation desktops.
 
 ## Recovery
 

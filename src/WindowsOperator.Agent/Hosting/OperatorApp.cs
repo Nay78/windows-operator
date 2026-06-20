@@ -35,6 +35,8 @@ public static class OperatorApp
         AddLocalStateOverrides(builder);
         builder.Services.Configure<JsonOptions>(options => OperatorJson.Configure(options.SerializerOptions));
         builder.Services.Configure<OperatorOptions>(builder.Configuration.GetSection(OperatorOptions.SectionName));
+        builder.Services.Configure<WorkbenchOptions>(builder.Configuration.GetSection(WorkbenchOptions.SectionName));
+        builder.Services.PostConfigure<WorkbenchOptions>(ApplyWorkbenchEnvironmentOverrides);
 
         var options = builder.Configuration.GetSection(OperatorOptions.SectionName).Get<OperatorOptions>() ?? new OperatorOptions();
         builder.WebHost.UseUrls(options.RestBaseUrl);
@@ -46,8 +48,10 @@ public static class OperatorApp
         builder.Services.AddWindowsAutomation();
         builder.Services.AddWindowCapture();
         builder.Services.AddSingleton<IMailService, OutlookMailService>();
-        builder.Services.AddSingleton<IMicrosoftAuthService, EdgeMicrosoftAuthService>();
-        builder.Services.AddSingleton<IPowerPointService, PowerPointComService>();
+        builder.Services.AddSingleton<EdgeMicrosoftAuthService>();
+        builder.Services.AddSingleton<IMicrosoftAuthService>(services => services.GetRequiredService<EdgeMicrosoftAuthService>());
+        builder.Services.AddSingleton<IEdgeBrowserService>(services => services.GetRequiredService<EdgeMicrosoftAuthService>());
+        builder.Services.AddSingleton<IWorkbenchService, WorkbenchService>();
         builder.Services.AddSingleton<IOperatorFacade, OperatorFacade>();
         builder.Services.AddOperatorMcp(hostStdioServer: !useTestServer);
 
@@ -64,5 +68,20 @@ public static class OperatorApp
 
         var localConfigPath = Path.Combine(stateRoot, "run", "appsettings.Local.json");
         builder.Configuration.AddJsonFile(localConfigPath, optional: true, reloadOnChange: false);
+    }
+
+    private static void ApplyWorkbenchEnvironmentOverrides(WorkbenchOptions options)
+    {
+        var exchangeRoot = Environment.GetEnvironmentVariable("WINDOWS_OPERATOR_EXCHANGE_ROOT");
+        if (!string.IsNullOrWhiteSpace(exchangeRoot))
+        {
+            options.ExchangeRoot = exchangeRoot;
+        }
+
+        var hostExchangeRoot = Environment.GetEnvironmentVariable("WINDOWS_OPERATOR_HOST_EXCHANGE_ROOT");
+        if (!string.IsNullOrWhiteSpace(hostExchangeRoot))
+        {
+            options.HostExchangeRoot = hostExchangeRoot;
+        }
     }
 }

@@ -49,6 +49,54 @@ public sealed class McpToolCatalog
                 async (arguments, cancellationToken) =>
                     Serialize(await operatorFacade.SendHotkeyAsync(Deserialize<HotkeyRequest>(arguments), cancellationToken))),
             new(
+                new McpToolDefinition("browser_edge_reset", "Hard-reset all Edge browser processes.", BrowserEdgeResetSchema()),
+                async (arguments, cancellationToken) =>
+                    Serialize(await operatorFacade.ResetEdgeBrowserAsync(Deserialize<BrowserEdgeResetRequest>(arguments), cancellationToken))),
+            new(
+                new McpToolDefinition("browser_edge_session_start", "Start an Edge browser session with DevTools enabled.", BrowserEdgeSessionStartSchema()),
+                async (arguments, cancellationToken) =>
+                    Serialize(await operatorFacade.StartEdgeBrowserSessionAsync(Deserialize<BrowserEdgeSessionStartRequest>(arguments), cancellationToken))),
+            new(
+                new McpToolDefinition("browser_edge_session_state", "Read live Edge browser session state.", BrowserEdgeSessionStateSchema()),
+                async (arguments, cancellationToken) =>
+                    Serialize(await operatorFacade.GetEdgeBrowserSessionStateAsync(ReadString(arguments, "sessionId"), cancellationToken))),
+            new(
+                new McpToolDefinition("browser_edge_session_navigate", "Navigate an Edge browser session to a URL.", BrowserEdgeSessionNavigateSchema()),
+                async (arguments, cancellationToken) =>
+                    Serialize(await operatorFacade.NavigateEdgeBrowserSessionAsync(ReadString(arguments, "sessionId"), Deserialize<BrowserEdgeSessionNavigateRequest>(arguments), cancellationToken))),
+            new(
+                new McpToolDefinition("browser_edge_session_dom_click", "Click a DOM element inside an Edge browser session.", BrowserEdgeSessionDomClickSchema()),
+                async (arguments, cancellationToken) =>
+                    Serialize(await operatorFacade.ClickEdgeBrowserDomAsync(ReadString(arguments, "sessionId"), Deserialize<BrowserEdgeSessionDomClickRequest>(arguments), cancellationToken))),
+            new(
+                new McpToolDefinition("browser_edge_session_dom_fill", "Fill a DOM element inside an Edge browser session.", BrowserEdgeSessionDomFillSchema()),
+                async (arguments, cancellationToken) =>
+                    Serialize(await operatorFacade.FillEdgeBrowserDomAsync(ReadString(arguments, "sessionId"), Deserialize<BrowserEdgeSessionDomFillRequest>(arguments), cancellationToken))),
+            new(
+                new McpToolDefinition("browser_edge_session_close", "Close an Edge browser session.", BrowserEdgeSessionStateSchema()),
+                async (arguments, cancellationToken) =>
+                    Serialize(await operatorFacade.CloseEdgeBrowserSessionAsync(ReadString(arguments, "sessionId"), cancellationToken))),
+            new(
+                new McpToolDefinition("auth_microsoft_cleanup", "Close stale Edge Microsoft-auth windows.", MicrosoftAuthCleanupSchema()),
+                async (arguments, cancellationToken) =>
+                    Serialize(await operatorFacade.CleanupMicrosoftAuthWindowsAsync(Deserialize<MicrosoftAuthCleanupRequest>(arguments), cancellationToken))),
+            new(
+                new McpToolDefinition("auth_microsoft_authorize_probe", "Open a Microsoft authorize URL in Edge and observe the resulting redirect state.", MicrosoftAuthorizeProbeSchema()),
+                async (arguments, cancellationToken) =>
+                    Serialize(await operatorFacade.StartMicrosoftAuthorizeProbeAsync(Deserialize<MicrosoftAuthorizeProbeRequest>(arguments), cancellationToken))),
+            new(
+                new McpToolDefinition("auth_microsoft_authorize_probe_status", "Return a Microsoft authorize-probe result. Uses latest when runId is omitted.", MicrosoftAuthorizeProbeStatusSchema()),
+                async (arguments, cancellationToken) =>
+                    Serialize(await operatorFacade.GetMicrosoftAuthorizeProbeStatusAsync(ReadOptionalString(arguments, "runId") ?? "latest", cancellationToken))),
+            new(
+                new McpToolDefinition("auth_microsoft_device_login", "Open Microsoft device-code login in Edge and submit the code.", MicrosoftDeviceLoginSchema()),
+                async (arguments, cancellationToken) =>
+                    Serialize(await operatorFacade.StartMicrosoftDeviceLoginAsync(Deserialize<MicrosoftDeviceLoginRequest>(arguments), cancellationToken))),
+            new(
+                new McpToolDefinition("auth_microsoft_device_login_status", "Return a Microsoft device-code login handoff result. Uses latest when runId is omitted.", MicrosoftDeviceLoginStatusSchema()),
+                async (arguments, cancellationToken) =>
+                    Serialize(await operatorFacade.GetMicrosoftDeviceLoginStatusAsync(ReadOptionalString(arguments, "runId") ?? "latest", cancellationToken))),
+            new(
                 new McpToolDefinition("mail_list_folders", "List Outlook mailbox folders with automatic refresh and recovery.", MailListFoldersSchema()),
                 async (arguments, cancellationToken) =>
                     Serialize(await operatorFacade.ListMailFoldersAsync(Deserialize<MailListFoldersRequest>(arguments), cancellationToken))),
@@ -169,6 +217,23 @@ public sealed class McpToolCatalog
         }
     }
 
+    private static string? ReadOptionalString(JsonObject arguments, string propertyName)
+    {
+        try
+        {
+            var value = arguments[propertyName]?.GetValue<string>();
+            return string.IsNullOrWhiteSpace(value) ? null : value;
+        }
+        catch (FormatException ex)
+        {
+            throw McpProtocolException.InvalidParams(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw McpProtocolException.InvalidParams(ex.Message);
+        }
+    }
+
     private static ScreenshotFormat? ReadFormat(JsonObject arguments)
     {
         if (arguments["format"] is null)
@@ -275,6 +340,165 @@ public sealed class McpToolCatalog
                     ["minItems"] = 1,
                     ["items"] = new JsonObject { ["type"] = "string" },
                 },
+            },
+        };
+
+    private static JsonObject BrowserEdgeResetSchema() =>
+        new()
+        {
+            ["type"] = "object",
+            ["additionalProperties"] = false,
+            ["properties"] = new JsonObject
+            {
+                ["dryRun"] = new JsonObject { ["type"] = "boolean", ["default"] = false },
+            },
+        };
+
+    private static JsonObject BrowserEdgeSessionStartSchema() =>
+        new()
+        {
+            ["type"] = "object",
+            ["additionalProperties"] = false,
+            ["properties"] = new JsonObject
+            {
+                ["sessionId"] = new JsonObject { ["type"] = "string" },
+                ["startUrl"] = new JsonObject { ["type"] = "string", ["default"] = "https://microsoft.com/devicelogin" },
+                ["profileMode"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray("temp", "work"), ["default"] = "temp" },
+                ["pageLoadSeconds"] = new JsonObject { ["type"] = "integer", ["default"] = 4, ["minimum"] = 1, ["maximum"] = 30 },
+                ["inPrivate"] = new JsonObject { ["type"] = "boolean", ["default"] = false },
+                ["dryRun"] = new JsonObject { ["type"] = "boolean", ["default"] = false },
+            },
+        };
+
+    private static JsonObject BrowserEdgeSessionStateSchema() =>
+        new()
+        {
+            ["type"] = "object",
+            ["required"] = new JsonArray("sessionId"),
+            ["additionalProperties"] = false,
+            ["properties"] = new JsonObject
+            {
+                ["sessionId"] = new JsonObject { ["type"] = "string" },
+            },
+        };
+
+    private static JsonObject BrowserEdgeSessionNavigateSchema() =>
+        new()
+        {
+            ["type"] = "object",
+            ["required"] = new JsonArray("sessionId", "url"),
+            ["additionalProperties"] = false,
+            ["properties"] = new JsonObject
+            {
+                ["sessionId"] = new JsonObject { ["type"] = "string" },
+                ["url"] = new JsonObject { ["type"] = "string" },
+                ["waitSeconds"] = new JsonObject { ["type"] = "integer", ["default"] = 2, ["minimum"] = 0, ["maximum"] = 30 },
+            },
+        };
+
+    private static JsonObject BrowserEdgeSessionDomClickSchema() =>
+        new()
+        {
+            ["type"] = "object",
+            ["required"] = new JsonArray("sessionId"),
+            ["additionalProperties"] = false,
+            ["properties"] = new JsonObject
+            {
+                ["sessionId"] = new JsonObject { ["type"] = "string" },
+                ["selector"] = new JsonObject { ["type"] = "string" },
+                ["visibleText"] = new JsonObject { ["type"] = "string" },
+                ["labelText"] = new JsonObject { ["type"] = "string" },
+                ["matchIndex"] = new JsonObject { ["type"] = "integer", ["default"] = 0, ["minimum"] = 0 },
+                ["timeoutSeconds"] = new JsonObject { ["type"] = "integer", ["default"] = 10, ["minimum"] = 1, ["maximum"] = 30 },
+            },
+        };
+
+    private static JsonObject BrowserEdgeSessionDomFillSchema() =>
+        new()
+        {
+            ["type"] = "object",
+            ["required"] = new JsonArray("sessionId", "value"),
+            ["additionalProperties"] = false,
+            ["properties"] = new JsonObject
+            {
+                ["sessionId"] = new JsonObject { ["type"] = "string" },
+                ["selector"] = new JsonObject { ["type"] = "string" },
+                ["visibleText"] = new JsonObject { ["type"] = "string" },
+                ["labelText"] = new JsonObject { ["type"] = "string" },
+                ["value"] = new JsonObject { ["type"] = "string" },
+                ["matchIndex"] = new JsonObject { ["type"] = "integer", ["default"] = 0, ["minimum"] = 0 },
+                ["timeoutSeconds"] = new JsonObject { ["type"] = "integer", ["default"] = 10, ["minimum"] = 1, ["maximum"] = 30 },
+            },
+        };
+
+    private static JsonObject MicrosoftDeviceLoginSchema() =>
+        new()
+        {
+            ["type"] = "object",
+            ["required"] = new JsonArray("deviceCode"),
+            ["additionalProperties"] = false,
+            ["properties"] = new JsonObject
+            {
+                ["deviceCode"] = new JsonObject { ["type"] = "string" },
+                ["runId"] = new JsonObject { ["type"] = "string" },
+                ["loginUrl"] = new JsonObject { ["type"] = "string", ["default"] = "https://microsoft.com/devicelogin" },
+                ["pageLoadSeconds"] = new JsonObject { ["type"] = "integer", ["default"] = 6, ["minimum"] = 1, ["maximum"] = 30 },
+                ["verificationWaitSeconds"] = new JsonObject { ["type"] = "integer", ["default"] = 20, ["minimum"] = 0, ["maximum"] = 120 },
+                ["inPrivate"] = new JsonObject { ["type"] = "boolean", ["default"] = false },
+                ["reuseExistingProfile"] = new JsonObject { ["type"] = "boolean", ["default"] = false },
+                ["dryRun"] = new JsonObject { ["type"] = "boolean", ["default"] = false },
+            },
+        };
+
+    private static JsonObject MicrosoftAuthCleanupSchema() =>
+        new()
+        {
+            ["type"] = "object",
+            ["additionalProperties"] = false,
+            ["properties"] = new JsonObject
+            {
+                ["preserveRecentSeconds"] = new JsonObject { ["type"] = "integer", ["default"] = 0, ["minimum"] = 0, ["maximum"] = 3600 },
+                ["dryRun"] = new JsonObject { ["type"] = "boolean", ["default"] = false },
+            },
+        };
+
+    private static JsonObject MicrosoftAuthorizeProbeSchema() =>
+        new()
+        {
+            ["type"] = "object",
+            ["required"] = new JsonArray("authorizeUrl"),
+            ["additionalProperties"] = false,
+            ["properties"] = new JsonObject
+            {
+                ["authorizeUrl"] = new JsonObject { ["type"] = "string" },
+                ["runId"] = new JsonObject { ["type"] = "string" },
+                ["pageLoadSeconds"] = new JsonObject { ["type"] = "integer", ["default"] = 6, ["minimum"] = 1, ["maximum"] = 30 },
+                ["observationTimeoutSeconds"] = new JsonObject { ["type"] = "integer", ["default"] = 90, ["minimum"] = 1, ["maximum"] = 180 },
+                ["inPrivate"] = new JsonObject { ["type"] = "boolean", ["default"] = false },
+                ["reuseExistingProfile"] = new JsonObject { ["type"] = "boolean", ["default"] = false },
+                ["dryRun"] = new JsonObject { ["type"] = "boolean", ["default"] = false },
+            },
+        };
+
+    private static JsonObject MicrosoftAuthorizeProbeStatusSchema() =>
+        new()
+        {
+            ["type"] = "object",
+            ["additionalProperties"] = false,
+            ["properties"] = new JsonObject
+            {
+                ["runId"] = new JsonObject { ["type"] = "string" },
+            },
+        };
+
+    private static JsonObject MicrosoftDeviceLoginStatusSchema() =>
+        new()
+        {
+            ["type"] = "object",
+            ["additionalProperties"] = false,
+            ["properties"] = new JsonObject
+            {
+                ["runId"] = new JsonObject { ["type"] = "string" },
             },
         };
 

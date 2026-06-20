@@ -6,6 +6,7 @@ Windows-first desktop operator scaffold for local automation. Repo targets a log
 
 - `src/WindowsOperator.Host`: headless REST control plane on loopback `43117`.
 - `src/WindowsOperator.Agent`: interactive desktop worker on loopback `43119`.
+- `src/WindowsOperator.PowerPointAddIn`: Office.js PowerPoint task pane hosted by Host on `https://localhost:3003`.
 - `src/WindowsOperator.Core`: contracts, options, error model, shared orchestration.
 - `src/WindowsOperator.Automation`: Win32 window catalog/activation and FlaUI UIA3 automation backend.
 - `src/WindowsOperator.Capture`: screenshot backend chain and image encoding policy.
@@ -21,20 +22,46 @@ Host REST binds `127.0.0.1:43117` by default and proxies desktop automation to t
 
 - `GET /v1/health`
 - `GET /v1/windows`
+- `GET /v1/desktop/foreground`
+- `POST /v1/desktop/screenshot`
 - `POST /v1/windows/{id}/activate`
 - `GET /v1/windows/{id}/screenshot`
 - `POST /v1/uia/query`
 - `POST /v1/uia/click`
 - `POST /v1/uia/type`
+- `POST /v1/input/click`
 - `POST /v1/input/hotkey`
+- `POST /v1/browser/edge/reset`
+- `POST /v1/browser/edge/open-url`
+- `POST /v1/browser/edge/session/start`
+- `GET /v1/browser/edge/session/{sessionId}/state`
+- `POST /v1/browser/edge/session/{sessionId}/navigate`
+- `POST /v1/browser/edge/session/{sessionId}/dom/click`
+- `POST /v1/browser/edge/session/{sessionId}/dom/fill`
+- `POST /v1/browser/edge/session/{sessionId}/close`
+- `POST /v1/browser/edge/session/{sessionId}/screenshot`
+- `POST /v1/browser/edge/session/{sessionId}/cleanup`
+- `POST /v1/auth/microsoft/cleanup`
+- `POST /v1/auth/microsoft/authorize-probe`
+- `GET /v1/auth/microsoft/authorize-probe/status/latest`
+- `GET /v1/auth/microsoft/authorize-probe/status/{runId}`
 - `POST /v1/auth/microsoft/device-login`
+- `GET /v1/auth/microsoft/device-login/status/latest`
+- `GET /v1/auth/microsoft/device-login/status/{runId}`
+- `POST /v1/powerpoint/jobs`
+- `POST /v1/powerpoint/jobs/claim`
+- `POST /v1/powerpoint/jobs/{jobId}/complete`
+- `POST /v1/powerpoint/jobs/{jobId}/fail`
+- `GET /v1/powerpoint/jobs/{jobId}`
+- `GET /v1/powerpoint/jobs/{jobId}/artifacts/{artifactId}`
 - `POST /v1/mail/folders`
 - `POST /v1/mail/messages/search`
 - `POST /v1/mail/attachments/download`
 - `GET /v1/mail/runs/{runId}`
 - `GET /v1/mail/status`
+- `GET /openapi.json`
 
-MCP tools expose same contract surface:
+MCP tools expose the AI-facing operator subset. PowerPoint mutation stays REST-only unless a direct MCP workflow is added.
 
 - `operator_health`
 - `window_list`
@@ -44,6 +71,18 @@ MCP tools expose same contract surface:
 - `uia_click`
 - `uia_type`
 - `input_hotkey`
+- `browser_edge_reset`
+- `browser_edge_session_start`
+- `browser_edge_session_state`
+- `browser_edge_session_navigate`
+- `browser_edge_session_dom_click`
+- `browser_edge_session_dom_fill`
+- `browser_edge_session_close`
+- `auth_microsoft_cleanup`
+- `auth_microsoft_authorize_probe`
+- `auth_microsoft_authorize_probe_status`
+- `auth_microsoft_device_login`
+- `auth_microsoft_device_login_status`
 - `mail_list_folders`
 - `mail_search_messages`
 - `mail_download_attachments`
@@ -55,6 +94,7 @@ MCP tools expose same contract surface:
 - UI automation backend seam exists, but scaffold ships only `FlaUI.UIA3`.
 - Screenshot backend chain is `WindowsGraphicsCapture -> PrintWindow -> GdiBitBlt`.
 - Default screenshot output is JPEG quality `85`, longest edge `1600px`. PNG available for debugging.
+- Workbench screenshots write files under `runs/<runId>/screenshots/` in `WINDOWS_OPERATOR_EXCHANGE_ROOT` or `Z:\operator-exchange`; Host paths map through `WINDOWS_OPERATOR_HOST_EXCHANGE_ROOT` or `/var/lib/windows-server/shared/operator-exchange`.
 - Active window appears first in window listings. v1 keeps privacy/token scope on active-window capture flow.
 
 ## Provisioning model

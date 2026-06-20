@@ -46,6 +46,13 @@ Backlog from current Windows VM provisioning and automation session.
   - New Outlook unsupported warning
   - Troubleshooting and logs
 
+- Resolve no-secret Graph viability with existing Entra apps.
+  - Target app first: `ams-prd-rpamail` (`4d7414f8-221b-4a9d-9117-1ca3ade51b21`)
+  - Prove live whether existing app can mint delegated `Mail.Read` token without secret
+  - Inspect redirect/public-client shape and classify viable auth mode
+  - Add authorize-probe mode that can reuse existing signed-in Edge work profile
+  - If not viable, close Graph path and keep Outlook/OWA fallback as system truth
+
 ## Windows Provisioning
 
 - Verify `powercfg` guard live on Windows after next bootstrap.

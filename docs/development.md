@@ -11,6 +11,22 @@
 - Desktop session required for automation and screenshots
 - Shared repo path stays source of truth. Windows-local mutable state lives under `%LOCALAPPDATA%\WindowsOperator` unless overridden.
 
+## VM workbench evidence
+
+Use the workbench routes when an external Linux-side tool needs durable visual evidence instead of inline screenshot base64.
+
+```bash
+curl http://127.0.0.1:43117/v1/desktop/foreground
+curl -X POST http://127.0.0.1:43117/v1/desktop/screenshot \
+  -H 'Content-Type: application/json' \
+  -d '{"target":"foreground","runId":"smoke","label":"foreground"}'
+curl -X POST http://127.0.0.1:43117/v1/browser/edge/open-url \
+  -H 'Content-Type: application/json' \
+  -d '{"url":"https://example.com","capture":true,"runId":"smoke","label":"edge-open"}'
+```
+
+Desktop Agent writes screenshots under `WINDOWS_OPERATOR_EXCHANGE_ROOT` or `Z:\operator-exchange`. Host-facing artifact refs map the same relative path under `WINDOWS_OPERATOR_HOST_EXCHANGE_ROOT` or `/var/lib/windows-server/shared/operator-exchange`.
+
 ## Provisioning
 
 Fresh Windows host:
@@ -51,11 +67,96 @@ scripts/linux/windows-run-ps.sh scripts/windows/login-microsoft-device-code.ps1 
 
 The helper schedules itself into the logged-in desktop session and runs the same Edge handoff when REST is unavailable.
 
+Existing signed-in Edge profile reuse:
+
+```bash
+curl -X POST http://127.0.0.1:43117/v1/auth/microsoft/device-login \
+  -H 'Content-Type: application/json' \
+  -d '{"deviceCode":"ABCD-EFGH","reuseExistingProfile":true}'
+```
+
+Use this when the account picker or consent page must reuse the already signed-in Work profile instead of a fresh temporary Edge profile.
+
+Cleanup stale Microsoft-auth Edge windows:
+
+```bash
+scripts/linux/cleanup-microsoft-auth-edge.sh
+```
+
+This closes lingering Edge Microsoft-auth windows opened by prior device-login or authorize-probe runs. Add `--dry-run` to inspect match counts only, or `--preserve-recent-seconds 60` to keep very recent auth windows open.
+
+Graph `Mail.Read` device-code probe:
+
+```bash
+scripts/linux/test-microsoft-graph-mail-read.sh \
+  --tenant-id <tenant-id> \
+  --client-id <client-id> \
+  --handoff windows-script
+```
+
+This helper keeps token polling outside Windows Operator, as intended by the auth architecture, while reusing the Windows desktop browser handoff.
+
+Graph auth-code redirect probe:
+
+```bash
+curl -X POST http://127.0.0.1:43117/v1/auth/microsoft/authorize-probe \
+  -H 'Content-Type: application/json' \
+  -d '{"authorizeUrl":"https://login.microsoftonline.com/<tenant>/oauth2/v2.0/authorize?..."}'
+```
+
+This endpoint opens the authorize URL in Edge, watches the live page URL/title through Edge DevTools, and returns whether a redirect/code/error was observed or the page stayed blocked on user action.
+
+Existing signed-in Edge profile reuse:
+
+```bash
+curl -X POST http://127.0.0.1:43117/v1/auth/microsoft/authorize-probe \
+  -H 'Content-Type: application/json' \
+  -d '{"authorizeUrl":"https://login.microsoftonline.com/<tenant>/oauth2/v2.0/authorize?...","reuseExistingProfile":true}'
+```
+
+Use this when tenant auth must reuse the already signed-in Work profile instead of a fresh temporary Edge profile. Current live result for `ams-prd-rpamail`: saved-account picker appeared, then Microsoft returned `AADSTS500113: No reply address is registered for the application.` after account selection.
+
+Edge work-profile rule:
+
+- On this VM, signed-in Edge profile directory is `Default` under `%LOCALAPPDATA%\\Microsoft\\Edge\\User Data`.
+- Browser session and Microsoft auth work-mode launches should pass explicit `--profile-directory=Default`.
+- Relying on generic work/default launch without explicit profile selection can open Entra at login instead of the already signed-in tenant session.
+
+Auth guardrails:
+
+- Public/delegated flows first. If app reaches token `200` without secret, keep testing.
+- If token leg returns `invalid_client` / `client_secret` / `client_assertion`, stop that app under current constraints.
+- If browser reaches `Need admin approval`, stop that app unless tenant/admin state changes.
+- Token endpoint success is proof. Browser progression alone is not proof.
+- `AADSTS500113` on authorization-code flow means the tested redirect/reply URI is not registered. Avoid that redirect path unless the exact redirect URI is already configured in Entra.
+- Device-code flow does not rely on redirect URI, so auth-code redirect failure does not automatically kill device-code.
+- App-only/client-credentials paths only help if the actual secret or certificate value is already available locally.
+
+## Entra app auditor
+
+Linux-side Entra inspection/probing helper:
+
+```bash
+python3 scripts/linux/audit_entra_apps.py \
+  --tenant-id <tenant-id> \
+  --host-base-url http://127.0.0.1:43117 \
+  --output-root artifacts/entra-audit
+```
+
+Behavior:
+
+- uses browser session REST endpoints, not SSH UI scripts
+- writes resumable state to `run.json`, `summary.json`, `apps.jsonl`
+- writes raw per-app artifacts under `artifacts/<client-id>/`
+- `--metadata-only` skips OAuth probes
+- `--probe-candidates-only` reuses persisted candidates only
+- `--resume` continues prior run state in place
+
 ## PowerPoint automation
 
 PowerPoint slide mutation target architecture lives in [PowerPoint automation target architecture](powerpoint-automation-architecture.md).
 
-High-level rule: external services send typed edit plans through REST, Host proxies, and Desktop Agent executes PowerPoint COM inside the logged-in Windows desktop session. Browser automation may open/authenticate a PowerPoint link, but slide edits use the PowerPoint object model, not web UI clicks.
+High-level rule: external services enqueue typed update jobs through Host REST. Host owns queue and artifact staging. The Office.js add-in claims jobs and mutates the active presentation through `PowerPoint.run`. Browser automation and desktop COM do not mutate slides.
 
 ## Outlook mail automation
 

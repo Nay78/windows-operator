@@ -27,6 +27,18 @@ public sealed class McpToolCatalogTests
                 "uia_click",
                 "uia_type",
                 "input_hotkey",
+                "browser_edge_reset",
+                "browser_edge_session_start",
+                "browser_edge_session_state",
+                "browser_edge_session_navigate",
+                "browser_edge_session_dom_click",
+                "browser_edge_session_dom_fill",
+                "browser_edge_session_close",
+                "auth_microsoft_cleanup",
+                "auth_microsoft_authorize_probe",
+                "auth_microsoft_authorize_probe_status",
+                "auth_microsoft_device_login",
+                "auth_microsoft_device_login_status",
                 "mail_list_folders",
                 "mail_status",
                 "mail_search_messages",
@@ -49,6 +61,22 @@ public sealed class McpToolCatalogTests
         Assert.Contains("hwnd", schemas["window_screenshot"]["required"]!.AsArray().Select(node => node!.GetValue<string>()));
         Assert.Contains("png", schemas["window_screenshot"]["properties"]!["format"]!["enum"]!.AsArray().Select(node => node!.GetValue<string>()));
         Assert.Contains("keys", schemas["input_hotkey"]["required"]!.AsArray().Select(node => node!.GetValue<string>()));
+        Assert.NotNull(schemas["browser_edge_reset"]["properties"]!["dryRun"]);
+        Assert.NotNull(schemas["browser_edge_session_start"]["properties"]!["profileMode"]);
+        Assert.Contains("sessionId", schemas["browser_edge_session_state"]["required"]!.AsArray().Select(node => node!.GetValue<string>()));
+        Assert.Contains("url", schemas["browser_edge_session_navigate"]["required"]!.AsArray().Select(node => node!.GetValue<string>()));
+        Assert.NotNull(schemas["browser_edge_session_dom_click"]["properties"]!["visibleText"]);
+        Assert.Contains("value", schemas["browser_edge_session_dom_fill"]["required"]!.AsArray().Select(node => node!.GetValue<string>()));
+        Assert.NotNull(schemas["auth_microsoft_cleanup"]["properties"]!["preserveRecentSeconds"]);
+        Assert.NotNull(schemas["auth_microsoft_cleanup"]["properties"]!["dryRun"]);
+        Assert.Contains("authorizeUrl", schemas["auth_microsoft_authorize_probe"]["required"]!.AsArray().Select(node => node!.GetValue<string>()));
+        Assert.NotNull(schemas["auth_microsoft_authorize_probe"]["properties"]!["observationTimeoutSeconds"]);
+        Assert.NotNull(schemas["auth_microsoft_authorize_probe"]["properties"]!["reuseExistingProfile"]);
+        Assert.NotNull(schemas["auth_microsoft_authorize_probe_status"]["properties"]!["runId"]);
+        Assert.Contains("deviceCode", schemas["auth_microsoft_device_login"]["required"]!.AsArray().Select(node => node!.GetValue<string>()));
+        Assert.NotNull(schemas["auth_microsoft_device_login"]["properties"]!["verificationWaitSeconds"]);
+        Assert.NotNull(schemas["auth_microsoft_device_login"]["properties"]!["reuseExistingProfile"]);
+        Assert.NotNull(schemas["auth_microsoft_device_login_status"]["properties"]!["runId"]);
         Assert.NotNull(schemas["mail_list_folders"]["properties"]!["freshness"]);
         Assert.NotNull(schemas["mail_search_messages"]["properties"]!["folderPath"]);
         Assert.NotNull(schemas["mail_search_messages"]["properties"]!["freshness"]);
@@ -109,6 +137,72 @@ public sealed class McpToolCatalogTests
     }
 
     [Fact]
+    public async Task MicrosoftAuthorizeProbe_DeserializesRequest()
+    {
+        var facade = new FakeOperatorFacade();
+        var catalog = new McpToolCatalog(facade);
+
+        var node = await catalog.ExecuteToolAsync(
+            "auth_microsoft_authorize_probe",
+            new JsonObject
+            {
+                ["authorizeUrl"] = "https://login.microsoftonline.com/tenant/oauth2/v2.0/authorize",
+                ["observationTimeoutSeconds"] = 45,
+                ["reuseExistingProfile"] = true,
+            },
+            CancellationToken.None);
+        var result = node!.Deserialize<MicrosoftAuthorizeProbeResult>(OperatorJson.SerializerOptions);
+
+        Assert.Equal("https://login.microsoftonline.com/tenant/oauth2/v2.0/authorize", facade.LastAuthorizeProbe?.AuthorizeUrl);
+        Assert.Equal(45, facade.LastAuthorizeProbe?.ObservationTimeoutSeconds);
+        Assert.True(facade.LastAuthorizeProbe?.ReuseExistingProfile);
+        Assert.Equal(MicrosoftAuthorizeProbeStatus.Opened, result!.Status);
+    }
+
+    [Fact]
+    public async Task MicrosoftAuthCleanup_DeserializesRequest()
+    {
+        var facade = new FakeOperatorFacade();
+        var catalog = new McpToolCatalog(facade);
+
+        var node = await catalog.ExecuteToolAsync(
+            "auth_microsoft_cleanup",
+            new JsonObject
+            {
+                ["preserveRecentSeconds"] = 45,
+                ["dryRun"] = true,
+            },
+            CancellationToken.None);
+        var result = node!.Deserialize<MicrosoftAuthCleanupResult>(OperatorJson.SerializerOptions);
+
+        Assert.Equal(45, facade.LastAuthCleanup?.PreserveRecentSeconds);
+        Assert.True(facade.LastAuthCleanup?.DryRun);
+        Assert.Equal(3, result!.MatchedWindows);
+    }
+
+    [Fact]
+    public async Task BrowserEdgeSessionStart_DeserializesRequest()
+    {
+        var facade = new FakeOperatorFacade();
+        var catalog = new McpToolCatalog(facade);
+
+        var node = await catalog.ExecuteToolAsync(
+            "browser_edge_session_start",
+            new JsonObject
+            {
+                ["sessionId"] = "entra-session",
+                ["startUrl"] = "https://microsoft.com/devicelogin",
+                ["profileMode"] = "work",
+            },
+            CancellationToken.None);
+        var result = node!.Deserialize<BrowserEdgeSessionStateResult>(OperatorJson.SerializerOptions);
+
+        Assert.Equal("entra-session", facade.LastBrowserSessionStart?.SessionId);
+        Assert.Equal(BrowserEdgeProfileMode.Work, facade.LastBrowserSessionStart?.ProfileMode);
+        Assert.True(result!.IsAlive);
+    }
+
+    [Fact]
     public async Task ExecuteToolAsync_UnknownTool_ThrowsMethodNotFound()
     {
         var catalog = new McpToolCatalog(new FakeOperatorFacade());
@@ -165,6 +259,12 @@ public sealed class McpToolCatalogTests
 
         public MailSearchRequest? LastMailSearch { get; private set; }
 
+        public MicrosoftAuthorizeProbeRequest? LastAuthorizeProbe { get; private set; }
+
+        public MicrosoftAuthCleanupRequest? LastAuthCleanup { get; private set; }
+
+        public BrowserEdgeSessionStartRequest? LastBrowserSessionStart { get; private set; }
+
         public Task<HealthResult> GetHealthAsync(CancellationToken cancellationToken) =>
             Task.FromResult(
                 new HealthResult(
@@ -211,11 +311,216 @@ public sealed class McpToolCatalogTests
         public Task<ActionResult> TypeUiAsync(UiaTypeRequest request, CancellationToken cancellationToken) =>
             Task.FromResult(new ActionResult(true, "typed"));
 
+        public Task<ActionResult> ClickScreenAsync(ScreenClickRequest request, CancellationToken cancellationToken) =>
+            Task.FromResult(new ActionResult(true, $"screen-clicked:{request.X},{request.Y}"));
+
         public Task<ActionResult> SendHotkeyAsync(HotkeyRequest request, CancellationToken cancellationToken)
         {
             LastHotkeyKeys = request.Keys;
             return Task.FromResult(new ActionResult(true, string.Join("+", request.Keys)));
         }
+
+        public Task<BrowserEdgeResetResult> ResetEdgeBrowserAsync(
+            BrowserEdgeResetRequest request,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new BrowserEdgeResetResult(
+                true,
+                2,
+                request.DryRun ? 0 : 2,
+                new[] { request.DryRun ? "edge_reset_dry_run" : "edge_reset:matched=2;killed=2;failed=0" },
+                Array.Empty<string>(),
+                DateTimeOffset.Parse("2026-05-25T12:00:00Z")));
+
+        public Task<BrowserEdgeSessionStateResult> StartEdgeBrowserSessionAsync(
+            BrowserEdgeSessionStartRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastBrowserSessionStart = request;
+            return Task.FromResult(new BrowserEdgeSessionStateResult(
+                true,
+                request.SessionId ?? "edge-session-run",
+                request.ProfileMode,
+                request.InPrivate,
+                !request.DryRun,
+                new[] { request.DryRun ? "browser_session_dry_run" : "session_started" },
+                Array.Empty<string>(),
+                DateTimeOffset.Parse("2026-05-25T12:01:00Z"),
+                777,
+                888L,
+                "Enter code - Microsoft Edge",
+                request.StartUrl,
+                "Use a code",
+                new[] { new BrowserEdgeSessionElementRef("input", "text", "code", "code", "otc", "otc") },
+                9222,
+                request.DryRun ? "dry_run" : "page_ready",
+                @"C:\Users\fake\AppData\Local\WindowsOperator\run\browser\edge-sessions\edge-session-run\state.json"));
+        }
+
+        public Task<BrowserEdgeSessionStateResult> GetEdgeBrowserSessionStateAsync(
+            string sessionId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new BrowserEdgeSessionStateResult(
+                true,
+                sessionId,
+                BrowserEdgeProfileMode.Work,
+                false,
+                true,
+                new[] { "session_state_observed" },
+                Array.Empty<string>(),
+                DateTimeOffset.Parse("2026-05-25T12:02:00Z"),
+                777,
+                888L,
+                "Enter code - Microsoft Edge",
+                "https://microsoft.com/devicelogin",
+                "Use a code",
+                Array.Empty<BrowserEdgeSessionElementRef>(),
+                9222,
+                "page_ready",
+                $@"C:\Users\fake\AppData\Local\WindowsOperator\run\browser\edge-sessions\{sessionId}\state.json"));
+
+        public Task<BrowserEdgeSessionStateResult> NavigateEdgeBrowserSessionAsync(
+            string sessionId,
+            BrowserEdgeSessionNavigateRequest request,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new BrowserEdgeSessionStateResult(
+                true,
+                sessionId,
+                BrowserEdgeProfileMode.Work,
+                false,
+                true,
+                new[] { "navigate_requested", "navigate_dispatched", "navigation_observed" },
+                Array.Empty<string>(),
+                DateTimeOffset.Parse("2026-05-25T12:03:00Z"),
+                777,
+                888L,
+                "Navigate - Microsoft Edge",
+                request.Url,
+                "Target page",
+                Array.Empty<BrowserEdgeSessionElementRef>(),
+                9222,
+                "page_ready",
+                $@"C:\Users\fake\AppData\Local\WindowsOperator\run\browser\edge-sessions\{sessionId}\state.json"));
+
+        public Task<BrowserEdgeSessionDomActionResult> ClickEdgeBrowserDomAsync(
+            string sessionId,
+            BrowserEdgeSessionDomClickRequest request,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new BrowserEdgeSessionDomActionResult(
+                true,
+                sessionId,
+                "click",
+                new[] { "click_requested", "click_dispatched" },
+                Array.Empty<string>(),
+                DateTimeOffset.Parse("2026-05-25T12:04:00Z"),
+                request.Selector is null ? "visibleText" : "selector",
+                request.VisibleText ?? request.Selector,
+                "button",
+                "https://microsoft.com/devicelogin",
+                "Enter code - Microsoft Edge",
+                "Use a code",
+                $@"C:\Users\fake\AppData\Local\WindowsOperator\run\browser\edge-sessions\{sessionId}\state.json"));
+
+        public Task<BrowserEdgeSessionDomActionResult> FillEdgeBrowserDomAsync(
+            string sessionId,
+            BrowserEdgeSessionDomFillRequest request,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new BrowserEdgeSessionDomActionResult(
+                true,
+                sessionId,
+                "fill",
+                new[] { "fill_requested", "fill_dispatched" },
+                Array.Empty<string>(),
+                DateTimeOffset.Parse("2026-05-25T12:05:00Z"),
+                request.Selector is null ? "labelText" : "selector",
+                request.LabelText ?? request.Selector,
+                "input",
+                "https://microsoft.com/devicelogin",
+                "Enter code - Microsoft Edge",
+                request.Value,
+                $@"C:\Users\fake\AppData\Local\WindowsOperator\run\browser\edge-sessions\{sessionId}\state.json"));
+
+        public Task<BrowserEdgeSessionStateResult> CloseEdgeBrowserSessionAsync(
+            string sessionId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new BrowserEdgeSessionStateResult(
+                true,
+                sessionId,
+                BrowserEdgeProfileMode.Work,
+                false,
+                false,
+                new[] { "session_window_closed" },
+                Array.Empty<string>(),
+                DateTimeOffset.Parse("2026-05-25T12:06:00Z"),
+                777,
+                888L,
+                "Enter code - Microsoft Edge",
+                "https://microsoft.com/devicelogin",
+                null,
+                null,
+                9222,
+                "session_closed",
+                $@"C:\Users\fake\AppData\Local\WindowsOperator\run\browser\edge-sessions\{sessionId}\state.json"));
+
+        public Task<MicrosoftAuthCleanupResult> CleanupMicrosoftAuthWindowsAsync(
+            MicrosoftAuthCleanupRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastAuthCleanup = request;
+            return Task.FromResult(new MicrosoftAuthCleanupResult(
+                true,
+                3,
+                request.DryRun ? 0 : 3,
+                0,
+                0,
+                new[] { request.DryRun ? "cleanup_dry_run" : "auth_window_cleanup:matched=3;closed=3;preserved=0;failed=0" },
+                Array.Empty<string>(),
+                DateTimeOffset.Parse("2026-05-22T12:00:00Z")));
+        }
+
+        public Task<MicrosoftAuthorizeProbeResult> StartMicrosoftAuthorizeProbeAsync(
+            MicrosoftAuthorizeProbeRequest request,
+            CancellationToken cancellationToken)
+        {
+            LastAuthorizeProbe = request;
+            return Task.FromResult(new MicrosoftAuthorizeProbeResult(
+                true,
+                request.AuthorizeUrl,
+                request.InPrivate,
+                new[] { request.DryRun ? "dry_run" : "edge_opened" },
+                Array.Empty<string>(),
+                DateTimeOffset.Parse("2026-05-18T01:10:00Z"),
+                request.RunId ?? "auth-probe-run",
+                request.DryRun ? MicrosoftAuthorizeProbeStatus.DryRun : MicrosoftAuthorizeProbeStatus.Opened,
+                request.DryRun ? "dry_run" : "browser_opened",
+                request.DryRun ? null : "Sign in - Microsoft Edge",
+                request.DryRun ? null : request.AuthorizeUrl,
+                request.DryRun ? null : "https://login.microsoftonline.com",
+                null,
+                false,
+                DateTimeOffset.Parse("2026-05-18T01:10:01Z"),
+                @"C:\Users\fake\AppData\Local\WindowsOperator\run\auth\microsoft-authorize-probe\auth-probe-run\result.json"));
+        }
+
+        public Task<MicrosoftAuthorizeProbeResult> GetMicrosoftAuthorizeProbeStatusAsync(
+            string runId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new MicrosoftAuthorizeProbeResult(
+                true,
+                "https://login.microsoftonline.com/tenant/oauth2/v2.0/authorize",
+                false,
+                new[] { "edge_opened", "observed_url", "browser_observed:Opened" },
+                Array.Empty<string>(),
+                DateTimeOffset.Parse("2026-05-18T01:11:00Z"),
+                runId,
+                MicrosoftAuthorizeProbeStatus.Opened,
+                "browser_opened",
+                "Sign in - Microsoft Edge",
+                "https://login.microsoftonline.com/tenant/oauth2/v2.0/authorize",
+                "https://login.microsoftonline.com",
+                null,
+                false,
+                DateTimeOffset.Parse("2026-05-18T01:11:01Z"),
+                $@"C:\Users\fake\AppData\Local\WindowsOperator\run\auth\microsoft-authorize-probe\{runId}\result.json"));
 
         public Task<MicrosoftDeviceLoginResult> StartMicrosoftDeviceLoginAsync(
             MicrosoftDeviceLoginRequest request,
@@ -226,44 +531,30 @@ public sealed class McpToolCatalogTests
                 request.InPrivate,
                 new[] { request.DryRun ? "dry_run" : "device_code_submitted" },
                 Array.Empty<string>(),
-                DateTimeOffset.Parse("2026-04-26T20:13:00Z")));
+                DateTimeOffset.Parse("2026-04-26T20:13:00Z"),
+                request.RunId ?? "fake-run",
+                request.DryRun ? MicrosoftDeviceLoginStatus.DryRun : MicrosoftDeviceLoginStatus.Submitted,
+                request.DryRun ? "dry_run" : "browser_title_observed",
+                request.DryRun ? null : "Enter code - Microsoft Edge",
+                DateTimeOffset.Parse("2026-04-26T20:13:01Z"),
+                @"C:\Users\fake\AppData\Local\WindowsOperator\run\auth\microsoft-device-login\fake-run\result.json"));
 
-        public Task<PowerPointInspectResult> InspectPowerPointAsync(
-            PowerPointInspectRequest request,
+        public Task<MicrosoftDeviceLoginResult> GetMicrosoftDeviceLoginStatusAsync(
+            string runId,
             CancellationToken cancellationToken) =>
-            Task.FromResult(new PowerPointInspectResult(
+            Task.FromResult(new MicrosoftDeviceLoginResult(
                 true,
-                new PowerPointPresentationRef("report.pptx", request.PresentationPath ?? request.PresentationUrl ?? request.ExchangePath, 0),
-                Array.Empty<PowerPointSlideRef>(),
+                "https://microsoft.com/devicelogin",
+                false,
+                new[] { "device_code_submitted", "browser_observed:Submitted" },
                 Array.Empty<string>(),
-                Array.Empty<string>(),
-                DateTimeOffset.Parse("2026-04-26T20:18:00Z")));
-
-        public Task<PowerPointEditResult> EditPowerPointAsync(
-            PowerPointEditRequest request,
-            CancellationToken cancellationToken) =>
-            Task.FromResult(new PowerPointEditResult(
-                true,
-                request.DryRun,
-                "powerpoint-test",
-                request.PresentationPath ?? request.PresentationUrl ?? request.ExchangePath,
-                request.OutputPath,
-                Array.Empty<PowerPointEditOutcome>(),
-                Array.Empty<string>(),
-                Array.Empty<string>(),
-                DateTimeOffset.Parse("2026-04-26T20:19:00Z")));
-
-        public Task<PowerPointEditResult> GetPowerPointJobAsync(string jobId, CancellationToken cancellationToken) =>
-            Task.FromResult(new PowerPointEditResult(
-                true,
-                true,
-                jobId,
-                "report.pptx",
-                null,
-                Array.Empty<PowerPointEditOutcome>(),
-                Array.Empty<string>(),
-                Array.Empty<string>(),
-                DateTimeOffset.Parse("2026-04-26T20:20:00Z")));
+                DateTimeOffset.Parse("2026-04-26T20:14:00Z"),
+                runId,
+                MicrosoftDeviceLoginStatus.Submitted,
+                "browser_title_observed",
+                "Enter code - Microsoft Edge",
+                DateTimeOffset.Parse("2026-04-26T20:14:01Z"),
+                $@"C:\Users\fake\AppData\Local\WindowsOperator\run\auth\microsoft-device-login\{runId}\result.json"));
 
         public Task<MailFoldersResult> ListMailFoldersAsync(MailListFoldersRequest request, CancellationToken cancellationToken) =>
             Task.FromResult(new MailFoldersResult(
@@ -288,6 +579,7 @@ public sealed class McpToolCatalogTests
                         request.FolderPath ?? "mailbox/Bandeja de entrada",
                         request.SubjectContains ?? "Daily report",
                         DateTimeOffset.Parse("2026-04-26T20:14:25Z"),
+                        DateTimeOffset.Parse("2026-04-26T20:16:15Z"),
                         1,
                         new[] { new MailAttachmentRef(1, "report.pdf", ".pdf", 1234) }),
                 },

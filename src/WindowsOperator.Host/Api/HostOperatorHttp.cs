@@ -15,11 +15,14 @@ public static class HostOperatorHttp
         }
         catch (OperatorFailureException failure)
         {
-            return TypedResults.Json(failure.Error, statusCode: MapStatusCode(failure.Error.Code));
+            return Error(failure);
         }
     }
 
-    private static int MapStatusCode(string errorCode) =>
+    public static JsonHttpResult<OperatorError> Error(OperatorFailureException failure) =>
+        TypedResults.Json(failure.Error, statusCode: MapStatusCode(failure.Error.Code));
+
+    public static int MapStatusCode(string errorCode) =>
         errorCode switch
         {
             ErrorCodes.WindowNotFound => StatusCodes.Status404NotFound,

@@ -8,6 +8,29 @@ namespace WindowsOperator.Automation.Services;
 
 public sealed class HotkeyInputService : IInputService
 {
+    public Task<ActionResult> ClickScreenAsync(ScreenClickRequest request, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!OperatingSystem.IsWindows())
+        {
+            throw new OperatorFailureException(
+                OperatorErrors.UnsupportedControl("Screen click requires Windows desktop session."));
+        }
+
+        Mouse.MoveTo(request.X, request.Y);
+        if (request.DoubleClick)
+        {
+            Mouse.DoubleClick();
+        }
+        else
+        {
+            Mouse.Click();
+        }
+
+        return Task.FromResult(new ActionResult(true, "Screen click dispatched."));
+    }
+
     public Task<ActionResult> SendHotkeyAsync(HotkeyRequest request, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();

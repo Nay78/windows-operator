@@ -248,14 +248,11 @@ Default for normal mail calls should be `soft`. Escalation to `restart` or `forc
 
 ## Configuration
 
-Suggested config:
+Supported config:
 
 ```json
 {
   "Mail": {
-    "AutoSyncBeforeFolderRead": true,
-    "AutoSyncBeforeSearch": true,
-    "AutoSyncBeforeDownload": true,
     "SyncFreshnessSeconds": 300,
     "SyncWaitSeconds": 45,
     "ForceSyncWhenFolderMissing": true,

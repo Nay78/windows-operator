@@ -14,7 +14,7 @@ public sealed class MailOptions
 
     public bool AllowAutomaticSoftRecovery { get; set; } = true;
 
-    public bool AllowAutomaticRestart { get; set; } = true;
+    public bool AllowAutomaticRestart { get; set; } = false;
 
-    public bool AllowAutomaticForceKill { get; set; } = true;
+    public bool AllowAutomaticForceKill { get; set; } = false;
 }
