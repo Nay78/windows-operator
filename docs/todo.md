@@ -2,34 +2,40 @@
 
 Backlog from current Windows VM provisioning and automation session.
 
+## Verified 2026-06-20
+
+- Live Windows VM reachability confirmed:
+  - SSH `127.0.0.1:22555`
+  - RDP `127.0.0.1:33895`
+  - Operator health `http://127.0.0.1:43117/v1/health`
+  - Codex app-server tunnel `127.0.0.1:43118` returns the expected WebSocket-upgrade error to plain HTTP
+
+- Windows script runner verified live through `scripts/linux/windows-run-ps.sh`.
+  - Stages only repo-owned PowerShell scripts from `scripts/windows`
+  - Writes stdout/stderr/request/result JSON to `operator-exchange/runs/<run-id>`
+  - Latest Host registration run: `codex-live-register-host-proxy-20260620T214556Z`
+
+- Host/Agent live validation passed:
+  - OpenAPI: 39 paths
+  - UIA query returned live window elements
+  - Desktop and Edge screenshots wrote artifacts under `operator-exchange/runs`
+  - Edge session start/click/fill/screenshot/cleanup passed
+  - Mail cached negative search returned 0 messages without error
+  - PowerPoint job enqueue/get/artifact/claim/fail/get passed
+  - PowerPoint add-in HTTPS served `https://localhost:3003/taskpane.html` from the Host scheduled task
+
 ## High Priority
 
-- Add Linux-visible operator exchange root.
-  - Linux path: `/var/lib/windows-server/shared/operator-exchange`
+- Decide final operator exchange root shape.
+  - Linux path exists: `/var/lib/windows-server/shared/operator-exchange`
   - Windows path: `Z:\operator-exchange`
-  - Subdirs: `inbox`, `outbox`, `logs`, `downloads`, `runs`, `screenshots`
-
-- Add Linux host tunnel for Windows Operator REST.
-  - Host `127.0.0.1:43117`
-  - Windows `127.0.0.1:43117`
-  - Same wait/reconnect behavior as Codex app-server tunnel
-
-- Verify script runner for Linux-to-Windows debugging on live VM.
-  - Path: `scripts/linux/windows-run-ps.sh`
-  - Stages only repo-owned PowerShell scripts from `scripts/windows`
-  - Writes transcript/stdout/stderr/request/result JSON to `operator-exchange/runs/<run-id>`
-  - Returns nonzero on failure
+  - Live subdirs in use: `downloads`, `runs`
+  - Decide whether root-level `inbox`, `outbox`, `logs`, and `screenshots` are still required or obsolete
 
 - Rebuild/switch NixOS host with latest VM hardening.
   - `windows-server.service`: no start-limit, restart always
   - `windows-server-virtiofsd.service`: no start-limit, restart always, stale socket cleanup
   - `windows-server-codex-app-server-tunnel.service`: no start-limit
-
-- After host switch, recover live Windows VM and confirm:
-  - SSH `127.0.0.1:22555`
-  - RDP `127.0.0.1:33895`
-  - Operator health `127.0.0.1:43117`
-  - Codex app-server `127.0.0.1:43118`
 
 ## Email Attachment Automation
 
@@ -50,7 +56,7 @@ Backlog from current Windows VM provisioning and automation session.
   - Target app first: `ams-prd-rpamail` (`4d7414f8-221b-4a9d-9117-1ca3ade51b21`)
   - Prove live whether existing app can mint delegated `Mail.Read` token without secret
   - Inspect redirect/public-client shape and classify viable auth mode
-  - Add authorize-probe mode that can reuse existing signed-in Edge work profile
+  - Authorize-probe mode can reuse existing signed-in Edge work profile
   - If not viable, close Graph path and keep Outlook/OWA fallback as system truth
 
 ## Windows Provisioning
@@ -83,6 +89,7 @@ Backlog from current Windows VM provisioning and automation session.
   - Task status
 
 - Add screenshot capture smoke against Notepad.
+  - Ad hoc live capture passed against foreground window and Edge
   - Open Notepad
   - List windows
   - Activate
