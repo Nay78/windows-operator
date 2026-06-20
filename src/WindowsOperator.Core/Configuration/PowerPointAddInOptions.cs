@@ -4,6 +4,8 @@ public sealed class PowerPointAddInOptions
 {
     public const string SectionName = "PowerPointAddIn";
 
+    public bool Enabled { get; set; }
+
     public string BaseUrl { get; set; } = "https://localhost:3003";
 
     public string StaticRoot { get; set; } = string.Empty;

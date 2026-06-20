@@ -1,5 +1,6 @@
 using FlaUI.Core;
 using FlaUI.Core.AutomationElements;
+using FlaUI.Core.Exceptions;
 using FlaUI.Core.Input;
 using FlaUI.Core.WindowsAPI;
 using FlaUI.UIA3;
@@ -129,25 +130,25 @@ public sealed class FlaUiUia3AutomationBackend : IUiAutomationBackend
 
     private static bool Matches(AutomationElement element, UiQuery query)
     {
-        if (!query.IncludeOffscreen && element.IsOffscreen)
+        if (!query.IncludeOffscreen && ReadProperty(element, item => item.IsOffscreen, false))
         {
             return false;
         }
 
         if (!string.IsNullOrWhiteSpace(query.Name) &&
-            !string.Equals(element.Name, query.Name, StringComparison.OrdinalIgnoreCase))
+            !string.Equals(ReadProperty(element, item => item.Name, string.Empty), query.Name, StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
 
         if (!string.IsNullOrWhiteSpace(query.AutomationId) &&
-            !string.Equals(element.AutomationId, query.AutomationId, StringComparison.OrdinalIgnoreCase))
+            !string.Equals(ReadProperty(element, item => item.AutomationId, string.Empty), query.AutomationId, StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
 
         if (!string.IsNullOrWhiteSpace(query.ControlType) &&
-            !string.Equals(element.ControlType.ToString(), query.ControlType, StringComparison.OrdinalIgnoreCase))
+            !string.Equals(ReadProperty(element, item => item.ControlType.ToString(), string.Empty), query.ControlType, StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
@@ -157,14 +158,26 @@ public sealed class FlaUiUia3AutomationBackend : IUiAutomationBackend
 
     private static UiElementRef Map(AutomationElement element)
     {
-        var rect = element.BoundingRectangle;
+        var rect = ReadProperty(element, item => item.BoundingRectangle, default);
         return new UiElementRef(
             element.GetHashCode().ToString(System.Globalization.CultureInfo.InvariantCulture),
-            element.Name ?? string.Empty,
-            element.AutomationId ?? string.Empty,
-            element.ControlType.ToString(),
-            element.IsEnabled,
-            element.IsOffscreen,
+            ReadProperty(element, item => item.Name, string.Empty) ?? string.Empty,
+            ReadProperty(element, item => item.AutomationId, string.Empty) ?? string.Empty,
+            ReadProperty(element, item => item.ControlType.ToString(), string.Empty),
+            ReadProperty(element, item => item.IsEnabled, false),
+            ReadProperty(element, item => item.IsOffscreen, false),
             new WindowBounds((int)rect.X, (int)rect.Y, (int)rect.Width, (int)rect.Height));
+    }
+
+    private static T ReadProperty<T>(AutomationElement element, Func<AutomationElement, T> read, T fallback)
+    {
+        try
+        {
+            return read(element);
+        }
+        catch (PropertyNotSupportedException)
+        {
+            return fallback;
+        }
     }
 }

@@ -35,7 +35,7 @@ Fresh Windows host:
 powershell -ExecutionPolicy Bypass -File .\scripts\windows\bootstrap.ps1 -RepoRoot \\server\share\windows-operator -EnableAutostart
 ```
 
-Bootstrap creates local state directories for .NET home, NuGet cache, build outputs, logs, and run wrappers. Local machine overrides belong in `%LOCALAPPDATA%\WindowsOperator\run\appsettings.Local.json`.
+Bootstrap creates local state directories for .NET home, NuGet cache, build outputs, logs, and run wrappers. Agent local machine overrides belong in `%LOCALAPPDATA%\WindowsOperator\run\appsettings.Local.json`. Host autostart overrides are generated under `%ProgramData%\WindowsOperator\run\host.appsettings.Local.json` by `scripts/windows/register-host-autostart.ps1`.
 
 VM bootstrap also installs Codex CLI and registers `Codex.AppServer`:
 
@@ -46,6 +46,39 @@ powershell -ExecutionPolicy Bypass -File .\scripts\windows\bootstrap-codex.ps1 -
 Codex mutable state lives under `%LOCALAPPDATA%\Codex`. Run `codex login` manually in the Windows desktop session; provisioning never writes credentials. The task starts `codex app-server --listen ws://127.0.0.1:43118` only after login is present. Linux host access uses the NixOS SSH tunnel on `127.0.0.1:43118`.
 
 Bootstrap also makes `codex` usable from normal Windows shells by persisting `%LOCALAPPDATA%\Codex\npm-global` on the user `PATH` and placing forwarding shims in `%APPDATA%\npm`.
+
+## Live validation checklist
+
+Use this after changing Host/Agent routes, scheduled tasks, tunnels, browser automation, mail, or PowerPoint queue behavior. These checks prove live Windows runtime behavior, not only serialization.
+
+```bash
+curl http://127.0.0.1:43117/v1/health
+curl http://127.0.0.1:43117/openapi.json | jq '.paths | length'
+curl -i http://127.0.0.1:43118/
+curl -X POST http://127.0.0.1:43117/v1/uia/query \
+  -H 'Content-Type: application/json' \
+  -d '{"controlType":"Window","includeOffscreen":false,"maxResults":5}'
+curl -X POST http://127.0.0.1:43117/v1/browser/edge/session/start \
+  -H 'Content-Type: application/json' \
+  -d '{"sessionId":"smoke-edge","startUrl":"https://example.com","profileMode":"temp","pageLoadSeconds":5}'
+curl -X POST http://127.0.0.1:43117/v1/mail/messages/search \
+  -H 'Content-Type: application/json' \
+  -d '{"subjectContains":"__windows_operator_smoke_no_match__","maxResults":1,"freshness":"cached"}'
+job_id="smoke-ppt-$(date -u +%Y%m%dT%H%M%SZ)"
+curl -X POST http://127.0.0.1:43117/v1/powerpoint/jobs \
+  -H 'Content-Type: application/json' \
+  -d "{\"jobId\":\"$job_id\",\"requestedBy\":\"smoke\",\"operations\":[{\"kind\":\"replaceImage\",\"targetId\":\"live-image-target\",\"artifact\":{\"artifactId\":\"pixel\",\"url\":\"data:image/png;base64,AQID\",\"mediaType\":\"image/png\"}}]}"
+```
+
+Expected results:
+
+- Host health returns `status=ok` and `runtimeMode=headless-host`.
+- OpenAPI currently exposes 39 paths.
+- Codex app-server tunnel returns HTTP `400` with an Upgrade-header message when queried without WebSocket upgrade.
+- UIA query returns window elements, not a bare `500`.
+- Edge session reaches `page_ready`; clean it with `POST /v1/browser/edge/session/{sessionId}/cleanup`.
+- Cached mail negative search returns `200` with zero messages when mailbox cache is healthy.
+- PowerPoint queue accepts the job; then claim/fail or complete it so no smoke job remains queued.
 
 ## Microsoft device login
 

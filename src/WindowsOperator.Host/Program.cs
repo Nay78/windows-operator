@@ -19,7 +19,13 @@ builder.Services.Configure<PowerPointAddInOptions>(builder.Configuration.GetSect
 
 var options = builder.Configuration.GetSection(OperatorOptions.SectionName).Get<OperatorOptions>() ?? new OperatorOptions();
 var addInOptions = builder.Configuration.GetSection(PowerPointAddInOptions.SectionName).Get<PowerPointAddInOptions>() ?? new PowerPointAddInOptions();
-builder.WebHost.UseUrls(new[] { options.RestBaseUrl, addInOptions.BaseUrl }.Distinct(StringComparer.OrdinalIgnoreCase).ToArray());
+var urls = new List<string> { options.RestBaseUrl };
+if (addInOptions.Enabled && !string.IsNullOrWhiteSpace(addInOptions.BaseUrl))
+{
+    urls.Add(addInOptions.BaseUrl);
+}
+
+builder.WebHost.UseUrls(urls.Distinct(StringComparer.OrdinalIgnoreCase).ToArray());
 
 builder.Services.AddHttpClient<DesktopAgentClient>();
 builder.Services.AddHttpClient("powerpoint-artifacts");
@@ -40,6 +46,11 @@ await app.RunAsync();
 static void MapPowerPointAddInStaticFiles(WebApplication app)
 {
     var options = app.Services.GetRequiredService<IOptions<PowerPointAddInOptions>>().Value;
+    if (!options.Enabled)
+    {
+        return;
+    }
+
     var staticRoot = ResolvePowerPointAddInStaticRoot(app.Environment.ContentRootPath, options.StaticRoot);
     if (!Directory.Exists(staticRoot))
     {

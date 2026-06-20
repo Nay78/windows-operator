@@ -113,7 +113,7 @@ Provision a fresh Windows workstation with:
 powershell -ExecutionPolicy Bypass -File .\scripts\windows\bootstrap.ps1 -RepoRoot \\server\share\windows-operator -EnableAutostart
 ```
 
-Autostart uses two Task Scheduler entries. `WindowsOperator.Host` runs at startup as SYSTEM from a local published copy. `WindowsOperator.Agent` runs only in the logged-in desktop session, unelevated, after a 30 second delay.
+Autostart uses two Task Scheduler entries. `WindowsOperator.Host` runs at startup as SYSTEM from a local published copy. Host REST always binds `127.0.0.1:43117`; PowerPoint add-in HTTPS on `https://localhost:3003` is enabled only when `register-host-autostart.ps1` stages a built add-in and localhost certificate. `WindowsOperator.Agent` runs only in the logged-in desktop session, unelevated, after a 30 second delay.
 
 The VM bootstrap wrapper also provisions Codex CLI under `%LOCALAPPDATA%\Codex`, using a local npm prefix/cache and a per-user `Codex.AppServer` scheduled task:
 
@@ -193,7 +193,7 @@ For Outlook profile recovery when REST mail calls are degraded:
 scripts/linux/windows-run-ps.sh scripts/windows/recover-outlook-mail.ps1 -Mode Profile
 ```
 
-Machine-local overrides belong in `%LOCALAPPDATA%\WindowsOperator\run\appsettings.Local.json`.
+Agent machine-local overrides belong in `%LOCALAPPDATA%\WindowsOperator\run\appsettings.Local.json`. Host autostart writes `%ProgramData%\WindowsOperator\run\host.appsettings.Local.json`.
 
 ## Current scaffold limits
 

@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Text.Json;
 using Microsoft.Extensions.Options;
 using WindowsOperator.Core;
 using WindowsOperator.Core.Contracts;
@@ -222,13 +223,40 @@ public sealed class DesktopAgentClient : IWorkbenchService
                 OperatorErrors.LockedDesktop("Desktop agent returned an empty response."));
         }
 
-        var error = await response.Content.ReadFromJsonAsync<OperatorError>(OperatorJson.SerializerOptions, cancellationToken);
-        if (error is not null)
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (!string.IsNullOrWhiteSpace(body))
         {
-            throw new OperatorFailureException(error);
+            try
+            {
+                var error = JsonSerializer.Deserialize<OperatorError>(body, OperatorJson.SerializerOptions);
+                if (error is not null)
+                {
+                    throw new OperatorFailureException(error);
+                }
+            }
+            catch (JsonException)
+            {
+            }
         }
 
         throw new OperatorFailureException(
-            OperatorErrors.LockedDesktop($"Desktop agent returned HTTP {(int)response.StatusCode}."));
+            OperatorErrors.LockedDesktop(DescribeAgentFailure(response, body)));
+    }
+
+    private static string DescribeAgentFailure(HttpResponseMessage response, string body)
+    {
+        var detail = $"Desktop agent returned HTTP {(int)response.StatusCode} ({response.ReasonPhrase}).";
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            return detail;
+        }
+
+        var normalized = body.ReplaceLineEndings(" ").Trim();
+        if (normalized.Length > 200)
+        {
+            normalized = normalized[..200] + "...";
+        }
+
+        return $"{detail} Body: {normalized}";
     }
 }

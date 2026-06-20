@@ -23,7 +23,7 @@ external service
 
 Host owns:
 
-- Static HTTPS add-in hosting.
+- Optional static HTTPS add-in hosting.
 - REST queue endpoints.
 - Durable local queue state.
 - Artifact fetch, size/checksum/media validation, staging, and artifact serving.
@@ -188,6 +188,7 @@ Host:
 ```json
 {
   "PowerPointAddIn": {
+    "enabled": false,
     "baseUrl": "https://localhost:3003",
     "staticRoot": "",
     "stateRoot": "",
@@ -198,9 +199,14 @@ Host:
 
 Defaults:
 
+- `enabled`: `false`
 - `baseUrl`: `https://localhost:3003`
 - `staticRoot`: sibling `src/WindowsOperator.PowerPointAddIn/dist`
 - `stateRoot`: `%LOCALAPPDATA%\WindowsOperator\run\powerpoint-officejs`
+
+Host REST on `127.0.0.1:43117` is independent from add-in HTTPS. `PowerPointAddIn:enabled` gates only the `https://localhost:3003` listener and static file middleware.
+
+`scripts/windows/register-host-autostart.ps1` is the production Host path. It publishes Host to `%ProgramData%\WindowsOperator\host`, writes `%ProgramData%\WindowsOperator\run\host.appsettings.Local.json`, and launches Host through a generated wrapper that sets `WINDOWS_OPERATOR_HOST_STATE_ROOT`. When `dist/taskpane.html` exists, it copies the add-in build to `%ProgramData%\WindowsOperator\host\powerpoint-addin`, provisions a trusted LocalMachine `localhost` certificate, and enables the add-in HTTPS listener. When `dist` is missing or `-DisablePowerPointAddIn` is passed, REST still starts with `PowerPointAddIn:enabled=false`.
 
 ## Validation
 
@@ -215,7 +221,10 @@ Local:
 
 Live:
 
-- Start Host.
+- Build add-in assets with `npm run build --prefix src/WindowsOperator.PowerPointAddIn`.
+- Register Host with `scripts/windows/register-host-autostart.ps1`.
+- Start `WindowsOperator.Host` and confirm `GET http://127.0.0.1:43117/v1/health`.
+- From Windows, confirm `Invoke-WebRequest https://localhost:3003/taskpane.html` returns `200`.
 - Sideload add-in manifest.
 - Open target presentation in PowerPoint.
 - Enqueue job with matching `expectedDocumentUrl`.
