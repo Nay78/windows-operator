@@ -221,9 +221,15 @@ Full desktop mutation smoke:
 scripts/linux/live-smoke.py --include-notepad
 ```
 
+Deep smoke with real Outlook freshness path:
+
+```bash
+scripts/linux/live-smoke.py --include-notepad --include-fresh-mail
+```
+
 The Notepad path launches Notepad through the Windows script runner as the logged-in interactive user, then verifies the visible behavior through Host REST: window catalog, activation, UIA `Document` query, UIA type, screenshot artifact, and cleanup.
 
-The smoke also verifies the PowerPoint add-in taskpane at `https://127.0.0.1:3003/taskpane.html` unless `--skip-powerpoint-addin` is passed. Latest full report: `/var/lib/windows-server/shared/operator-exchange/runs/live-smoke-20260620t221641z/live-smoke-report.json` with 40 passed, 0 failed.
+The smoke also verifies the PowerPoint add-in taskpane at `https://127.0.0.1:3003/taskpane.html` unless `--skip-powerpoint-addin` is passed. `--include-fresh-mail` runs a slower no-match Outlook search with `freshness:fresh`, proving the real worker/sync path without requiring mailbox contents. Latest deep report: `/var/lib/windows-server/shared/operator-exchange/runs/live-smoke-20260620t222042z/live-smoke-report.json` with 41 passed, 0 failed.
 
 ## Manual smoke flow
 

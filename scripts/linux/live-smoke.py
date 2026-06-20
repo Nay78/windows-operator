@@ -622,7 +622,7 @@ def run_smoke(args: argparse.Namespace) -> dict[str, Any]:
 
     run_edge_checks(recorder, client, run_id)
     run_auth_dry_run_checks(recorder, client, run_id)
-    run_mail_checks(recorder, client, run_id)
+    run_mail_checks(recorder, client, args, run_id)
     run_powerpoint_checks(recorder, client, args, run_id)
 
     completed_at = utc_now()
@@ -834,7 +834,7 @@ def run_auth_dry_run_checks(recorder: Recorder, client: SmokeClient, run_id: str
     )
 
 
-def run_mail_checks(recorder: Recorder, client: SmokeClient, run_id: str) -> None:
+def run_mail_checks(recorder: Recorder, client: SmokeClient, args: argparse.Namespace, run_id: str) -> None:
     call(
         recorder,
         client,
@@ -862,6 +862,38 @@ def run_mail_checks(recorder: Recorder, client: SmokeClient, run_id: str) -> Non
             f"messages={len(parsed.get('messages') or [])}" if isinstance(parsed, dict) else "mail search failed",
         ),
     )
+    if args.include_fresh_mail:
+        call(
+            recorder,
+            client,
+            "mail_search_fresh_negative",
+            "POST",
+            "/v1/mail/messages/search",
+            {
+                "subjectContains": f"__windows_operator_live_smoke_fresh_no_match__{run_id}",
+                "maxResults": 1,
+                "freshness": "fresh",
+            },
+            expected_status={200, 422, 500},
+            expect=lambda parsed, _body, _headers: (
+                (
+                    isinstance(parsed, dict)
+                    and parsed.get("success") is True
+                    and len(parsed.get("messages") or []) == 0
+                    and not parsed.get("errors")
+                )
+                or (
+                    isinstance(parsed, dict)
+                    and parsed.get("code") == "mail_unavailable"
+                    and bool(parsed.get("message"))
+                ),
+                (
+                    f"messages={len(parsed.get('messages') or [])} actions={','.join(parsed.get('actions') or [])}"
+                    if isinstance(parsed, dict) and parsed.get("success") is True
+                    else f"code={parsed.get('code')}" if isinstance(parsed, dict) else "mail fresh failed"
+                ),
+            ),
+        )
     call(
         recorder,
         client,
@@ -1013,6 +1045,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--timeout-seconds", type=int, default=90)
     parser.add_argument("--min-openapi-paths", type=int, default=39)
     parser.add_argument("--include-notepad", action="store_true", help="Launch Notepad, type text through UIA, screenshot, then close it.")
+    parser.add_argument("--include-fresh-mail", action="store_true", help="Run a slow no-match Outlook freshness search through the real mail worker.")
     parser.add_argument(
         "--windows-runner",
         default=os.environ.get("WINDOWS_OPERATOR_WINDOWS_RUNNER", "scripts/linux/windows-run-ps.sh"),
