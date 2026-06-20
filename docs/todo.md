@@ -23,6 +23,7 @@ Backlog from current Windows VM provisioning and automation session.
   - Mail cached negative search returned 0 messages without error
   - PowerPoint job enqueue/get/artifact/claim/fail/get passed
   - PowerPoint add-in HTTPS served `https://localhost:3003/taskpane.html` from the Host scheduled task
+  - Repeatable command: `scripts/linux/live-smoke.py`
 
 ## High Priority
 
@@ -88,8 +89,8 @@ Backlog from current Windows VM provisioning and automation session.
   - Current desktop session
   - Task status
 
-- Add screenshot capture smoke against Notepad.
-  - Ad hoc live capture passed against foreground window and Edge
+- Add Notepad-specific scripted smoke.
+  - General live smoke exists at `scripts/linux/live-smoke.py`
   - Open Notepad
   - List windows
   - Activate

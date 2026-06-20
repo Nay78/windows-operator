@@ -51,6 +51,16 @@ Bootstrap also makes `codex` usable from normal Windows shells by persisting `%L
 
 Use this after changing Host/Agent routes, scheduled tasks, tunnels, browser automation, mail, or PowerPoint queue behavior. These checks prove live Windows runtime behavior, not only serialization.
 
+Run the full safe smoke:
+
+```bash
+scripts/linux/live-smoke.py
+```
+
+The script writes a JSON report to `operator-exchange/runs/<run-id>/live-smoke-report.json`, captures desktop/Edge screenshots, cleans Edge sessions, and marks its synthetic PowerPoint job failed after claim so nothing stays queued.
+
+Targeted manual checks:
+
 ```bash
 curl http://127.0.0.1:43117/v1/health
 curl http://127.0.0.1:43117/openapi.json | jq '.paths | length'
