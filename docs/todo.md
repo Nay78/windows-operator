@@ -20,13 +20,14 @@ Backlog from current Windows VM provisioning and automation session.
   - UIA query returned live window elements
   - Desktop and Edge screenshots wrote artifacts under `operator-exchange/runs`
   - Edge session start/click/fill/screenshot/cleanup passed
+  - Microsoft auth live negative reached `needsUserAction` at `https://login.microsoftonline.com`, then cleanup closed the auth window
   - Mail cached negative search returned 0 messages without error
   - Mail fresh negative search attached to Outlook, started sync, waited 45 seconds, searched, returned 0 messages, and left 0 Outlook processes
   - PowerPoint job enqueue/get/artifact/claim/fail/get passed
   - PowerPoint add-in HTTPS served `https://localhost:3003/taskpane.html` from the Host scheduled task
   - Notepad-specific live smoke opened Notepad in the logged-in desktop, activated it, typed through UIA, captured a screenshot, and cleaned up
-  - Repeatable deep command: `scripts/linux/live-smoke.py --include-notepad --include-fresh-mail`
-  - Latest report: `/var/lib/windows-server/shared/operator-exchange/runs/live-smoke-20260620t222042z/live-smoke-report.json` (`41` passed, `0` failed)
+  - Repeatable deep command: `scripts/linux/live-smoke.py --include-notepad --include-auth-live-negative --include-fresh-mail`
+  - Latest report: `/var/lib/windows-server/shared/operator-exchange/runs/live-smoke-20260620t222511z/live-smoke-report.json` (`43` passed, `0` failed)
 
 ## High Priority
 

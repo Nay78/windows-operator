@@ -621,7 +621,7 @@ def run_smoke(args: argparse.Namespace) -> dict[str, Any]:
         run_notepad_checks(recorder, client, args, run_id)
 
     run_edge_checks(recorder, client, run_id)
-    run_auth_dry_run_checks(recorder, client, run_id)
+    run_auth_dry_run_checks(recorder, client, args, run_id)
     run_mail_checks(recorder, client, args, run_id)
     run_powerpoint_checks(recorder, client, args, run_id)
 
@@ -754,7 +754,7 @@ def run_edge_checks(recorder: Recorder, client: SmokeClient, run_id: str) -> Non
     )
 
 
-def run_auth_dry_run_checks(recorder: Recorder, client: SmokeClient, run_id: str) -> None:
+def run_auth_dry_run_checks(recorder: Recorder, client: SmokeClient, args: argparse.Namespace, run_id: str) -> None:
     device_id = f"{run_id}-device"
     call(
         recorder,
@@ -823,15 +823,63 @@ def run_auth_dry_run_checks(recorder: Recorder, client: SmokeClient, run_id: str
             f"status={parsed.get('status')}" if isinstance(parsed, dict) else "authorize status failed",
         ),
     )
-    call(
-        recorder,
-        client,
-        "auth_cleanup_dry_run",
-        "POST",
-        "/v1/auth/microsoft/cleanup",
-        {"dryRun": True, "preserveRecentSeconds": 0},
-        expect=expect_dict_key("success", True),
-    )
+    if args.include_auth_live_negative:
+        live_id = f"{run_id}-authorize-live"
+        try:
+            call(
+                recorder,
+                client,
+                "auth_authorize_probe_live_negative",
+                "POST",
+                "/v1/auth/microsoft/authorize-probe",
+                {
+                    "runId": live_id,
+                    "authorizeUrl": authorize_url,
+                    "pageLoadSeconds": args.auth_live_page_load_seconds,
+                    "observationTimeoutSeconds": args.auth_live_observation_seconds,
+                },
+                expect=lambda parsed, _body, _headers: (
+                    isinstance(parsed, dict)
+                    and parsed.get("success") is True
+                    and parsed.get("status") in {"needsUserAction", "failed", "redirectObserved"},
+                    (
+                        f"status={parsed.get('status')} state={parsed.get('browserState')} title={parsed.get('browserTitle')}"
+                        if isinstance(parsed, dict)
+                        else "authorize live failed"
+                    ),
+                ),
+            )
+            call(
+                recorder,
+                client,
+                "auth_authorize_probe_live_status",
+                "GET",
+                f"/v1/auth/microsoft/authorize-probe/status/{live_id}",
+                expect=lambda parsed, _body, _headers: (
+                    isinstance(parsed, dict) and parsed.get("runId") == live_id,
+                    f"status={parsed.get('status')}" if isinstance(parsed, dict) else "authorize live status failed",
+                ),
+            )
+        finally:
+            call(
+                recorder,
+                client,
+                "auth_cleanup_live",
+                "POST",
+                "/v1/auth/microsoft/cleanup",
+                {"preserveRecentSeconds": 0},
+                expect=expect_dict_key("success", True),
+            )
+    else:
+        call(
+            recorder,
+            client,
+            "auth_cleanup_dry_run",
+            "POST",
+            "/v1/auth/microsoft/cleanup",
+            {"dryRun": True, "preserveRecentSeconds": 0},
+            expect=expect_dict_key("success", True),
+        )
 
 
 def run_mail_checks(recorder: Recorder, client: SmokeClient, args: argparse.Namespace, run_id: str) -> None:
@@ -1046,6 +1094,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--min-openapi-paths", type=int, default=39)
     parser.add_argument("--include-notepad", action="store_true", help="Launch Notepad, type text through UIA, screenshot, then close it.")
     parser.add_argument("--include-fresh-mail", action="store_true", help="Run a slow no-match Outlook freshness search through the real mail worker.")
+    parser.add_argument(
+        "--include-auth-live-negative",
+        action="store_true",
+        help="Open a synthetic Microsoft authorize URL in Edge and verify a live login/error boundary, then cleanup.",
+    )
+    parser.add_argument("--auth-live-page-load-seconds", type=int, default=4)
+    parser.add_argument("--auth-live-observation-seconds", type=int, default=12)
     parser.add_argument(
         "--windows-runner",
         default=os.environ.get("WINDOWS_OPERATOR_WINDOWS_RUNNER", "scripts/linux/windows-run-ps.sh"),
