@@ -5,6 +5,7 @@ import argparse
 import datetime as dt
 import json
 import os
+import subprocess
 import sys
 import time
 import urllib.error
@@ -30,6 +31,18 @@ def json_dump(path: Path, payload: Any) -> None:
     with path.open("w", encoding="utf-8") as handle:
         json.dump(payload, handle, indent=2, sort_keys=True)
         handle.write("\n")
+
+
+def repo_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def resolve_repo_path(path: str) -> Path:
+    candidate = Path(path)
+    if candidate.is_absolute():
+        return candidate
+
+    return repo_root() / candidate
 
 
 class SmokeClient:
@@ -166,6 +179,268 @@ def plain_http(url: str, timeout_seconds: int) -> tuple[int | str, bytes]:
         return exc.code, exc.read()
     except Exception as exc:
         return "exception", str(exc).encode("utf-8", "replace")
+
+
+def load_json_file(path: Path) -> Any:
+    try:
+        with path.open("r", encoding="utf-8-sig") as handle:
+            return json.load(handle)
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def parse_first_json_value(text: str) -> Any:
+    decoder = json.JSONDecoder()
+    stripped = text.strip()
+    for index, char in enumerate(stripped):
+        if char not in "[{":
+            continue
+        try:
+            parsed, _ = decoder.raw_decode(stripped[index:])
+            return parsed
+        except json.JSONDecodeError:
+            continue
+
+    return None
+
+
+def read_script_stdout_json(result_path: Path | None) -> Any:
+    if result_path is None:
+        return None
+
+    stdout_path = result_path.parent / "stdout.txt"
+    try:
+        text = stdout_path.read_text(encoding="utf-8-sig", errors="replace")
+    except OSError:
+        return None
+
+    return parse_first_json_value(text)
+
+
+def run_windows_script(
+    recorder: Recorder,
+    args: argparse.Namespace,
+    name: str,
+    script_rel: str,
+    script_args: list[str],
+    run_suffix: str,
+) -> tuple[Path | None, Any]:
+    runner = resolve_repo_path(args.windows_runner)
+    script = resolve_repo_path(script_rel)
+    if not runner.exists():
+        recorder.add(name, False, "missing", f"runner missing: {runner}")
+        return None, None
+    if not script.exists():
+        recorder.add(name, False, "missing", f"script missing: {script}")
+        return None, None
+
+    script_run_id = f"{args.run_id}-{run_suffix}".lower()
+    env = os.environ.copy()
+    env["WINDOWS_OPERATOR_RUN_ID"] = script_run_id
+    started = time.time()
+
+    try:
+        completed = subprocess.run(
+            [str(runner), script_rel, *script_args],
+            cwd=repo_root(),
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=args.windows_runner_timeout_seconds,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        recorder.add(
+            name,
+            False,
+            "timeout",
+            f"timed out after {args.windows_runner_timeout_seconds}s",
+            elapsedMs=round((time.time() - started) * 1000),
+            stdout=(exc.stdout or "")[-500:] if isinstance(exc.stdout, str) else None,
+            stderr=(exc.stderr or "")[-500:] if isinstance(exc.stderr, str) else None,
+        )
+        return None, None
+
+    stdout_lines = [line for line in completed.stdout.splitlines() if line.strip()]
+    result_path = Path(stdout_lines[-1]) if stdout_lines else Path(args.exchange_root) / "runs" / script_run_id / "result.json"
+    result = load_json_file(result_path)
+    ok = completed.returncode == 0 and isinstance(result, dict) and result.get("status") == "succeeded"
+    detail = (
+        f"status={result.get('status')} exit={result.get('exitCode')}"
+        if isinstance(result, dict)
+        else f"exit={completed.returncode} result=missing"
+    )
+    extra: dict[str, Any] = {
+        "elapsedMs": round((time.time() - started) * 1000),
+        "resultPath": str(result_path),
+        "scriptRunId": script_run_id,
+    }
+    if not ok:
+        extra["stdout"] = completed.stdout[-500:]
+        extra["stderr"] = completed.stderr[-500:]
+        if isinstance(result, dict):
+            extra["message"] = result.get("message")
+
+    recorder.add(name, ok, completed.returncode, detail, **extra)
+    return result_path, read_script_stdout_json(result_path)
+
+
+def poll_window_by_process(
+    client: SmokeClient,
+    process_id: int,
+    timeout_seconds: int,
+) -> tuple[dict[str, Any] | None, int | str]:
+    deadline = time.time() + timeout_seconds
+    last_status: int | str = "not-started"
+    while time.time() < deadline:
+        status, _headers, _body, parsed = client.request("GET", "/v1/windows")
+        last_status = status
+        if isinstance(parsed, list):
+            for item in parsed:
+                if isinstance(item, dict) and item.get("processId") == process_id:
+                    return item, status
+
+        time.sleep(0.5)
+
+    return None, last_status
+
+
+def find_notepad_text_query(
+    recorder: Recorder,
+    client: SmokeClient,
+    hwnd: int,
+) -> dict[str, Any] | None:
+    candidates = [
+        {"windowHwnd": hwnd, "controlType": "Document", "includeOffscreen": False, "maxResults": 5},
+        {"windowHwnd": hwnd, "controlType": "Edit", "includeOffscreen": False, "maxResults": 5},
+        {"windowHwnd": hwnd, "name": "Text Editor", "includeOffscreen": False, "maxResults": 5},
+    ]
+    attempts: list[dict[str, Any]] = []
+    for query in candidates:
+        status, _headers, _body, parsed = client.request("POST", "/v1/uia/query", query)
+        count = len(parsed) if isinstance(parsed, list) else 0
+        attempts.append(
+            {
+                "status": status,
+                "count": count,
+                "query": query,
+                "first": parsed[0] if isinstance(parsed, list) and parsed else None,
+            }
+        )
+        if isinstance(status, int) and 200 <= status < 300 and count > 0:
+            recorder.add(
+                "notepad_uia_text_query",
+                True,
+                status,
+                f"elements={count} query={query}",
+                attempts=attempts,
+            )
+            return query
+
+    recorder.add(
+        "notepad_uia_text_query",
+        False,
+        attempts[-1]["status"] if attempts else "skipped",
+        "no editable Notepad element found",
+        attempts=attempts,
+    )
+    return None
+
+
+def run_notepad_checks(recorder: Recorder, client: SmokeClient, args: argparse.Namespace, run_id: str) -> None:
+    result_path, launch = run_windows_script(
+        recorder,
+        args,
+        "notepad_launch_script",
+        args.notepad_launch_script,
+        ["-RunId", run_id],
+        "notepad-launch",
+    )
+    process_id = launch.get("processId") if isinstance(launch, dict) else None
+    if not isinstance(process_id, int) or process_id <= 0:
+        recorder.add(
+            "notepad_window_found",
+            False,
+            "skipped",
+            "launch script did not return processId",
+            launch=launch,
+            resultPath=str(result_path) if result_path else None,
+        )
+        recorder.add("notepad_cleanup_script", False, "skipped", "no processId")
+        return
+
+    try:
+        window, status = poll_window_by_process(client, process_id, args.notepad_wait_seconds)
+        recorder.add(
+            "notepad_window_found",
+            window is not None,
+            status,
+            (
+                f"hwnd={window.get('hwnd')} title={window.get('title')}"
+                if window is not None
+                else f"not found pid={process_id}"
+            ),
+            processId=process_id,
+            window=window,
+        )
+        if window is None:
+            return
+
+        hwnd = window.get("hwnd")
+        if not isinstance(hwnd, int):
+            recorder.add("notepad_activate", False, "skipped", "window hwnd missing", window=window)
+            return
+
+        call(
+            recorder,
+            client,
+            "notepad_activate",
+            "POST",
+            f"/v1/windows/{hwnd}/activate",
+            expect=expect_dict_key("success", True),
+        )
+
+        query = find_notepad_text_query(recorder, client, hwnd)
+        if query is not None:
+            call(
+                recorder,
+                client,
+                "notepad_uia_type_text",
+                "POST",
+                "/v1/uia/type",
+                {
+                    "query": query,
+                    "text": f"Windows Operator live Notepad smoke {run_id}",
+                    "append": False,
+                    "submit": False,
+                },
+                expect=expect_dict_key("success", True),
+            )
+        else:
+            recorder.add("notepad_uia_type_text", False, "skipped", "no text query")
+
+        call(
+            recorder,
+            client,
+            "notepad_screenshot_foreground",
+            "POST",
+            "/v1/desktop/screenshot",
+            {"target": "foreground", "runId": run_id, "label": "notepad"},
+            expect=lambda parsed, _body, _headers: host_path_exists(parsed),
+            keep=lambda parsed, _body, _headers: {
+                "artifactHostPath": (parsed.get("artifact") or {}).get("hostPath") if isinstance(parsed, dict) else None,
+                "backend": parsed.get("backend") if isinstance(parsed, dict) else None,
+            },
+        )
+    finally:
+        run_windows_script(
+            recorder,
+            args,
+            "notepad_cleanup_script",
+            args.notepad_cleanup_script,
+            ["-ProcessId", str(process_id)],
+            "notepad-cleanup",
+        )
 
 
 def run_smoke(args: argparse.Namespace) -> dict[str, Any]:
@@ -320,6 +595,9 @@ def run_smoke(args: argparse.Namespace) -> dict[str, Any]:
         expect=expect_dict_key("success", True),
     )
 
+    if args.include_notepad:
+        run_notepad_checks(recorder, client, args, run_id)
+
     run_edge_checks(recorder, client, run_id)
     run_auth_dry_run_checks(recorder, client, run_id)
     run_mail_checks(recorder, client, run_id)
@@ -333,6 +611,7 @@ def run_smoke(args: argparse.Namespace) -> dict[str, Any]:
         "failed": sum(1 for item in recorder.results if not item["ok"]),
         "ok": all(item["ok"] for item in recorder.results),
         "passed": sum(1 for item in recorder.results if item["ok"]),
+        "notepadIncluded": bool(args.include_notepad),
         "results": recorder.results,
         "runId": run_id,
         "startedAtUtc": started_at,
@@ -696,6 +975,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", help="Report JSON path. Default: <exchange-root>/runs/<run-id>/live-smoke-report.json")
     parser.add_argument("--timeout-seconds", type=int, default=90)
     parser.add_argument("--min-openapi-paths", type=int, default=39)
+    parser.add_argument("--include-notepad", action="store_true", help="Launch Notepad, type text through UIA, screenshot, then close it.")
+    parser.add_argument(
+        "--windows-runner",
+        default=os.environ.get("WINDOWS_OPERATOR_WINDOWS_RUNNER", "scripts/linux/windows-run-ps.sh"),
+        help="Linux runner used for Windows PowerShell helper scripts.",
+    )
+    parser.add_argument("--windows-runner-timeout-seconds", type=int, default=120)
+    parser.add_argument("--notepad-wait-seconds", type=int, default=20)
+    parser.add_argument("--notepad-launch-script", default="scripts/windows/start-notepad-smoke.ps1")
+    parser.add_argument("--notepad-cleanup-script", default="scripts/windows/stop-notepad-smoke.ps1")
     args = parser.parse_args()
     args.run_id = args.run_id.strip().lower()
     return args

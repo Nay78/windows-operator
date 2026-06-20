@@ -207,6 +207,22 @@ Outlook mail refresh and recovery target architecture lives in [Outlook mail aut
 
 High-level rule: external callers request mail intent only. Windows Operator owns Outlook attach/start/close behavior, automatic sync, stale-folder retry, and bounded recovery.
 
+## Live smoke
+
+General live smoke:
+
+```bash
+scripts/linux/live-smoke.py
+```
+
+Full desktop mutation smoke:
+
+```bash
+scripts/linux/live-smoke.py --include-notepad
+```
+
+The Notepad path launches Notepad through the Windows script runner as the logged-in interactive user, then verifies the visible behavior through Host REST: window catalog, activation, UIA `Document` query, UIA type, screenshot artifact, and cleanup. Latest live report: `/var/lib/windows-server/shared/operator-exchange/runs/live-smoke-20260620t221317z/live-smoke-report.json` with 39 passed, 0 failed.
+
 ## Manual smoke flow
 
 1. Start Notepad.

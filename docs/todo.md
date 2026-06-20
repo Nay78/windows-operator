@@ -23,7 +23,9 @@ Backlog from current Windows VM provisioning and automation session.
   - Mail cached negative search returned 0 messages without error
   - PowerPoint job enqueue/get/artifact/claim/fail/get passed
   - PowerPoint add-in HTTPS served `https://localhost:3003/taskpane.html` from the Host scheduled task
-  - Repeatable command: `scripts/linux/live-smoke.py`
+  - Notepad-specific live smoke opened Notepad in the logged-in desktop, activated it, typed through UIA, captured a screenshot, and cleaned up
+  - Repeatable command: `scripts/linux/live-smoke.py --include-notepad`
+  - Latest report: `/var/lib/windows-server/shared/operator-exchange/runs/live-smoke-20260620t221317z/live-smoke-report.json` (`39` passed, `0` failed)
 
 ## High Priority
 
@@ -88,15 +90,6 @@ Backlog from current Windows VM provisioning and automation session.
   - Health details
   - Current desktop session
   - Task status
-
-- Add Notepad-specific scripted smoke.
-  - General live smoke exists at `scripts/linux/live-smoke.py`
-  - Open Notepad
-  - List windows
-  - Activate
-  - Query UIA
-  - Type text
-  - Capture screenshot
 
 - Add host-side docs for the split:
   - `nixos` owns VM/share/tunnels
