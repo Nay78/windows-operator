@@ -29,6 +29,8 @@ Request: `PowerPointUpdateJob`
 
 Response: `PowerPointJobRecord`.
 
+Host rejects malformed job payloads with `422 powerpoint_validation_failed` before queueing or staging artifacts.
+
 ### Claim Job
 
 `POST /jobs/claim`
@@ -55,7 +57,7 @@ Matching is by normalized `expectedDocumentUrl` when both expected and active UR
 
 Request: `PowerPointUpdateResult`.
 
-`status: "succeeded"` stores job status as `succeeded`; any other result status stores `failed`.
+Route `jobId` must match result `jobId`. `status: "succeeded"` stores job status as `succeeded`; `failed` or `partial` stores job status as `failed`.
 
 ### Fail Job
 
@@ -63,7 +65,7 @@ Request: `PowerPointUpdateResult`.
 
 Request: `PowerPointUpdateError`.
 
-Stores job status as `failed`.
+Requires non-empty `code` and `operatorMessage`. Stores job status as `failed`.
 
 ### Read Job
 
@@ -87,13 +89,15 @@ Response: staged `image/png` or `image/jpeg` bytes.
 - `createdAt`: caller timestamp.
 - `operations`: one or more `replaceText` or `replaceImage` operations.
 
+`jobId` and artifact ids must use lowercase ASCII letters, digits, `_`, `-`, or interior dots. They cannot start or end with `.`, and cannot use Windows device names like `con` or `lpt1`.
+
 `replaceText`
 
 - `kind`: `replaceText`.
 - `targetId`: Office binding/tag target id.
 - `text`: replacement text.
 - `mode`: currently `plain`.
-- `allowEmpty`: optional.
+- `allowEmpty`: optional. Whitespace-only `text` is rejected unless `allowEmpty` is `true`.
 
 `replaceImage`
 

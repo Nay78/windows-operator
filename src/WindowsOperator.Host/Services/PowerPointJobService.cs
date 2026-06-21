@@ -16,6 +16,13 @@ public sealed class PowerPointJobService : IPowerPointJobService
     private const string Running = "running";
     private const string Succeeded = "succeeded";
     private const string Failed = "failed";
+    private const string Partial = "partial";
+    private const string Skipped = "skipped";
+    private const string ReplaceText = "replaceText";
+    private const string ReplaceImage = "replaceImage";
+    private const string Plain = "plain";
+    private const string Contain = "contain";
+    private const string Cover = "cover";
 
     private readonly HttpClient _httpClient;
     private readonly PowerPointAddInOptions _options;
@@ -103,6 +110,7 @@ public sealed class PowerPointJobService : IPowerPointJobService
         PowerPointUpdateResult result,
         CancellationToken cancellationToken)
     {
+        ValidateResult(jobId, result);
         await _lock.WaitAsync(cancellationToken);
         try
         {
@@ -132,6 +140,8 @@ public sealed class PowerPointJobService : IPowerPointJobService
         PowerPointUpdateError error,
         CancellationToken cancellationToken)
     {
+        ValidatePathSegment(jobId, "jobId");
+        ValidateError(error, "PowerPoint update error");
         await _lock.WaitAsync(cancellationToken);
         try
         {
@@ -161,6 +171,7 @@ public sealed class PowerPointJobService : IPowerPointJobService
         string artifactId,
         CancellationToken cancellationToken)
     {
+        ValidatePathSegment(artifactId, "artifactId");
         var record = await ReadRecordAsync(jobId, cancellationToken);
         var artifact = record.Job.Operations
             .Select(operation => operation.Artifact)
@@ -189,7 +200,7 @@ public sealed class PowerPointJobService : IPowerPointJobService
         var operations = new List<PowerPointUpdateOperation>();
         foreach (var operation in job.Operations)
         {
-            if (!string.Equals(operation.Kind, "replaceImage", StringComparison.Ordinal) ||
+            if (!string.Equals(operation.Kind, ReplaceImage, StringComparison.Ordinal) ||
                 operation.Artifact is null)
             {
                 operations.Add(operation);
@@ -264,19 +275,27 @@ public sealed class PowerPointJobService : IPowerPointJobService
         }
 
         var metadata = url[..comma];
-        if (!metadata.EndsWith(";base64", StringComparison.OrdinalIgnoreCase) ||
-            !metadata.StartsWith($"data:{expectedMediaType}", StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(metadata, $"data:{expectedMediaType};base64", StringComparison.OrdinalIgnoreCase))
         {
             throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed("Artifact data URL media type is invalid."));
         }
 
-        return Convert.FromBase64String(url[(comma + 1)..]);
+        try
+        {
+            return Convert.FromBase64String(url[(comma + 1)..]);
+        }
+        catch (FormatException ex)
+        {
+            throw new OperatorFailureException(
+                OperatorErrors.PowerPointValidationFailed($"Artifact data URL base64 is invalid: {ex.Message}"));
+        }
     }
 
     private async Task<PowerPointJobRecord> ReadRecordAsync(
         string jobId,
         CancellationToken cancellationToken)
     {
+        ValidatePathSegment(jobId, "jobId");
         var path = RecordPath(jobId);
         if (!File.Exists(path))
         {
@@ -334,37 +353,211 @@ public sealed class PowerPointJobService : IPowerPointJobService
 
     private static void ValidateJob(PowerPointUpdateJob job)
     {
-        if (string.IsNullOrWhiteSpace(job.JobId))
+        if (job is null)
         {
-            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed("jobId is required."));
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed("PowerPoint update job is required."));
         }
 
-        if (job.Operations.Count == 0)
+        ValidatePathSegment(job.JobId, "jobId");
+
+        if (string.IsNullOrWhiteSpace(job.RequestedBy))
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed("requestedBy is required."));
+        }
+
+        if (job.Operations is null || job.Operations.Count == 0)
         {
             throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed("At least one PowerPoint operation is required."));
         }
 
         foreach (var operation in job.Operations)
         {
-            if (string.IsNullOrWhiteSpace(operation.Kind) || string.IsNullOrWhiteSpace(operation.TargetId))
-            {
-                throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed("PowerPoint operation kind and targetId are required."));
-            }
-
-            if (string.Equals(operation.Kind, "replaceImage", StringComparison.Ordinal) &&
-                operation.Artifact is null)
-            {
-                throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"replaceImage requires artifact: {operation.TargetId}"));
-            }
+            ValidateOperation(operation);
         }
     }
 
+    private static void ValidateOperation(PowerPointUpdateOperation operation)
+    {
+        if (operation is null)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed("PowerPoint operation is required."));
+        }
+
+        if (string.IsNullOrWhiteSpace(operation.TargetId))
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed("PowerPoint operation targetId is required."));
+        }
+
+        if (string.Equals(operation.Kind, ReplaceText, StringComparison.Ordinal))
+        {
+            ValidateTextOperation(operation);
+            return;
+        }
+
+        if (string.Equals(operation.Kind, ReplaceImage, StringComparison.Ordinal))
+        {
+            ValidateImageOperation(operation);
+            return;
+        }
+
+        throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"Unsupported PowerPoint operation kind: {operation.Kind}"));
+    }
+
+    private static void ValidateTextOperation(PowerPointUpdateOperation operation)
+    {
+        if (operation.Text is null)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"replaceText requires text: {operation.TargetId}"));
+        }
+
+        if (string.IsNullOrWhiteSpace(operation.Text) && operation.AllowEmpty is not true)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"replaceText text cannot be empty: {operation.TargetId}"));
+        }
+
+        if (!string.IsNullOrWhiteSpace(operation.Mode) &&
+            !string.Equals(operation.Mode, Plain, StringComparison.Ordinal))
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"Unsupported replaceText mode: {operation.Mode}"));
+        }
+    }
+
+    private static void ValidateImageOperation(PowerPointUpdateOperation operation)
+    {
+        if (operation.Artifact is null)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"replaceImage requires artifact: {operation.TargetId}"));
+        }
+
+        if (!string.IsNullOrWhiteSpace(operation.Fit) &&
+            operation.Fit is not Contain and not Cover)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"Unsupported replaceImage fit: {operation.Fit}"));
+        }
+
+        ValidateArtifact(operation.Artifact);
+    }
+
+    private static void ValidateResult(string jobId, PowerPointUpdateResult result)
+    {
+        ValidatePathSegment(jobId, "jobId");
+
+        if (result is null)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed("PowerPoint update result is required."));
+        }
+
+        if (!string.Equals(jobId, result.JobId, StringComparison.Ordinal))
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"PowerPoint result jobId mismatch. Route={jobId} Payload={result.JobId}"));
+        }
+
+        if (result.Status is not Succeeded and not Failed and not Partial)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"Unsupported PowerPoint result status: {result.Status}"));
+        }
+
+        if (result.Targets is null)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed("PowerPoint update result targets are required."));
+        }
+
+        foreach (var target in result.Targets)
+        {
+            ValidateTargetResult(target);
+        }
+    }
+
+    private static void ValidateTargetResult(PowerPointTargetResult target)
+    {
+        if (target is null)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed("PowerPoint target result is required."));
+        }
+
+        if (string.IsNullOrWhiteSpace(target.TargetId))
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed("PowerPoint target result targetId is required."));
+        }
+
+        if (target.OperationKind is not ReplaceText and not ReplaceImage)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"Unsupported PowerPoint target operation kind: {target.OperationKind}"));
+        }
+
+        if (target.Status is not Succeeded and not Failed and not Skipped)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"Unsupported PowerPoint target result status: {target.Status}"));
+        }
+
+        if (target.Error is not null)
+        {
+            ValidateError(target.Error, $"PowerPoint target result error for {target.TargetId}");
+        }
+    }
+
+    private static void ValidateError(PowerPointUpdateError error, string subject)
+    {
+        if (error is null)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"{subject} is required."));
+        }
+
+        if (string.IsNullOrWhiteSpace(error.Code))
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"{subject} code is required."));
+        }
+
+        if (string.IsNullOrWhiteSpace(error.OperatorMessage))
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"{subject} operatorMessage is required."));
+        }
+    }
+
+    private static void ValidatePathSegment(string value, string name)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"{name} is required."));
+        }
+
+        if (value.Any(ch => !IsSafePathSegmentChar(ch)) ||
+            value[0] == '.' ||
+            value[^1] == '.' ||
+            IsReservedWindowsDeviceName(value))
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"{name} contains unsupported characters."));
+        }
+    }
+
+    private static bool IsSafePathSegmentChar(char ch) =>
+        (ch >= 'a' && ch <= 'z') ||
+        (ch >= '0' && ch <= '9') ||
+        ch is '-' or '_' or '.';
+
+    private static bool IsReservedWindowsDeviceName(string value)
+    {
+        var stem = value.Split('.')[0];
+        return stem is "con" or "prn" or "aux" or "nul" or
+            "com1" or "com2" or "com3" or "com4" or "com5" or "com6" or "com7" or "com8" or "com9" or
+            "lpt1" or "lpt2" or "lpt3" or "lpt4" or "lpt5" or "lpt6" or "lpt7" or "lpt8" or "lpt9";
+    }
+
+    private static bool IsSha256Hex(string value) =>
+        value.Length == 64 && value.All(IsHexChar);
+
+    private static bool IsHexChar(char ch) =>
+        (ch >= 'A' && ch <= 'F') ||
+        (ch >= 'a' && ch <= 'f') ||
+        (ch >= '0' && ch <= '9');
+
     private static void ValidateArtifact(PowerPointArtifactRef artifact)
     {
-        if (string.IsNullOrWhiteSpace(artifact.ArtifactId) ||
-            string.IsNullOrWhiteSpace(artifact.Url))
+        ValidatePathSegment(artifact.ArtifactId, "artifactId");
+
+        if (string.IsNullOrWhiteSpace(artifact.Url))
         {
-            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed("Artifact id and URL are required."));
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed("Artifact URL is required."));
         }
 
         if (artifact.ExpiresAt is not null && artifact.ExpiresAt < DateTimeOffset.UtcNow)
@@ -375,6 +568,11 @@ public sealed class PowerPointJobService : IPowerPointJobService
         if (artifact.MediaType is not ("image/png" or "image/jpeg"))
         {
             throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"Unsupported artifact media type: {artifact.MediaType}"));
+        }
+
+        if (!string.IsNullOrWhiteSpace(artifact.Sha256) && !IsSha256Hex(artifact.Sha256))
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"Artifact checksum is invalid: {artifact.ArtifactId}"));
         }
     }
 
@@ -421,9 +619,9 @@ public sealed class PowerPointJobService : IPowerPointJobService
     private static string SanitizePathSegment(string value)
     {
         var chars = value
-            .Select(ch => char.IsLetterOrDigit(ch) || ch is '-' or '_' or '.' ? char.ToLowerInvariant(ch) : '-')
+            .Select(ch => IsSafePathSegmentChar(ch) ? ch : '-')
             .ToArray();
-        var sanitized = new string(chars).Trim('-', '.');
+        var sanitized = new string(chars).Trim('.');
         return string.IsNullOrWhiteSpace(sanitized)
             ? string.Create(CultureInfo.InvariantCulture, $"job-{DateTimeOffset.UtcNow:yyyyMMddHHmmssfff}")
             : sanitized;

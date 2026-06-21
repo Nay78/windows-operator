@@ -100,6 +100,17 @@ succeeded
 failed
 ```
 
+Host validates the REST boundary before queueing or storing results:
+
+- `jobId` and `artifactId` must use lowercase ASCII letters, digits, `_`, `-`, or interior dots, and must avoid Windows device names.
+- Jobs require `requestedBy` and at least one operation.
+- Operation kinds are only `replaceText` and `replaceImage`.
+- `replaceText` requires `text`; whitespace-only text requires `allowEmpty: true`.
+- `replaceImage` requires a valid staged artifact with `image/png` or `image/jpeg`.
+- Completion `jobId` in the route and payload must match.
+- Result statuses are `succeeded`, `failed`, or `partial`; `partial` stores the record as `failed`.
+- Malformed PowerPoint payloads return `422 powerpoint_validation_failed`.
+
 ## Claim Flow
 
 The add-in posts:
