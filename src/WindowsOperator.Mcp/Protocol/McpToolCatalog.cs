@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using WindowsOperator.Core;
@@ -116,7 +117,7 @@ public sealed class McpToolCatalog
                 new McpToolDefinition("mail_get_run", "Return a prior mail download result manifest by run id.", MailRunSchema()),
                 async (arguments, cancellationToken) =>
                     Serialize(await operatorFacade.GetMailRunAsync(ReadString(arguments, "runId"), cancellationToken))),
-        };
+        }.Select(Enrich).ToArray();
         _toolsByName = _tools.ToDictionary(tool => tool.Definition.Name, StringComparer.Ordinal);
     }
 
@@ -124,13 +125,212 @@ public sealed class McpToolCatalog
 
     public async Task<JsonNode?> ExecuteToolAsync(string name, JsonObject? arguments, CancellationToken cancellationToken)
     {
+        var result = await ExecuteToolResultAsync(name, arguments, cancellationToken);
+        return result.StructuredContent;
+    }
+
+    public async Task<McpToolResult> ExecuteToolResultAsync(string name, JsonObject? arguments, CancellationToken cancellationToken)
+    {
         if (!_toolsByName.TryGetValue(name, out var tool))
         {
             throw McpProtocolException.MethodNotFound($"Unknown tool '{name}'.");
         }
 
-        return await tool.ExecuteAsync(arguments ?? new JsonObject(), cancellationToken);
+        var structuredContent = await tool.ExecuteAsync(arguments ?? new JsonObject(), cancellationToken);
+        return new McpToolResult(structuredContent, SummarizeToolResult(name, structuredContent));
     }
+
+    private static McpToolEntry Enrich(McpToolEntry entry) =>
+        entry with
+        {
+            Definition = entry.Definition with
+            {
+                Title = TitleFor(entry.Definition.Name),
+                Description = DescriptionFor(entry.Definition.Name),
+                OutputSchema = OutputSchemaFor(entry.Definition.Name),
+                Annotations = AnnotationsFor(entry.Definition.Name),
+                Meta = MetaFor(entry.Definition.Name),
+            },
+        };
+
+    private static string TitleFor(string name) =>
+        string.Join(" ", name.Split('_').Select(TitleWord));
+
+    private static string TitleWord(string word) =>
+        word switch
+        {
+            "uia" => "UIA",
+            "dom" => "DOM",
+            "mcp" => "MCP",
+            _ => char.ToUpperInvariant(word[0]) + word[1..],
+        };
+
+    private static string DescriptionFor(string name) =>
+        name switch
+        {
+            "operator_health" => "Use this when an agent needs to confirm Windows Operator availability, runtime mode, and enabled backends before doing desktop work.",
+            "window_list" => "Use this when an agent needs current top-level windows and hwnd values before choosing a UI target.",
+            "window_activate" => "Use this when an agent already has a hwnd and needs that window in the foreground.",
+            "window_screenshot" => "Use this when an agent needs pixels for a known hwnd. Prefer png when visual fidelity matters.",
+            "uia_query" => "Use this when an agent needs accessible UI elements before clicking or typing. Start with narrow filters and low maxResults.",
+            "uia_click" => "Use this when an agent has a specific UIA target and needs to click it.",
+            "uia_type" => "Use this when an agent has a specific UIA text target and needs to type into it.",
+            "input_hotkey" => "Use this when an agent needs a keyboard shortcut and UIA targeting is unnecessary or unavailable.",
+            "browser_edge_reset" => "Use this when stale operator-owned Edge processes block browser automation. Use dryRun first when diagnosing.",
+            "browser_edge_session_start" => "Use this when an agent needs an owned Edge session with DevTools state tracking.",
+            "browser_edge_session_state" => "Use this when an agent needs live URL, title, page state, or element context for an Edge session.",
+            "browser_edge_session_navigate" => "Use this when an agent needs to move an existing Edge session to another URL.",
+            "browser_edge_session_dom_click" => "Use this when an agent needs to click a DOM element by selector, label, or visible text.",
+            "browser_edge_session_dom_fill" => "Use this when an agent needs to fill a DOM input by selector, label, or visible text.",
+            "browser_edge_session_close" => "Use this when an agent is done with an owned Edge session and should close it.",
+            "auth_microsoft_cleanup" => "Use this when stale Microsoft auth windows are confusing later login or authorize flows. Use dryRun first when diagnosing.",
+            "auth_microsoft_authorize_probe" => "Use this when an agent needs to open a Microsoft authorize URL and observe redirect, code, error, or user-action state.",
+            "auth_microsoft_authorize_probe_status" => "Use this when an agent needs the latest or named Microsoft authorize-probe result.",
+            "auth_microsoft_device_login" => "Use this when an external service has a Microsoft device code and needs Windows Edge handoff.",
+            "auth_microsoft_device_login_status" => "Use this when an agent needs the latest or named Microsoft device-code handoff result.",
+            "mail_list_folders" => "Use this when an agent needs Outlook folder paths before searching or downloading mail attachments.",
+            "mail_status" => "Use this when an agent needs Outlook worker availability and process state.",
+            "mail_search_messages" => "Use this when an agent needs Outlook messages matching folder, subject, date, or attachment filters.",
+            "mail_download_attachments" => "Use this when an agent needs Outlook attachments saved into operator-exchange for later tools.",
+            "mail_get_run" => "Use this when an agent needs a prior mail attachment download manifest by runId.",
+            _ => "Use this when an agent needs this Windows Operator capability.",
+        };
+
+    private static JsonObject OutputSchemaFor(string name) =>
+        name switch
+        {
+            "operator_health" => OperatorJsonSchema.For<HealthResult>(),
+            "window_list" => OperatorJsonSchema.ArrayFor<WindowRef>(),
+            "window_activate" => OperatorJsonSchema.For<ActionResult>(),
+            "window_screenshot" => OperatorJsonSchema.For<ScreenshotResult>(),
+            "uia_query" => OperatorJsonSchema.ArrayFor<UiElementRef>(),
+            "uia_click" => OperatorJsonSchema.For<ActionResult>(),
+            "uia_type" => OperatorJsonSchema.For<ActionResult>(),
+            "input_hotkey" => OperatorJsonSchema.For<ActionResult>(),
+            "browser_edge_reset" => OperatorJsonSchema.For<BrowserEdgeResetResult>(),
+            "browser_edge_session_start" => OperatorJsonSchema.For<BrowserEdgeSessionStateResult>(),
+            "browser_edge_session_state" => OperatorJsonSchema.For<BrowserEdgeSessionStateResult>(),
+            "browser_edge_session_navigate" => OperatorJsonSchema.For<BrowserEdgeSessionStateResult>(),
+            "browser_edge_session_dom_click" => OperatorJsonSchema.For<BrowserEdgeSessionDomActionResult>(),
+            "browser_edge_session_dom_fill" => OperatorJsonSchema.For<BrowserEdgeSessionDomActionResult>(),
+            "browser_edge_session_close" => OperatorJsonSchema.For<BrowserEdgeSessionStateResult>(),
+            "auth_microsoft_cleanup" => OperatorJsonSchema.For<MicrosoftAuthCleanupResult>(),
+            "auth_microsoft_authorize_probe" => OperatorJsonSchema.For<MicrosoftAuthorizeProbeResult>(),
+            "auth_microsoft_authorize_probe_status" => OperatorJsonSchema.For<MicrosoftAuthorizeProbeResult>(),
+            "auth_microsoft_device_login" => OperatorJsonSchema.For<MicrosoftDeviceLoginResult>(),
+            "auth_microsoft_device_login_status" => OperatorJsonSchema.For<MicrosoftDeviceLoginResult>(),
+            "mail_list_folders" => OperatorJsonSchema.For<MailFoldersResult>(),
+            "mail_status" => OperatorJsonSchema.For<MailStatusResult>(),
+            "mail_search_messages" => OperatorJsonSchema.For<MailSearchResult>(),
+            "mail_download_attachments" => OperatorJsonSchema.For<MailDownloadResult>(),
+            "mail_get_run" => OperatorJsonSchema.For<MailDownloadResult>(),
+            _ => EmptyObjectSchema(),
+        };
+
+    private static JsonObject AnnotationsFor(string name)
+    {
+        var (readOnly, destructive, openWorld, idempotent) = name switch
+        {
+            "operator_health" or
+            "window_list" or
+            "window_screenshot" or
+            "uia_query" or
+            "browser_edge_session_state" or
+            "auth_microsoft_authorize_probe_status" or
+            "auth_microsoft_device_login_status" or
+            "mail_list_folders" or
+            "mail_status" or
+            "mail_search_messages" or
+            "mail_get_run" => (true, false, false, true),
+
+            "browser_edge_reset" or
+            "auth_microsoft_cleanup" => (false, true, false, false),
+
+            "browser_edge_session_start" or
+            "browser_edge_session_navigate" or
+            "browser_edge_session_dom_click" or
+            "browser_edge_session_dom_fill" or
+            "auth_microsoft_authorize_probe" or
+            "auth_microsoft_device_login" => (false, false, true, false),
+
+            "window_activate" or
+            "browser_edge_session_close" => (false, false, false, true),
+
+            _ => (false, false, false, false),
+        };
+
+        return new JsonObject
+        {
+            ["readOnlyHint"] = readOnly,
+            ["destructiveHint"] = destructive,
+            ["openWorldHint"] = openWorld,
+            ["idempotentHint"] = idempotent,
+        };
+    }
+
+    private static JsonObject MetaFor(string name)
+    {
+        var title = TitleFor(name);
+        return new JsonObject
+        {
+            ["openai/toolInvocation/invoking"] = $"Running {title}",
+            ["openai/toolInvocation/invoked"] = $"{title} done",
+        };
+    }
+
+    private static string SummarizeToolResult(string name, JsonNode? payload)
+    {
+        if (payload is null)
+        {
+            return $"{name}: ok";
+        }
+
+        if (payload is JsonArray array)
+        {
+            return $"{name}: count={array.Count}";
+        }
+
+        if (payload is not JsonObject obj)
+        {
+            return $"{name}: result={payload.ToJsonString(OperatorJson.SerializerOptions)}";
+        }
+
+        return name switch
+        {
+            "operator_health" => $"{name}: status={StringValue(obj, "status")} mode={StringValue(obj, "runtimeMode")} mcp={BoolValue(obj, "mcpEnabled")}",
+            "window_activate" or "uia_click" or "uia_type" or "input_hotkey" => $"{name}: success={BoolValue(obj, "success")} message={StringValue(obj, "message")}",
+            "window_screenshot" => $"{name}: media={StringValue(obj, "mediaType")} pixels={IntValue(obj, "pixelWidth")}x{IntValue(obj, "pixelHeight")} backend={StringValue(obj, "backend")}",
+            "browser_edge_reset" => $"{name}: success={BoolValue(obj, "success")} matched={IntValue(obj, "matchedProcesses")} killed={IntValue(obj, "killedProcesses")} errors={ArrayCount(obj, "errors")}",
+            "browser_edge_session_start" or
+            "browser_edge_session_state" or
+            "browser_edge_session_navigate" or
+            "browser_edge_session_close" => $"{name}: success={BoolValue(obj, "success")} session={StringValue(obj, "sessionId")} alive={BoolValue(obj, "isAlive")} state={StringValue(obj, "browserState")} title={StringValue(obj, "title")}",
+            "browser_edge_session_dom_click" or
+            "browser_edge_session_dom_fill" => $"{name}: success={BoolValue(obj, "success")} session={StringValue(obj, "sessionId")} action={StringValue(obj, "action")} match={StringValue(obj, "matchedBy")} title={StringValue(obj, "title")}",
+            "auth_microsoft_cleanup" => $"{name}: success={BoolValue(obj, "success")} matched={IntValue(obj, "matchedWindows")} closed={IntValue(obj, "closedWindows")} errors={ArrayCount(obj, "errors")}",
+            "auth_microsoft_authorize_probe" or
+            "auth_microsoft_authorize_probe_status" => $"{name}: success={BoolValue(obj, "success")} runId={StringValue(obj, "runId")} status={StringValue(obj, "status")} origin={StringValue(obj, "observedOrigin")} error={StringValue(obj, "observedError")}",
+            "auth_microsoft_device_login" or
+            "auth_microsoft_device_login_status" => $"{name}: success={BoolValue(obj, "success")} runId={StringValue(obj, "runId")} status={StringValue(obj, "status")} title={StringValue(obj, "browserTitle")}",
+            "mail_list_folders" => $"{name}: success={BoolValue(obj, "success")} folders={ArrayCount(obj, "folders")} recovered={BoolValue(obj, "recovered")} warnings={ArrayCount(obj, "warnings")}",
+            "mail_status" => $"{name}: available={BoolValue(obj, "workerAvailable")} visible={IntValue(obj, "visibleOutlookCount")} headless={IntValue(obj, "headlessOutlookCount")} lastError={StringValue(obj, "lastWorkerError")}",
+            "mail_search_messages" => $"{name}: success={BoolValue(obj, "success")} messages={ArrayCount(obj, "messages")} recovered={BoolValue(obj, "recovered")} warnings={ArrayCount(obj, "warnings")}",
+            "mail_download_attachments" or "mail_get_run" => $"{name}: success={BoolValue(obj, "success")} runId={StringValue(obj, "runId")} saved={IntValue(obj, "attachmentsSaved")} skipped={IntValue(obj, "attachmentsSkipped")} root={StringValue(obj, "downloadRoot")}",
+            _ => $"{name}: success={BoolValue(obj, "success")} actions={ArrayCount(obj, "actions")} warnings={ArrayCount(obj, "warnings")} errors={ArrayCount(obj, "errors")}",
+        };
+    }
+
+    private static string StringValue(JsonObject obj, string name) =>
+        obj[name]?.GetValue<string>() ?? "-";
+
+    private static string BoolValue(JsonObject obj, string name) =>
+        obj[name]?.GetValue<bool>().ToString().ToLowerInvariant() ?? "-";
+
+    private static string IntValue(JsonObject obj, string name) =>
+        obj[name]?.GetValue<int>().ToString(CultureInfo.InvariantCulture) ?? "-";
+
+    private static int ArrayCount(JsonObject obj, string name) =>
+        obj[name] is JsonArray array ? array.Count : 0;
 
     private static JsonObject EmptyObjectSchema() =>
         new()

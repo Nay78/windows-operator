@@ -79,17 +79,17 @@ public sealed class McpProtocolHandler
             ?? throw McpProtocolException.InvalidParams("tools/call missing name.");
 
         var args = parameters["arguments"] as JsonObject;
-        var payload = await _toolCatalog.ExecuteToolAsync(name, args, cancellationToken);
+        var result = await _toolCatalog.ExecuteToolResultAsync(name, args, cancellationToken);
 
         return new JsonObject
         {
-            ["structuredContent"] = payload,
+            ["structuredContent"] = result.StructuredContent,
             ["content"] = new JsonArray
             {
                 new JsonObject
                 {
                     ["type"] = "text",
-                    ["text"] = payload?.ToJsonString(OperatorJson.SerializerOptions) ?? "{}",
+                    ["text"] = result.ContentText,
                 },
             },
         };

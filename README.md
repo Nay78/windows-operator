@@ -10,7 +10,7 @@ Windows-first desktop operator scaffold for local automation. Repo targets a log
 - `src/WindowsOperator.Core`: contracts, options, error model, shared orchestration.
 - `src/WindowsOperator.Automation`: Win32 window catalog/activation and FlaUI UIA3 automation backend.
 - `src/WindowsOperator.Capture`: screenshot backend chain and image encoding policy.
-- `src/WindowsOperator.Mcp`: MCP tool catalog and stdio transport.
+- `src/WindowsOperator.Mcp`: MCP tool catalog plus HTTP/stdio transports.
 - `src/WindowsOperator.MailWorker`: short-lived Classic Outlook COM worker.
 - `tests/*`: unit and integration coverage.
 - `docs/`: development notes and phase 2 Codex adapter boundary.
@@ -61,7 +61,17 @@ Host REST binds `127.0.0.1:43117` by default and proxies desktop automation to t
 - `GET /v1/mail/status`
 - `GET /openapi.json`
 
-MCP tools expose the AI-facing operator subset. PowerPoint mutation stays REST-only unless a direct MCP workflow is added.
+MCP tools expose the AI-facing operator subset at `POST /mcp`. PowerPoint mutation stays REST-only unless a direct MCP workflow is added.
+
+Each MCP tool carries agent-facing metadata:
+
+- `title`: readable tool label.
+- `description`: starts with `Use this when...` and names the intended agent workflow.
+- `outputSchema`: JSON Schema for `structuredContent`, generated from shared Core contracts.
+- `annotations`: safety/planning hints for read-only, destructive, open-world, and idempotent behavior.
+- `_meta`: compact invocation status text for OpenAI-compatible MCP clients.
+
+Tool calls return full machine-readable JSON in `structuredContent`. Text content is a compact status summary, not a JSON dump.
 
 - `operator_health`
 - `window_list`

@@ -64,6 +64,10 @@ Rules:
 - Add provider only when needed.
 - Avoid transport or implementation names.
 - Input schema should mirror REST request contract.
+- Output schema should mirror the Core result contract.
+- Description should start with `Use this when...` and state the agent workflow.
+- Add safety annotations for read-only, destructive, open-world, and idempotent behavior.
+- Return full JSON through `structuredContent`; keep text content as a compact summary.
 
 Examples:
 

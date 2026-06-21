@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Microsoft.Extensions.Logging.Abstractions;
 using WindowsOperator.Core.Contracts;
 using WindowsOperator.Core.Json;
 using WindowsOperator.Core.Services;
@@ -83,6 +84,89 @@ public sealed class McpToolCatalogTests
         Assert.NotNull(schemas["mail_download_attachments"]["properties"]!["messageIds"]);
         Assert.NotNull(schemas["mail_download_attachments"]["properties"]!["freshness"]);
         Assert.Contains("runId", schemas["mail_get_run"]["required"]!.AsArray().Select(node => node!.GetValue<string>()));
+    }
+
+    [Fact]
+    public void ListTools_ExposesAgentMetadata()
+    {
+        var catalog = new McpToolCatalog(new FakeOperatorFacade());
+
+        var tools = catalog.ListTools();
+        Assert.All(tools, tool =>
+        {
+            Assert.False(string.IsNullOrWhiteSpace(tool.Title));
+            Assert.StartsWith("Use this when", tool.Description, StringComparison.Ordinal);
+            Assert.NotNull(tool.OutputSchema);
+            Assert.Equal("https://json-schema.org/draft/2020-12/schema", tool.OutputSchema!["$schema"]!.GetValue<string>());
+            Assert.NotNull(tool.Annotations);
+            Assert.NotNull(tool.Annotations!["readOnlyHint"]);
+            Assert.NotNull(tool.Annotations!["destructiveHint"]);
+            Assert.NotNull(tool.Annotations!["openWorldHint"]);
+            Assert.NotNull(tool.Annotations!["idempotentHint"]);
+            Assert.NotNull(tool.Meta);
+            Assert.NotNull(tool.Meta!["openai/toolInvocation/invoking"]);
+            Assert.NotNull(tool.Meta!["openai/toolInvocation/invoked"]);
+        });
+
+        var byName = tools.ToDictionary(tool => tool.Name, StringComparer.Ordinal);
+        Assert.True(byName["operator_health"].Annotations!["readOnlyHint"]!.GetValue<bool>());
+        Assert.True(byName["browser_edge_reset"].Annotations!["destructiveHint"]!.GetValue<bool>());
+        Assert.True(byName["browser_edge_session_navigate"].Annotations!["openWorldHint"]!.GetValue<bool>());
+        Assert.False(byName["mail_download_attachments"].Annotations!["idempotentHint"]!.GetValue<bool>());
+        Assert.NotNull(byName["mail_search_messages"].OutputSchema!["$defs"]!["MailSearchResult"]);
+    }
+
+    [Fact]
+    public async Task ExecuteToolResultAsync_ReturnsStructuredContentAndCompactText()
+    {
+        var catalog = new McpToolCatalog(new FakeOperatorFacade());
+
+        var result = await catalog.ExecuteToolResultAsync(
+            "window_screenshot",
+            new JsonObject
+            {
+                ["hwnd"] = 42,
+                ["format"] = "png",
+            },
+            CancellationToken.None);
+
+        Assert.Equal("AQID", result.StructuredContent!["imageBase64"]!.GetValue<string>());
+        Assert.Contains("pixels=1x1", result.ContentText, StringComparison.Ordinal);
+        Assert.DoesNotContain("AQID", result.ContentText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ProtocolHandler_ToolsListAndCallExposeMetadataAndSummary()
+    {
+        var handler = new McpProtocolHandler(
+            new McpToolCatalog(new FakeOperatorFacade()),
+            NullLogger<McpProtocolHandler>.Instance);
+
+        var listed = await handler.HandleAsync(
+            new McpRequest("2.0", JsonValue.Create(1), "tools/list", null),
+            CancellationToken.None);
+        var first = listed!.Result!["tools"]!.AsArray()[0]!.AsObject();
+
+        Assert.Equal("operator_health", first["name"]!.GetValue<string>());
+        Assert.Equal("Operator Health", first["title"]!.GetValue<string>());
+        Assert.NotNull(first["outputSchema"]);
+        Assert.True(first["annotations"]!["readOnlyHint"]!.GetValue<bool>());
+
+        var called = await handler.HandleAsync(
+            new McpRequest(
+                "2.0",
+                JsonValue.Create(2),
+                "tools/call",
+                new JsonObject
+                {
+                    ["name"] = "operator_health",
+                    ["arguments"] = new JsonObject(),
+                }),
+            CancellationToken.None);
+
+        Assert.Equal("ok", called!.Result!["structuredContent"]!["status"]!.GetValue<string>());
+        var text = called.Result["content"]!.AsArray()[0]!["text"]!.GetValue<string>();
+        Assert.Equal("operator_health: status=ok mode=interactive-user mcp=true", text);
     }
 
     [Fact]

@@ -1,11 +1,26 @@
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 
 namespace WindowsOperator.Mcp.Protocol;
 
 public sealed record McpToolDefinition(
     string Name,
     string Description,
-    JsonObject InputSchema);
+    JsonObject InputSchema)
+{
+    public string Title { get; init; } = Name;
+
+    public JsonObject? OutputSchema { get; init; }
+
+    public JsonObject? Annotations { get; init; }
+
+    [JsonPropertyName("_meta")]
+    public JsonObject? Meta { get; init; }
+}
+
+public sealed record McpToolResult(
+    JsonNode? StructuredContent,
+    string ContentText);
 
 public sealed record McpRequest(
     string? Jsonrpc,
