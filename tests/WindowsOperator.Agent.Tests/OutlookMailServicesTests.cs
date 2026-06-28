@@ -1,3 +1,4 @@
+using WindowsOperator.Core;
 using WindowsOperator.Agent.Services;
 using WindowsOperator.Core.Contracts;
 
@@ -93,6 +94,92 @@ public sealed class OutlookMailServicesTests
             startedAt.AddSeconds(61),
             requestBudget,
             requiredBudget));
+    }
+
+    [Fact]
+    public void RetryBudgetRequirement_DoesNotChargeSyncWaitForCachedReads()
+    {
+        var cached = OutlookMailComService.RetryBudgetRequirement("cached", 45);
+        var fresh = OutlookMailComService.RetryBudgetRequirement("fresh", 45);
+
+        Assert.Equal(TimeSpan.FromSeconds(45), fresh - cached);
+    }
+
+    [Fact]
+    public void ResolveFolderForTest_PrefersDefaultStoreRootChildForSingleSegment()
+    {
+        var topografia = new FakeFolderNode("Topografia");
+        var session = FakeSession.WithDefaultStore("nmartinez.drs@mineracentinela.cl", topografia);
+
+        var resolved = OutlookMailComService.ResolveFolderForTest(session, "Topografia");
+
+        Assert.Same(topografia, resolved);
+    }
+
+    [Fact]
+    public void ResolveFolderForTest_UsesDefaultStoreRootForFullPath()
+    {
+        var topografia = new FakeFolderNode("Topografia");
+        var session = FakeSession.WithDefaultStore("nmartinez.drs@mineracentinela.cl", topografia);
+
+        var resolved = OutlookMailComService.ResolveFolderForTest(
+            session,
+            "nmartinez.drs@mineracentinela.cl/Topografia");
+
+        Assert.Same(topografia, resolved);
+    }
+
+    [Fact]
+    public void ResolveFolderForTest_MatchesUnicodeEquivalentFolderNames()
+    {
+        var diseno = new FakeFolderNode("Disen\u0303o");
+        var session = FakeSession.WithDefaultStore("nmartinez.drs@mineracentinela.cl", diseno);
+
+        var resolved = OutlookMailComService.ResolveFolderForTest(session, "Diseño");
+
+        Assert.Same(diseno, resolved);
+        Assert.True(OutlookMailComService.FolderNameEquals("Disen\u0303o", "Diseño"));
+        Assert.True(OutlookMailComService.FolderNameEquals("\u200EDisen\u0303o ", "Diseño"));
+    }
+
+    [Fact]
+    public void ResolveFolderForTest_FailsFastForMissingSingleSegment()
+    {
+        var session = FakeSession.WithDefaultStore("nmartinez.drs@mineracentinela.cl");
+
+        var ex = Assert.Throws<OperatorFailureException>(
+            () => OutlookMailComService.ResolveFolderForTest(session, "Diseño"));
+
+        Assert.Equal(ErrorCodes.MailFolderNotFound, ex.Error.Code);
+    }
+
+    [Fact]
+    public void ResolveFolderForTest_TracesChildNamesOnMissingSingleSegment()
+    {
+        var traces = new List<string>();
+        var session = FakeSession.WithDefaultStore(
+            "nmartinez.drs@mineracentinela.cl",
+            new FakeFolderNode("Alimentacion"),
+            new FakeFolderNode("Topografia"));
+
+        var ex = Assert.Throws<OperatorFailureException>(
+            () => OutlookMailComService.ResolveFolderForTest(session, "Diseño", traces.Add));
+
+        Assert.Equal(ErrorCodes.MailFolderNotFound, ex.Error.Code);
+        Assert.Contains(
+            traces,
+            trace => trace.Contains(@"folder_child_missing:Dise\u00F1o:count=3", StringComparison.Ordinal) &&
+                trace.Contains("Alimentacion", StringComparison.Ordinal) &&
+                trace.Contains("Topografia", StringComparison.Ordinal));
+        Assert.Equal(@"Dise\u00F1o", OutlookMailComService.EscapeTraceValue("Diseño"));
+    }
+
+    [Fact]
+    public void IsRecoverableForTest_DoesNotRecoverMissingFolders()
+    {
+        var ex = new OperatorFailureException(OperatorErrors.MailFolderNotFound("Diseño"));
+
+        Assert.False(OutlookMailComService.IsRecoverableForTest(ex));
     }
 
     [Fact]
@@ -196,5 +283,98 @@ public sealed class OutlookMailServicesTests
         }
 
         public int Count { get; }
+    }
+
+    public sealed class FakeSession
+    {
+        private FakeSession(FakeFolderNode inbox)
+        {
+            Inbox = inbox;
+            Folders = new FakeFolderCollection(throwOnAccess: true);
+        }
+
+        public FakeFolderNode Inbox { get; }
+
+        public FakeFolderCollection Folders { get; }
+
+        public static FakeSession WithDefaultStore(string rootName, params FakeFolderNode[] rootChildren)
+        {
+            var inbox = new FakeFolderNode("Bandeja de entrada");
+            var root = new FakeFolderNode(rootName, rootChildren.Append(inbox).ToArray());
+            inbox.Parent = root;
+            return new FakeSession(inbox);
+        }
+
+        public FakeFolderNode GetDefaultFolder(int id) => Inbox;
+    }
+
+    public sealed class FakeFolderNode
+    {
+        public FakeFolderNode(string name, params FakeFolderNode[] children)
+        {
+            Name = name;
+            Folders = new FakeFolderCollection(children);
+            foreach (var child in children)
+            {
+                child.Parent = this;
+            }
+        }
+
+        public string Name { get; }
+
+        public object? Parent { get; set; }
+
+        public FakeFolderCollection Folders { get; }
+    }
+
+    public sealed class FakeFolderCollection
+    {
+        private readonly IReadOnlyList<FakeFolderNode> _children;
+        private readonly bool _throwOnAccess;
+
+        public FakeFolderCollection(params FakeFolderNode[] children)
+            : this(children, throwOnAccess: false)
+        {
+        }
+
+        public FakeFolderCollection(bool throwOnAccess)
+            : this(Array.Empty<FakeFolderNode>(), throwOnAccess)
+        {
+        }
+
+        private FakeFolderCollection(IReadOnlyList<FakeFolderNode> children, bool throwOnAccess)
+        {
+            _children = children;
+            _throwOnAccess = throwOnAccess;
+        }
+
+        public int Count
+        {
+            get
+            {
+                ThrowIfSessionRootsTouched();
+                return _children.Count;
+            }
+        }
+
+        public FakeFolderNode Item(int index)
+        {
+            ThrowIfSessionRootsTouched();
+            return _children[index - 1];
+        }
+
+        public FakeFolderNode Item(string name)
+        {
+            ThrowIfSessionRootsTouched();
+            return _children.First(child => string.Equals(child.Name, name, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private void ThrowIfSessionRootsTouched()
+        {
+            if (_throwOnAccess)
+            {
+                throw new InvalidOperationException("session.Folders should not be used for default-store child resolution.");
+            }
+        }
     }
 }

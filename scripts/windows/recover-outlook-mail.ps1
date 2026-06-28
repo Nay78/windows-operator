@@ -10,6 +10,25 @@ $ErrorActionPreference = "Stop"
 $actions = New-Object System.Collections.Generic.List[string]
 $errors = New-Object System.Collections.Generic.List[string]
 
+function Get-ExchangeRoot {
+    if (-not [string]::IsNullOrWhiteSpace($env:WINDOWS_OPERATOR_EXCHANGE_ROOT)) {
+        return $env:WINDOWS_OPERATOR_EXCHANGE_ROOT
+    }
+
+    return "Z:\operator-exchange"
+}
+
+function Get-RecoveryRunRoot {
+    $runId = $env:WINDOWS_OPERATOR_RUN_ID
+    if ([string]::IsNullOrWhiteSpace($runId)) {
+        $runId = "outlook-recovery-{0:yyyyMMddTHHmmssfffZ}" -f (Get-Date).ToUniversalTime()
+    }
+
+    $root = Join-Path (Get-ExchangeRoot) "runs\$runId"
+    New-Item -ItemType Directory -Path $root -Force | Out-Null
+    return $root
+}
+
 function Has-MainWindow {
     param([System.Diagnostics.Process]$Process)
     try {
@@ -18,6 +37,62 @@ function Has-MainWindow {
     }
     catch {
         return $false
+    }
+}
+
+function Convert-RegistryValueForBackup {
+    param([object]$Value)
+
+    if ($null -eq $Value) {
+        return ""
+    }
+
+    if ($Value -is [byte[]]) {
+        return [Convert]::ToBase64String($Value)
+    }
+
+    if ($Value -is [string[]]) {
+        return ($Value | ConvertTo-Json -Compress)
+    }
+
+    return [string]$Value
+}
+
+function Clear-OutlookResiliencyStartupItems {
+    $key = "HKCU:\Software\Microsoft\Office\16.0\Outlook\Resiliency\StartupItems"
+    if (-not (Test-Path -LiteralPath $key)) {
+        return
+    }
+
+    $item = Get-ItemProperty -LiteralPath $key
+    $values = @(
+        $item.PSObject.Properties |
+            Where-Object { $_.Name -notlike "PS*" -and -not [string]::IsNullOrWhiteSpace($_.Name) }
+    )
+    if ($values.Count -eq 0) {
+        return
+    }
+
+    try {
+        $backupPath = Join-Path (Get-RecoveryRunRoot) "outlook-resiliency-startupitems-before.json"
+        $backup = @(
+            foreach ($value in $values) {
+                [ordered]@{
+                    name = $value.Name
+                    value = Convert-RegistryValueForBackup -Value $value.Value
+                }
+            }
+        )
+        $backup | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $backupPath -Encoding UTF8
+        $actions.Add("resiliency_startupitems_backup:$backupPath")
+
+        foreach ($value in $values) {
+            Remove-ItemProperty -LiteralPath $key -Name $value.Name -ErrorAction Stop
+            $actions.Add("cleared_resiliency_startupitem:$($value.Name)")
+        }
+    }
+    catch {
+        $errors.Add("failed_to_clear_resiliency_startupitems:$($_.Exception.Message)")
     }
 }
 
@@ -101,6 +176,7 @@ else {
 }
 
 Clear-OutlookTempFiles
+Clear-OutlookResiliencyStartupItems
 
 if ($normalized -in @("profile", "force")) {
     $visibleCount = @(

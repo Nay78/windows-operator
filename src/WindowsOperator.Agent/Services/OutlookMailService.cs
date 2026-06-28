@@ -13,7 +13,7 @@ public sealed class OutlookMailService : IMailService
 {
     private static readonly TimeSpan WorkerTimeout = ReadTimeout(
         "WINDOWS_OPERATOR_MAIL_WORKER_TIMEOUT_SECONDS",
-        TimeSpan.FromSeconds(90));
+        TimeSpan.FromSeconds(180));
     private readonly object _stateLock = new();
     private readonly IOptions<OperatorOptions> _options;
     private string? _lastWorkerError;
@@ -135,6 +135,7 @@ public sealed class OutlookMailService : IMailService
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             KillProcessTree(process);
+            StopHeadlessOutlookProcesses();
             SetLastWorkerError(BuildWorkerTimeoutDetail(
                 operationId,
                 runRoot,
@@ -149,6 +150,7 @@ public sealed class OutlookMailService : IMailService
         catch
         {
             KillProcessTree(process);
+            StopHeadlessOutlookProcesses();
             throw;
         }
 
@@ -329,6 +331,29 @@ public sealed class OutlookMailService : IMailService
         }
         catch
         {
+        }
+    }
+
+    private static void StopHeadlessOutlookProcesses()
+    {
+        foreach (var process in Process.GetProcessesByName("OUTLOOK"))
+        {
+            using (process)
+            {
+                if (HasMainWindow(process))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    process.Kill(entireProcessTree: true);
+                    process.WaitForExit(5000);
+                }
+                catch
+                {
+                }
+            }
         }
     }
 

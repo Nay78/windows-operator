@@ -27,7 +27,10 @@ if (addInOptions.Enabled && !string.IsNullOrWhiteSpace(addInOptions.BaseUrl))
 
 builder.WebHost.UseUrls(urls.Distinct(StringComparer.OrdinalIgnoreCase).ToArray());
 
-builder.Services.AddHttpClient<DesktopAgentClient>();
+builder.Services.AddHttpClient<DesktopAgentClient>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(240);
+});
 builder.Services.AddHttpClient("powerpoint-artifacts");
 builder.Services.AddTransient<IWorkbenchService>(services => services.GetRequiredService<DesktopAgentClient>());
 builder.Services.AddSingleton<IPowerPointJobService>(services =>

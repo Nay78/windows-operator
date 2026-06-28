@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using Microsoft.Win32;
+using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
@@ -14,6 +16,7 @@ namespace WindowsOperator.Agent.Services;
 public sealed class OutlookMailComService : IMailService, IDisposable
 {
     private const int DefaultInboxFolder = 6;
+    private const int FolderDiagnosticLimit = 120;
     private static readonly TimeSpan OutlookLockTimeout = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan StaleOutlookAge = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan OutlookExitTimeout = TimeSpan.FromSeconds(10);
@@ -23,7 +26,9 @@ public sealed class OutlookMailComService : IMailService, IDisposable
         TimeSpan.FromSeconds(75));
     private static readonly TimeSpan MailWorkerTimeout = ReadTimeout(
         "WINDOWS_OPERATOR_MAIL_WORKER_TIMEOUT_SECONDS",
-        TimeSpan.FromSeconds(90));
+        TimeSpan.FromSeconds(180));
+    private const string OutlookResiliencyStartupItemsSubKey =
+        @"Software\Microsoft\Office\16.0\Outlook\Resiliency\StartupItems";
     private readonly StaComDispatcher _dispatcher = new();
     private readonly MailOptions _policy;
     private readonly Action<string>? _trace;
@@ -189,7 +194,7 @@ public sealed class OutlookMailComService : IMailService, IDisposable
             return false;
         }
 
-        if (!HasRetryBudget(context))
+        if (!HasRetryBudget(context, freshness))
         {
             context.Warnings.Add($"recovery_skipped_insufficient_budget:{action}");
             result = default!;
@@ -247,7 +252,7 @@ public sealed class OutlookMailComService : IMailService, IDisposable
     {
         try
         {
-            return ResolveFolder(session, folderPath);
+            return ResolveFolder(session, folderPath, context.Trace);
         }
         catch (OperatorFailureException ex) when (
             ex.Error.Code == ErrorCodes.MailFolderNotFound &&
@@ -256,7 +261,7 @@ public sealed class OutlookMailComService : IMailService, IDisposable
         {
             context.Warnings.Add($"folder_missing_before_forced_sync:{folderPath}");
             EnsureFresh(session, MailFreshness.Fresh, context, force: true);
-            return ResolveFolder(session, folderPath);
+            return ResolveFolder(session, folderPath, context.Trace);
         }
     }
 
@@ -694,23 +699,59 @@ public sealed class OutlookMailComService : IMailService, IDisposable
         }
     }
 
-    private static dynamic ResolveFolder(dynamic session, string? folderPath)
+    internal static object ResolveFolderForTest(object session, string? folderPath, Action<string>? trace = null) =>
+        ResolveFolder(session, folderPath, trace);
+
+    private static dynamic ResolveFolder(dynamic session, string? folderPath, Action<string>? trace)
     {
         if (string.IsNullOrWhiteSpace(folderPath))
         {
+            trace?.Invoke("folder_resolve_default_inbox");
             return session.GetDefaultFolder(DefaultInboxFolder);
         }
 
         var segments = folderPath.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         if (segments.Length == 0)
         {
+            trace?.Invoke("folder_resolve_default_inbox");
             return session.GetDefaultFolder(DefaultInboxFolder);
         }
 
+        if (TryGetDefaultStoreRoot((object)session, out var defaultRoot, trace))
+        {
+            var rootName = SafeString(() => ((dynamic)defaultRoot!).Name);
+            if (segments.Length > 1 && FolderNameEquals(rootName, segments[0]))
+            {
+                trace?.Invoke("folder_resolve_default_store_root_match");
+                return ResolveChildPath(defaultRoot!, segments, 1, trace);
+            }
+
+            object? rootChild;
+            if (segments.Length == 1 && TryResolveChild(defaultRoot!, segments[0], out rootChild, trace))
+            {
+                trace?.Invoke("folder_resolve_default_store_child_match");
+                return rootChild!;
+            }
+        }
+
+        object? inboxChild;
+        if (segments.Length == 1 && TryResolveDefaultInboxChild((object)session, segments[0], out inboxChild, trace))
+        {
+            trace?.Invoke("folder_resolve_default_inbox_child_match");
+            return inboxChild!;
+        }
+
+        if (segments.Length == 1)
+        {
+            throw new OperatorFailureException(
+                OperatorErrors.MailFolderNotFound(folderPath));
+        }
+
+        trace?.Invoke("folder_resolve_session_roots_start");
         for (var i = 1; i <= (int)session.Folders.Count; i++)
         {
             dynamic root = session.Folders.Item(i);
-            if (!string.Equals(SafeString(() => root.Name), segments[0], StringComparison.OrdinalIgnoreCase))
+            if (!FolderNameEquals(SafeString(() => root.Name), segments[0]))
             {
                 continue;
             }
@@ -718,9 +759,10 @@ public sealed class OutlookMailComService : IMailService, IDisposable
             dynamic current = root;
             for (var j = 1; j < segments.Length; j++)
             {
-                current = FindChild(current, segments[j]);
+                current = FindChild(current, segments[j], trace);
             }
 
+            trace?.Invoke("folder_resolve_session_roots_match");
             return current;
         }
 
@@ -728,19 +770,146 @@ public sealed class OutlookMailComService : IMailService, IDisposable
             OperatorErrors.MailFolderNotFound(folderPath));
     }
 
-    private static dynamic FindChild(dynamic folder, string name)
+    private static bool TryGetDefaultStoreRoot(object session, out object? root, Action<string>? trace)
     {
+        trace?.Invoke("folder_resolve_default_store_root_start");
+        try
+        {
+            dynamic outlookSession = session;
+            dynamic defaultStore = outlookSession.DefaultStore;
+            root = defaultStore.GetRootFolder();
+            trace?.Invoke("folder_resolve_default_store_root_done:default_store");
+            return root is not null;
+        }
+        catch (Exception ex)
+        {
+            trace?.Invoke($"folder_resolve_default_store_root_default_store_unavailable:{ex.GetType().Name}");
+        }
+
+        try
+        {
+            dynamic outlookSession = session;
+            dynamic inbox = outlookSession.GetDefaultFolder(DefaultInboxFolder);
+            root = inbox.Parent;
+            trace?.Invoke("folder_resolve_default_store_root_done:inbox_parent");
+            return root is not null;
+        }
+        catch (Exception ex)
+        {
+            root = null!;
+            trace?.Invoke($"folder_resolve_default_store_root_unavailable:{ex.GetType().Name}");
+            return false;
+        }
+    }
+
+    private static dynamic ResolveChildPath(object root, IReadOnlyList<string> segments, int startIndex, Action<string>? trace)
+    {
+        dynamic current = root;
+        for (var i = startIndex; i < segments.Count; i++)
+        {
+            current = FindChild(current, segments[i], trace);
+        }
+
+        return current;
+    }
+
+    private static bool TryResolveDefaultInboxChild(object session, string name, out object? folder, Action<string>? trace)
+    {
+        try
+        {
+            trace?.Invoke("folder_resolve_default_inbox_child_start");
+            dynamic outlookSession = session;
+            dynamic inbox = outlookSession.GetDefaultFolder(DefaultInboxFolder);
+            folder = FindChild(inbox, name, trace);
+            trace?.Invoke("folder_resolve_default_inbox_child_done");
+            return true;
+        }
+        catch (OperatorFailureException ex) when (ex.Error.Code == ErrorCodes.MailFolderNotFound)
+        {
+            folder = null!;
+            trace?.Invoke("folder_resolve_default_inbox_child_missing");
+            return false;
+        }
+    }
+
+    private static bool TryResolveChild(object folder, string name, out object? child, Action<string>? trace)
+    {
+        try
+        {
+            child = FindChild(folder, name, trace);
+            return true;
+        }
+        catch (OperatorFailureException ex) when (ex.Error.Code == ErrorCodes.MailFolderNotFound)
+        {
+            child = null!;
+            return false;
+        }
+    }
+
+    private static dynamic FindChild(dynamic folder, string name, Action<string>? trace = null)
+    {
+        try
+        {
+            trace?.Invoke($"folder_child_direct_start:{name}");
+            var child = folder.Folders.Item(name);
+            trace?.Invoke($"folder_child_direct_done:{name}");
+            return child;
+        }
+        catch
+        {
+            // Fall back to enumeration when Outlook cannot resolve by display name.
+        }
+
+        trace?.Invoke($"folder_child_enumerate_start:{name}");
         for (var i = 1; i <= (int)folder.Folders.Count; i++)
         {
             dynamic child = folder.Folders.Item(i);
-            if (string.Equals(SafeString(() => child.Name), name, StringComparison.OrdinalIgnoreCase))
+            if (FolderNameEquals(SafeString(() => child.Name), name))
             {
+                trace?.Invoke($"folder_child_enumerate_done:{name}");
                 return child;
             }
         }
 
+        TraceFolderChildren(folder, name, trace);
         throw new OperatorFailureException(
             OperatorErrors.MailFolderNotFound(name));
+    }
+
+    private static void TraceFolderChildren(dynamic folder, string requestedName, Action<string>? trace)
+    {
+        if (trace is null)
+        {
+            return;
+        }
+
+        int childCount;
+        try
+        {
+            childCount = (int)folder.Folders.Count;
+        }
+        catch (Exception ex)
+        {
+            trace($"folder_child_missing:{EscapeTraceValue(requestedName)}:children_unavailable:{ex.GetType().Name}");
+            return;
+        }
+
+        var names = new List<string>();
+        var limit = Math.Min(childCount, FolderDiagnosticLimit);
+        for (var i = 1; i <= limit; i++)
+        {
+            try
+            {
+                names.Add(EscapeTraceValue(SafeString(() => folder.Folders.Item(i).Name)));
+            }
+            catch (Exception ex)
+            {
+                names.Add($"<read_failed:{i}:{ex.GetType().Name}>");
+            }
+        }
+
+        var suffix = childCount > limit ? $":truncated={childCount - limit}" : string.Empty;
+        trace($"folder_child_missing:{EscapeTraceValue(requestedName)}:count={childCount}:children={string.Join("|", names)}{suffix}");
     }
 
     private static string FolderPath(dynamic folder)
@@ -894,6 +1063,60 @@ public sealed class OutlookMailComService : IMailService, IDisposable
         {
             return string.Empty;
         }
+    }
+
+    internal static bool FolderNameEquals(string left, string right) =>
+        string.Equals(
+            NormalizeFolderName(left),
+            NormalizeFolderName(right),
+            StringComparison.OrdinalIgnoreCase) ||
+        CultureInfo.InvariantCulture.CompareInfo.Compare(
+            left,
+            right,
+            CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace) == 0;
+
+    private static string NormalizeFolderName(string value)
+    {
+        var normalized = (value ?? string.Empty).Normalize(NormalizationForm.FormC).Trim();
+        if (normalized.Length == 0)
+        {
+            return normalized;
+        }
+
+        var builder = new StringBuilder(normalized.Length);
+        foreach (var ch in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(ch) != UnicodeCategory.Format)
+            {
+                builder.Append(ch);
+            }
+        }
+
+        return builder.ToString();
+    }
+
+    internal static string EscapeTraceValue(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return "<empty>";
+        }
+
+        var builder = new StringBuilder(value.Length);
+        foreach (var ch in value)
+        {
+            if (ch is >= ' ' and <= '~' && ch != '|' && ch != '\\')
+            {
+                builder.Append(ch);
+            }
+            else
+            {
+                builder.Append("\\u");
+                builder.Append(((int)ch).ToString("X4", CultureInfo.InvariantCulture));
+            }
+        }
+
+        return builder.ToString();
     }
 
     private static long? SafeLong(Func<dynamic> getter)
@@ -1175,8 +1398,66 @@ public sealed class OutlookMailComService : IMailService, IDisposable
     {
         context.Actions.Add(action);
         StopOutlookProcesses(includeVisible, context.Actions, context.Warnings);
+        ClearOutlookResiliencyStartupItems(context.Actions, context.Warnings);
         RemoveOutlookTempFilesIfIdle();
     }
+
+    private static void ClearOutlookResiliencyStartupItems(List<string> actions, List<string> warnings)
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(OutlookResiliencyStartupItemsSubKey, writable: true);
+            if (key is null)
+            {
+                return;
+            }
+
+            var valueNames = key.GetValueNames()
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .ToArray();
+            if (valueNames.Length == 0)
+            {
+                return;
+            }
+
+            var backupPath = WriteOutlookResiliencyBackup(key, valueNames);
+            actions.Add($"outlook_resiliency_startupitems_backup:{backupPath}");
+            foreach (var name in valueNames)
+            {
+                key.DeleteValue(name, throwOnMissingValue: false);
+                actions.Add($"outlook_resiliency_startupitem_cleared:{name}");
+            }
+        }
+        catch (Exception ex)
+        {
+            warnings.Add($"outlook_resiliency_startupitems_clear_failed:{ex.Message}");
+        }
+    }
+
+    private static string WriteOutlookResiliencyBackup(RegistryKey key, IReadOnlyList<string> valueNames)
+    {
+        var runRoot = Path.Combine(
+            ExchangeRoot(),
+            "runs",
+            $"mail-recovery-{DateTimeOffset.UtcNow:yyyyMMddTHHmmssfffZ}");
+        Directory.CreateDirectory(runRoot);
+        var backupPath = Path.Combine(runRoot, "outlook-resiliency-startupitems-before.json");
+        var values = valueNames.Select(name => new OutlookRegistryValueSnapshot(
+            name,
+            key.GetValueKind(name).ToString(),
+            EncodeRegistryValue(key.GetValue(name)))).ToArray();
+        File.WriteAllText(backupPath, JsonSerializer.Serialize(values, OperatorJson.SerializerOptions));
+        return backupPath;
+    }
+
+    private static string EncodeRegistryValue(object? value) =>
+        value switch
+        {
+            null => string.Empty,
+            byte[] bytes => Convert.ToBase64String(bytes),
+            string[] values => JsonSerializer.Serialize(values, OperatorJson.SerializerOptions),
+            _ => value.ToString() ?? string.Empty,
+        };
 
     private static void StopOutlookProcesses(bool includeVisible, List<string> actions, List<string> warnings)
     {
@@ -1215,7 +1496,10 @@ public sealed class OutlookMailComService : IMailService, IDisposable
     }
 
     private static bool IsRecoverable(Exception ex) =>
-        ex is not OperationCanceledException;
+        ex is not OperationCanceledException &&
+        ex is not OperatorFailureException { Error.Code: ErrorCodes.MailFolderNotFound };
+
+    internal static bool IsRecoverableForTest(Exception ex) => IsRecoverable(ex);
 
     private static string ErrorDetail(Exception ex) =>
         ex is OperatorFailureException failure
@@ -1252,9 +1536,17 @@ public sealed class OutlookMailComService : IMailService, IDisposable
             ? "[LastModificationTime]"
             : "[ReceivedTime]";
 
-    private static bool HasRetryBudget(MailOperationContext context)
+    internal static TimeSpan RetryBudgetRequirement(string? freshness, int syncWaitSeconds)
     {
-        var requiredBudget = TimeSpan.FromSeconds(Math.Clamp(context.Policy.SyncWaitSeconds, 0, 75)) + RecoveryRetrySafetyMargin;
+        var waitSeconds = NormalizeFreshness(freshness) == MailFreshness.Cached
+            ? 0
+            : Math.Clamp(syncWaitSeconds, 0, 75);
+        return OutlookOperationTimeout + TimeSpan.FromSeconds(waitSeconds) + RecoveryRetrySafetyMargin;
+    }
+
+    private static bool HasRetryBudget(MailOperationContext context, string freshness)
+    {
+        var requiredBudget = RetryBudgetRequirement(freshness, context.Policy.SyncWaitSeconds);
         return HasRetryBudget(context.StartedAtUtc, DateTimeOffset.UtcNow, MailWorkerTimeout, requiredBudget);
     }
 
@@ -1287,6 +1579,11 @@ public sealed class OutlookMailComService : IMailService, IDisposable
         IReadOnlyList<string> Actions,
         IReadOnlyList<string> Errors,
         DateTimeOffset CompletedAtUtc);
+
+    private sealed record OutlookRegistryValueSnapshot(
+        string Name,
+        string Kind,
+        string Value);
 
     private sealed class MailOperationContext
     {
