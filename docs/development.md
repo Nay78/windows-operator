@@ -2,7 +2,7 @@
 
 ## Runtime model
 
-`WindowsOperator.Host` runs headless at startup and owns REST on `127.0.0.1:43117`. `WindowsOperator.Agent` runs inside the logged-in desktop session and owns UI automation on `127.0.0.1:43119`. Autostart uses Task Scheduler: startup for Host, logon for Agent.
+`WindowsOperator.Host` runs headless at startup after a 30 second delay and owns REST on `127.0.0.1:43117`. `WindowsOperator.Agent` runs inside the logged-in desktop session and owns UI automation on `127.0.0.1:43119`. Autostart uses Task Scheduler: delayed startup for Host, delayed logon for Agent.
 
 ## Platform target
 
@@ -23,9 +23,13 @@ curl -X POST http://127.0.0.1:43117/v1/desktop/screenshot \
 curl -X POST http://127.0.0.1:43117/v1/browser/edge/open-url \
   -H 'Content-Type: application/json' \
   -d '{"url":"https://example.com","capture":true,"runId":"smoke","label":"edge-open"}'
+curl http://127.0.0.1:43117/v1/sessions/smoke
+curl -X POST http://127.0.0.1:43117/v1/sessions/smoke/screenshot \
+  -H 'Content-Type: application/json' \
+  -d '{"label":"session"}'
 ```
 
-Desktop Agent writes screenshots under `WINDOWS_OPERATOR_EXCHANGE_ROOT` or `Z:\operator-exchange`. Host-facing artifact refs map the same relative path under `WINDOWS_OPERATOR_HOST_EXCHANGE_ROOT` or `/var/lib/windows-server/shared/operator-exchange`.
+Desktop Agent writes screenshots, session state, window snapshots, and workbench events under `WINDOWS_OPERATOR_EXCHANGE_ROOT` or `Z:\operator-exchange`. Host-facing artifact refs map the same relative path under `WINDOWS_OPERATOR_HOST_EXCHANGE_ROOT` or `/var/lib/windows-server/shared/operator-exchange`.
 
 ## Provisioning
 
@@ -37,13 +41,45 @@ powershell -ExecutionPolicy Bypass -File .\scripts\windows\bootstrap.ps1 -RepoRo
 
 Bootstrap creates local state directories for .NET home, NuGet cache, build outputs, logs, and run wrappers. Agent local machine overrides belong in `%LOCALAPPDATA%\WindowsOperator\run\appsettings.Local.json`. Host autostart overrides are generated under `%ProgramData%\WindowsOperator\run\host.appsettings.Local.json` by `scripts/windows/register-host-autostart.ps1`.
 
+For a non-VM Tailscale machine, sync source over SSH and use copy-backed command staging:
+
+```bash
+export WINDOWS_OPERATOR_SSH_HOST=<tailscale-host>
+export WINDOWS_OPERATOR_SSH_PORT=22
+export WINDOWS_OPERATOR_SSH_USER=<windows-user>
+export WINDOWS_OPERATOR_WINDOWS_REPO_ROOT='C:\src\windows-operator'
+export WINDOWS_OPERATOR_RUN_TRANSPORT=ssh-copy
+
+scripts/linux/windows-sync-repo.sh
+scripts/linux/windows-run-ps.sh scripts/windows/bootstrap.ps1 \
+  -RepoRoot 'C:\src\windows-operator' \
+  -EnableAutostart \
+  -ExchangeRoot 'C:\ProgramData\WindowsOperator\exchange' \
+  -HostExchangeRoot 'C:\ProgramData\WindowsOperator\exchange'
+ssh -N -L 43127:127.0.0.1:43117 <windows-user>@<tailscale-host>
+curl http://127.0.0.1:43127/v1/health
+```
+
+For interactive shell conveniences on the Windows user, sync the repo-owned
+PowerShell profile:
+
+```bash
+just sync
+scripts/linux/windows-sync-powershell-profile.sh
+```
+
+`just sync` probes configured targets, skips offline machines, and syncs repo +
+profile to reachable targets. The direct script syncs only the current target.
+The Windows profile files only contain a managed dot-source block. Edit aliases
+and functions in `profiles/powershell/profile.ps1`, then run sync again.
+
 VM bootstrap also installs Codex CLI and registers `Codex.AppServer`:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\windows\bootstrap-codex.ps1 -EnableAutostart
+powershell -ExecutionPolicy Bypass -File .\scripts\windows\bootstrap-codex.ps1 -EnableAutostart -InstallProfile
 ```
 
-Codex mutable state lives under `%LOCALAPPDATA%\Codex`. Run `codex login` manually in the Windows desktop session; provisioning never writes credentials. The task starts `codex app-server --listen ws://127.0.0.1:43118` only after login is present. Linux host access uses the NixOS SSH tunnel on `127.0.0.1:43118`.
+Codex install/log/npm state lives under `%LOCALAPPDATA%\Codex`. Codex configuration and auth use `CODEX_HOME`, defaulting here to `%USERPROFILE%\.codex`, matching Codex's documented default shape. `-InstallProfile` writes a Windows-safe profile: `config.toml`, `AGENTS.md`, `rules/default.rules`, and read-only agent definitions. It does not copy `auth.json`, history, session databases, plugin caches, or Linux/Nix-specific MCP paths. Run `codex login` manually in the Windows desktop session; provisioning never writes credentials. The task starts `codex app-server --listen ws://127.0.0.1:43118` only after login is present. Linux host access uses the NixOS SSH tunnel on `127.0.0.1:43118`.
 
 Bootstrap also makes `codex` usable from normal Windows shells by persisting `%LOCALAPPDATA%\Codex\npm-global` on the user `PATH` and placing forwarding shims in `%APPDATA%\npm`.
 
@@ -83,12 +119,20 @@ curl -X POST http://127.0.0.1:43117/v1/powerpoint/jobs \
 Expected results:
 
 - Host health returns `status=ok` and `runtimeMode=headless-host`.
-- OpenAPI currently exposes 39 paths.
+- OpenAPI currently exposes 42 paths.
 - Codex app-server tunnel returns HTTP `400` with an Upgrade-header message when queried without WebSocket upgrade.
 - UIA query returns window elements, not a bare `500`.
 - Edge session reaches `page_ready`; clean it with `POST /v1/browser/edge/session/{sessionId}/cleanup`.
 - Cached mail negative search returns `200` with zero messages when mailbox cache is healthy.
 - PowerPoint queue accepts the job; then claim/fail or complete it so no smoke job remains queued.
+
+If Linux `curl http://127.0.0.1:43117/v1/health` returns an empty reply, verify the Windows-side Host task before checking Desktop Agent:
+
+```powershell
+Get-ScheduledTask -TaskName WindowsOperator.Host
+Start-ScheduledTask -TaskName WindowsOperator.Host
+Invoke-RestMethod http://127.0.0.1:43117/v1/health
+```
 
 ## Microsoft device login
 
@@ -100,7 +144,7 @@ curl -X POST http://127.0.0.1:43117/v1/auth/microsoft/device-login \
   -d '{"deviceCode":"ABCD-EFGH"}'
 ```
 
-The REST endpoint proxies from Host to Agent. Agent opens Edge at `https://microsoft.com/devicelogin`, pastes the device code, submits it, and stops there. The user completes Microsoft account and MFA prompts in Edge. External services should use this REST endpoint instead of SSH.
+The REST endpoint proxies from Host to Agent. Agent opens Edge at `https://microsoft.com/devicelogin`, pastes the device code, submits it, and reports browser observation status. External services should treat only `status=browserAccepted` as completed handoff; `timedOut`, `failed`, `invalidCode`, `needsUserAction`, and unresolved `submitted` return `success:false`.
 
 SSH fallback:
 
@@ -227,11 +271,35 @@ Deep smoke with live auth boundary and real Outlook freshness path:
 scripts/linux/live-smoke.py --include-notepad --include-auth-live-negative --include-fresh-mail
 ```
 
+For Host-staged PowerPoint add-in verification without local Vite or an SSH
+tunnel, add the Windows-side probe:
+
+```bash
+scripts/linux/live-smoke.py --include-notepad --include-auth-live-negative --include-fresh-mail --powerpoint-addin-windows-probe
+```
+
 The Notepad path launches Notepad through the Windows script runner as the logged-in interactive user, then verifies the visible behavior through Host REST: window catalog, activation, UIA `Document` query, UIA type, screenshot artifact, and cleanup.
 
-The smoke also verifies the PowerPoint add-in taskpane at `https://127.0.0.1:3003/taskpane.html` unless `--skip-powerpoint-addin` is passed. `--include-auth-live-negative` opens a synthetic Microsoft authorize URL in Edge, verifies the login/error boundary, then closes the auth window. `--include-fresh-mail` runs a slower no-match Outlook search with `freshness:fresh`, proving the real worker/sync path without requiring mailbox contents. Latest deep report: `/var/lib/windows-server/shared/operator-exchange/runs/live-smoke-20260620t222511z/live-smoke-report.json` with 43 passed, 0 failed.
+The smoke also verifies the PowerPoint add-in taskpane at
+`https://127.0.0.1:3003/taskpane.html` unless `--skip-powerpoint-addin` is
+passed. From Linux that URL only works when a local temporary Vite HTTPS server
+or an explicit SSH tunnel is present. For Host-staged add-in HTTPS on Windows
+loopback, pass `--powerpoint-addin-windows-probe` to verify
+`https://localhost:3003/taskpane.html` through `scripts/windows/probe-url.ps1`.
+
+Optional live paths:
+
+- `--include-auth-live-negative` opens a synthetic Microsoft authorize URL in Edge, verifies the login/error boundary, then closes the auth window.
+- `--include-fresh-mail` runs a slower no-match Outlook search with `freshness:fresh`, proving the real worker/sync path without requiring mailbox contents.
+
+Latest evidence:
+
+- Host-staged add-in HTTPS: `/var/lib/windows-server/shared/operator-exchange/runs/repo-align-live-smoke-final-20260628t225023z/live-smoke-report.json` with 44 passed and 0 failed.
+- Older same-day and reboot baseline reports are archived in `/tmp/windows-operator-repo-alignment-20260628.md`.
 
 ## Manual smoke flow
+
+Use this for endpoint diagnosis when `scripts/linux/live-smoke.py` is too broad.
 
 1. Start Notepad.
 2. Confirm Host health on `http://127.0.0.1:43117/v1/health`.
@@ -241,9 +309,10 @@ The smoke also verifies the PowerPoint add-in taskpane at `https://127.0.0.1:300
 6. Call `POST /v1/uia/query` with control filters for the edit control.
 7. Call `POST /v1/uia/type` with text payload.
 8. Call `GET /v1/windows/{id}/screenshot`.
+9. Close the Notepad process or run `scripts/windows/stop-notepad-smoke.ps1` through `scripts/linux/windows-run-ps.sh`.
 
 ## Test split
 
 - Unit tests cover contracts, config, REST/MCP parity, encoding policy, and error mapping.
-- `WindowsOperator.Portable.slnf` runs Linux-safe Core/MCP tests without WindowsDesktop runtime.
+- `WindowsOperator.Portable.slnf` builds the Linux-safe Core/Host/MCP/OpenAPI set and runs Host/MCP tests; Core.Tests require WindowsDesktop runtime and belong on Windows.
 - Integration tests require a real Windows desktop session and are gated behind `WINDOWS_OPERATOR_RUN_INTEGRATION=1`.

@@ -318,6 +318,11 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
                 return dryRunResult;
             }
 
+            var devToolsPort = ReserveLoopbackPort();
+            actions.Add($"remote_debugging_port:{devToolsPort}");
+            Trace($"remote_debugging_port:{devToolsPort}");
+            CleanupHiddenEdgeProcesses(actions);
+
             var startedAfterUtc = DateTimeOffset.UtcNow.AddSeconds(-2);
             if (reuseExistingProfile)
             {
@@ -329,7 +334,8 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
                 edgePath,
                 reuseExistingProfile ? EdgeWorkProfileSelection() : EdgeProfileSelection.Temp(Path.Combine(runRoot, "edge-profile")),
                 request.InPrivate,
-                loginUrl);
+                loginUrl,
+                devToolsPort);
             actions.Add("edge_opened");
             Thread.Sleep(TimeSpan.FromSeconds(pageLoadSeconds));
 
@@ -362,9 +368,24 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
                 return failedResult;
             }
 
-            shell.SendKeys(request.DeviceCode);
-            Thread.Sleep(500);
-            shell.SendKeys("{ENTER}");
+            var submittedWithDevTools = TrySubmitDeviceCodeWithDevTools(
+                devToolsPort,
+                loginUrl,
+                request.DeviceCode,
+                TimeSpan.FromSeconds(Math.Max(5, pageLoadSeconds)),
+                actions);
+            if (submittedWithDevTools)
+            {
+                actions.Add("device_code_submitted:devtools");
+            }
+            else
+            {
+                shell.SendKeys(request.DeviceCode);
+                Thread.Sleep(500);
+                shell.SendKeys("{ENTER}");
+                actions.Add("device_code_submitted:sendkeys");
+            }
+
             actions.Add("device_code_submitted");
             Trace("device_code_submitted");
 
@@ -372,7 +393,10 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
                 startedAfterUtc,
                 edge.Id,
                 reuseExistingProfile,
-                TimeSpan.FromSeconds(verificationWaitSeconds));
+                TimeSpan.FromSeconds(verificationWaitSeconds),
+                devToolsPort,
+                loginUrl,
+                actions);
             browserState = observation.State;
             browserTitle = observation.Title;
             observedAtUtc = observation.ObservedAtUtc;
@@ -398,7 +422,7 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
         }
 
         var result = Result(
-            errors.Count == 0,
+            errors.Count == 0 && MicrosoftDeviceLoginOutcomes.IsSuccess(status),
             runId,
             loginUrl,
             request.InPrivate,
@@ -720,6 +744,59 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
         return false;
     }
 
+    private static void CleanupHiddenEdgeProcesses(List<string> actions)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var visibleWindows = EdgeWindows().ToList();
+        if (visibleWindows.Count > 0)
+        {
+            actions.Add($"hidden_edge_cleanup:skipped_visible={visibleWindows.Count}");
+            return;
+        }
+
+        var matched = 0;
+        var closed = 0;
+        var failed = 0;
+        foreach (var process in Process.GetProcessesByName("msedge"))
+        {
+            using (process)
+            {
+                try
+                {
+                    process.Refresh();
+                    if (process.HasExited)
+                    {
+                        continue;
+                    }
+
+                    matched++;
+                    process.Kill(entireProcessTree: true);
+                    if (process.WaitForExit(3000))
+                    {
+                        closed++;
+                    }
+                    else
+                    {
+                        failed++;
+                    }
+                }
+                catch
+                {
+                    failed++;
+                }
+            }
+        }
+
+        if (matched > 0 || failed > 0)
+        {
+            actions.Add($"hidden_edge_cleanup:matched={matched};closed={closed};failed={failed}");
+        }
+    }
+
     private static BrowserWindow? FindAuthorizeWindow(
         int startedProcessId,
         DateTimeOffset startedAfterUtc,
@@ -787,12 +864,51 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
         DateTimeOffset startedAfterUtc,
         int startedProcessId,
         bool reuseExistingProfile,
-        TimeSpan timeout)
+        TimeSpan timeout,
+        int? devToolsPort = null,
+        string? preferredUrl = null,
+        List<string>? actions = null)
     {
         var deadline = DateTimeOffset.UtcNow + timeout;
         BrowserObservation? last = null;
+        var advanceAttempts = 0;
         do
         {
+            if (devToolsPort is { } port)
+            {
+                var target = TryReadEdgeTarget(port, preferredUrl);
+                var snapshot = target is null ? null : TryReadEdgeSnapshot(target.Value);
+                if (target is not null || snapshot is not null)
+                {
+                    var observedAtUtc = DateTimeOffset.UtcNow;
+                    var title = snapshot?.Title ?? target?.Title;
+                    var text = snapshot?.BodyText ?? string.Empty;
+                    var classification = ClassifyBrowserState(title, text);
+                    last = new BrowserObservation(classification.Status, classification.State, title, observedAtUtc);
+                    if (classification.Status is MicrosoftDeviceLoginStatus.BrowserAccepted or MicrosoftDeviceLoginStatus.InvalidCode)
+                    {
+                        return last.Value;
+                    }
+
+                    if (classification.Status is MicrosoftDeviceLoginStatus.NeedsUserAction &&
+                        target is not null &&
+                        advanceAttempts < 5)
+                    {
+                        advanceAttempts++;
+                        if (TryAdvanceDeviceLoginWithDevTools(target.Value, actions))
+                        {
+                            Thread.Sleep(1500);
+                            continue;
+                        }
+                    }
+
+                    if (classification.State == "browser_needs_password")
+                    {
+                        return last.Value;
+                    }
+                }
+            }
+
             var window = FindAuthorizeWindow(
                 startedProcessId,
                 startedAfterUtc,
@@ -819,6 +935,309 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
             "browser_state_not_observed",
             null,
             DateTimeOffset.UtcNow);
+    }
+
+    private static bool TrySubmitDeviceCodeWithDevTools(
+        int devToolsPort,
+        string loginUrl,
+        string deviceCode,
+        TimeSpan timeout,
+        List<string> actions)
+    {
+        var deadline = DateTimeOffset.UtcNow + timeout;
+        DomActionPayload? payload = null;
+        do
+        {
+            var target = TryReadEdgeTarget(devToolsPort, loginUrl);
+            if (target is not null)
+            {
+                payload = EvaluateJson<DomActionPayload>(
+                    target.Value.WebSocketDebuggerUrl,
+                    BuildDeviceCodeSubmitExpression(deviceCode));
+                if (payload is { Success: true })
+                {
+                    return true;
+                }
+            }
+
+            Thread.Sleep(350);
+        }
+        while (DateTimeOffset.UtcNow <= deadline);
+
+        actions.Add(payload is null
+            ? "device_code_devtools_submit_unavailable"
+            : $"device_code_devtools_submit_failed:{payload.Message}");
+        return false;
+    }
+
+    private static bool TryAdvanceDeviceLoginWithDevTools(
+        EdgePageTarget target,
+        List<string>? actions)
+    {
+        var payload = EvaluateJson<DomActionPayload>(
+            target.WebSocketDebuggerUrl,
+            BuildDeviceLoginAdvanceExpression());
+        if (payload is not { Success: true })
+        {
+            actions?.Add(payload is null
+                ? "device_login_advance_unavailable"
+                : $"device_login_advance_unavailable:{TrimValue(payload.Message, 80)}");
+            return false;
+        }
+
+        var matched = string.IsNullOrWhiteSpace(payload.MatchedText)
+            ? payload.MatchedBy
+            : payload.MatchedText;
+        if (payload.ClickX is { } x && payload.ClickY is { } y)
+        {
+            if (DispatchMouseClick(target.WebSocketDebuggerUrl, x, y))
+            {
+                actions?.Add($"device_login_advanced:{payload.MatchedBy}:{TrimValue(matched, 80)}");
+                return true;
+            }
+
+            actions?.Add($"device_login_advance_unavailable:cdp_click_failed:{TrimValue(matched, 80)}");
+            return false;
+        }
+
+        actions?.Add($"device_login_advance_unavailable:missing_click_point:{TrimValue(matched, 80)}");
+        return false;
+    }
+
+    private static string BuildDeviceCodeSubmitExpression(string deviceCode)
+    {
+        var value = JsonSerializer.Serialize(deviceCode);
+        return $$"""
+(() => {
+  const deviceCode = {{value}};
+  const normalize = value => (value || "").replace(/\s+/g, " ").trim().toLowerCase();
+  const isVisible = element => {
+    if (!element || !element.getBoundingClientRect) {
+      return false;
+    }
+    const style = window.getComputedStyle(element);
+    if (!style || style.visibility === "hidden" || style.display === "none") {
+      return false;
+    }
+    const rect = element.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
+  };
+  const textOf = element => normalize(
+    element?.innerText ||
+    element?.textContent ||
+    element?.value ||
+    element?.placeholder ||
+    element?.getAttribute?.("aria-label") ||
+    element?.getAttribute?.("title") ||
+    ""
+  );
+  const input = Array.from(document.querySelectorAll("input,textarea"))
+    .filter(isVisible)
+    .find(element => {
+      const type = normalize(element.getAttribute("type"));
+      return !element.disabled &&
+        !element.readOnly &&
+        (!type || ["text", "tel", "email", "search", "password"].includes(type));
+    });
+  if (!input) {
+    return JSON.stringify({ success: false, message: "No visible device-code input." });
+  }
+
+  input.focus();
+  input.value = deviceCode;
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+
+  const submitCandidates = Array.from(document.querySelectorAll("input[type='submit'],input[type='button'],button,[role='button']"))
+    .filter(isVisible);
+  const submit = submitCandidates.find(element => {
+    const text = textOf(element);
+    return text.includes("next") ||
+      text.includes("siguiente") ||
+      text.includes("continue") ||
+      text.includes("continuar") ||
+      text.includes("submit") ||
+      text.includes("verify") ||
+      text.includes("verificar");
+  }) || submitCandidates[0] || null;
+
+  if (submit) {
+    submit.click();
+    return JSON.stringify({
+      success: true,
+      matchedBy: "deviceCodeSubmit",
+      matchedText: textOf(submit),
+      tagName: (submit.tagName || "").toLowerCase()
+    });
+  }
+
+  if (input.form && input.form.requestSubmit) {
+    input.form.requestSubmit();
+    return JSON.stringify({
+      success: true,
+      matchedBy: "deviceCodeForm",
+      matchedText: "",
+      tagName: (input.form.tagName || "").toLowerCase()
+    });
+  }
+
+  input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", bubbles: true }));
+  input.dispatchEvent(new KeyboardEvent("keyup", { key: "Enter", code: "Enter", bubbles: true }));
+  return JSON.stringify({
+    success: true,
+    matchedBy: "deviceCodeEnter",
+    matchedText: textOf(input),
+    tagName: (input.tagName || "").toLowerCase()
+  });
+})()
+""";
+    }
+
+    private static string BuildDeviceLoginAdvanceExpression()
+    {
+        return """
+(() => {
+  const normalize = value => (value || "").replace(/\s+/g, " ").trim().toLowerCase();
+  const isVisible = element => {
+    if (!element || !element.getBoundingClientRect) {
+      return false;
+    }
+    const style = window.getComputedStyle(element);
+    if (!style || style.visibility === "hidden" || style.display === "none") {
+      return false;
+    }
+    const rect = element.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
+  };
+  const textOf = element => normalize(
+    element?.innerText ||
+    element?.textContent ||
+    element?.value ||
+    element?.placeholder ||
+    element?.getAttribute?.("aria-label") ||
+    element?.getAttribute?.("title") ||
+    ""
+  );
+  const rawTextOf = element => (
+    element?.innerText ||
+    element?.textContent ||
+    element?.value ||
+    element?.placeholder ||
+    element?.getAttribute?.("aria-label") ||
+    element?.getAttribute?.("title") ||
+    ""
+  ).replace(/\s+/g, " ").trim();
+  const actionableOf = element =>
+    element?.closest?.("button,a,[role='button'],[role='option'],[role='menuitem'],[tabindex]") || element;
+  const clickPointOf = element => {
+    const target = actionableOf(element);
+    if (!target || !target.getBoundingClientRect) {
+      return null;
+    }
+    target.scrollIntoView?.({ block: "center", inline: "center" });
+    const rect = target.getBoundingClientRect();
+    const x = rect.left + Math.max(1, rect.width / 2);
+    const y = rect.top + Math.max(1, rect.height / 2);
+    return { x, y };
+  };
+  const body = normalize(document.body ? document.body.innerText || "" : "");
+  if (body.includes("need admin approval") || body.includes("approval required")) {
+    return JSON.stringify({ success: false, message: "Admin approval required." });
+  }
+
+  const passwordInput = Array.from(document.querySelectorAll("input[type='password']"))
+    .filter(isVisible)
+    .find(element => !element.disabled && !element.readOnly);
+  const passwordValidation =
+    body.includes("please enter your password") ||
+    body.includes("escriba la contraseña") ||
+    body.includes("escriba la contrasena");
+  const passwordPage =
+    passwordValidation ||
+    body.includes("enter password") ||
+    body.includes("forgot my password") ||
+    body.includes("olvidé mi contraseña") ||
+    body.includes("olvide mi contrasena");
+  if ((passwordValidation || !passwordInput) && passwordPage) {
+    return JSON.stringify({ success: false, message: "Password required." });
+  }
+
+  const candidates = Array.from(document.querySelectorAll("button,input[type='submit'],input[type='button'],a,[role='button'],[role='option'],[role='menuitem'],[tabindex],div"))
+    .filter(isVisible)
+    .map(element => ({ element, text: textOf(element), rawText: rawTextOf(element) }))
+    .filter(candidate => candidate.text);
+  const isBackOrOther = candidate =>
+    candidate.text.includes("back") ||
+    candidate.text.includes("atrás") ||
+    candidate.text.includes("atras") ||
+    candidate.text.includes("use another account") ||
+    candidate.text.includes("usar otra cuenta");
+
+  if (body.includes("pick an account") || body.includes("elige una cuenta") || body.includes("seleccionar una cuenta")) {
+    const accounts = candidates
+      .filter(candidate => !isBackOrOther(candidate))
+      .filter(candidate =>
+        candidate.text.includes("connected to windows") ||
+        candidate.text.includes("conectado a windows") ||
+        candidate.text.includes("@mineracentinela.cl") ||
+        candidate.text.includes("@"));
+    const preferred = accounts.find(candidate =>
+      candidate.text.includes("connected to windows") ||
+      candidate.text.includes("conectado a windows")) || accounts[0] || null;
+    if (preferred) {
+      const clickPoint = clickPointOf(preferred.element);
+      return JSON.stringify({
+        success: !!clickPoint,
+        message: clickPoint ? "" : "No clickable account point.",
+        matchedBy: "accountPicker",
+        matchedText: preferred.rawText,
+        tagName: (preferred.element.tagName || "").toLowerCase(),
+        clickX: clickPoint?.x,
+        clickY: clickPoint?.y
+      });
+    }
+  }
+
+  const actionCandidates = Array.from(document.querySelectorAll("button,input[type='submit'],input[type='button'],a,[role='button'],[role='option'],[role='menuitem'],[tabindex]"))
+    .filter(isVisible)
+    .map(element => ({ element, text: textOf(element), rawText: rawTextOf(element) }))
+    .filter(candidate => candidate.text);
+  const actions = actionCandidates
+    .filter(candidate => !isBackOrOther(candidate))
+    .filter(candidate =>
+      candidate.text === "yes" ||
+      candidate.text === "si" ||
+      candidate.text === "sí" ||
+      candidate.text === "sign in" ||
+      candidate.text.includes("iniciar sesión") ||
+      candidate.text.includes("iniciar sesion") ||
+      candidate.text.includes("continue") ||
+      candidate.text.includes("continuar") ||
+      candidate.text.includes("accept") ||
+      candidate.text.includes("aceptar") ||
+      candidate.text.includes("allow") ||
+      candidate.text.includes("permitir") ||
+      candidate.text.includes("approve") ||
+      candidate.text.includes("aprobar") ||
+      candidate.text.includes("next") ||
+      candidate.text.includes("siguiente"));
+  const action = actions[0] || null;
+  if (!action) {
+    return JSON.stringify({ success: false, message: "No safe Microsoft auth action found." });
+  }
+
+  const clickPoint = clickPointOf(action.element);
+  return JSON.stringify({
+    success: !!clickPoint,
+    message: clickPoint ? "" : "No clickable action point.",
+    matchedBy: "authAction",
+    matchedText: action.rawText,
+    tagName: (action.element.tagName || "").toLowerCase(),
+    clickX: clickPoint?.x,
+    clickY: clickPoint?.y
+  });
+})()
+""";
     }
 
     private static AuthorizeObservation ObserveAuthorizeState(
@@ -1166,7 +1585,7 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
         }
     }
 
-    private static (MicrosoftDeviceLoginStatus Status, string State) ClassifyBrowserState(string? title, string? text)
+    internal static (MicrosoftDeviceLoginStatus Status, string State) ClassifyBrowserState(string? title, string? text)
     {
         var value = $"{title ?? string.Empty} {text ?? string.Empty}".Trim();
         if (string.IsNullOrWhiteSpace(value))
@@ -1191,15 +1610,40 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
 
         if (ContainsAny(
             normalized,
-            "signed in",
+            "stay signed in",
+            "keep me signed in",
+            "mantener la sesión",
+            "mantener la sesion",
+            "permanecer conectado",
+            "seguir conectado"))
+        {
+            return (MicrosoftDeviceLoginStatus.NeedsUserAction, "browser_needs_user_action");
+        }
+
+        if (ContainsAny(
+            normalized,
+            "please enter your password",
+            "escriba la contraseña",
+            "escriba la contrasena"))
+        {
+            return (MicrosoftDeviceLoginStatus.NeedsUserAction, "browser_needs_password");
+        }
+
+        if (ContainsAny(
+            normalized,
             "you may now close",
-            "success",
-            "complete",
-            "ha iniciado sesión",
-            "has iniciado sesión",
+            "you can close this window",
+            "you have signed in",
+            "you've signed in",
+            "authentication complete",
+            "sign in complete",
+            "device login complete",
+            "device login completed",
+            "ha iniciado sesión correctamente",
+            "has iniciado sesión correctamente",
             "puede cerrar",
-            "correcto",
-            "completado"))
+            "puedes cerrar",
+            "inicio de sesión completado"))
         {
             return (MicrosoftDeviceLoginStatus.BrowserAccepted, "browser_accepted");
         }

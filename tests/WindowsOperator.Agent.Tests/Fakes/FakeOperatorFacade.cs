@@ -267,7 +267,7 @@ internal sealed class FakeOperatorFacade : IOperatorFacade
         MicrosoftDeviceLoginRequest request,
         CancellationToken cancellationToken) =>
         Task.FromResult(new MicrosoftDeviceLoginResult(
-            true,
+            MicrosoftDeviceLoginOutcomes.IsSuccess(request.DryRun ? MicrosoftDeviceLoginStatus.DryRun : MicrosoftDeviceLoginStatus.Submitted),
             request.LoginUrl,
             request.InPrivate,
             new[] { request.DryRun ? "dry_run" : "device_code_submitted" },
@@ -284,7 +284,7 @@ internal sealed class FakeOperatorFacade : IOperatorFacade
         string runId,
         CancellationToken cancellationToken) =>
         Task.FromResult(new MicrosoftDeviceLoginResult(
-            true,
+            false,
             "https://microsoft.com/devicelogin",
             false,
             new[] { "device_code_submitted", "browser_observed:Submitted" },

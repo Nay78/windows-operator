@@ -72,6 +72,36 @@ internal sealed class FakeWorkbenchService : IWorkbenchService
             "session_closed",
             $@"C:\Users\fake\AppData\Local\WindowsOperator\run\browser\edge-sessions\{sessionId}\state.json"));
 
+    public Task<WorkbenchSessionResult> GetSessionAsync(
+        string sessionId,
+        CancellationToken cancellationToken) =>
+        Task.FromResult(FakeSession(sessionId));
+
+    public Task<DesktopScreenshotResult> CaptureSessionScreenshotAsync(
+        string sessionId,
+        DesktopScreenshotRequest request,
+        CancellationToken cancellationToken) =>
+        Task.FromResult(FakeDesktopScreenshot(request.Label ?? $"session-{sessionId}"));
+
+    public Task<WorkbenchSessionCleanupResult> CleanupSessionAsync(
+        string sessionId,
+        CancellationToken cancellationToken) =>
+        Task.FromResult(new WorkbenchSessionCleanupResult(
+            true,
+            sessionId,
+            "browser.edge",
+            1,
+            1,
+            0,
+            0,
+            1,
+            0,
+            1,
+            0,
+            new[] { "session_cleanup:windows=1;closed=1;processes=1;killed=0;failed=0" },
+            Array.Empty<string>(),
+            DateTimeOffset.Parse("2026-05-25T12:09:00Z")));
+
     private static WindowRef FakeWindow() =>
         new(
             101,
@@ -83,6 +113,28 @@ internal sealed class FakeWorkbenchService : IWorkbenchService
             DateTimeOffset.Parse("2026-05-25T12:08:00Z"),
             true,
             false);
+
+    private static WorkbenchSessionResult FakeSession(string sessionId) =>
+        new(
+            true,
+            sessionId,
+            "browser.edge",
+            true,
+            new WorkbenchRunRef(
+                "workbench-test",
+                @"Z:\operator-exchange\runs\workbench-test",
+                "runs/workbench-test",
+                "/var/lib/windows-server/shared/operator-exchange/runs/workbench-test"),
+            new[] { 777 },
+            new[] { 888L },
+            "Example - Microsoft Edge",
+            "https://example.com",
+            @"Z:\operator-exchange\runs\workbench-test\state.json",
+            new[] { "session_state_observed" },
+            Array.Empty<string>(),
+            Array.Empty<string>(),
+            DateTimeOffset.Parse("2026-05-25T12:07:00Z"),
+            DateTimeOffset.Parse("2026-05-25T12:08:30Z"));
 
     private static DesktopScreenshotResult FakeDesktopScreenshot(string label) =>
         new(

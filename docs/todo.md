@@ -2,7 +2,7 @@
 
 Backlog from current Windows VM provisioning and automation session.
 
-## Verified 2026-06-20
+## Verified through 2026-06-28
 
 - Live Windows VM reachability confirmed:
   - SSH `127.0.0.1:22555`
@@ -13,10 +13,10 @@ Backlog from current Windows VM provisioning and automation session.
 - Windows script runner verified live through `scripts/linux/windows-run-ps.sh`.
   - Stages only repo-owned PowerShell scripts from `scripts/windows`
   - Writes stdout/stderr/request/result JSON to `operator-exchange/runs/<run-id>`
-  - Latest Host registration run: `codex-live-register-host-proxy-20260620T214556Z`
+  - Latest Host registration run: `repo-align-register-host-addin-default2-20260628t223804z`
 
 - Host/Agent live validation passed:
-  - OpenAPI: 39 paths
+  - OpenAPI: 42 paths after workbench session routes
   - UIA query returned live window elements
   - Desktop and Edge screenshots wrote artifacts under `operator-exchange/runs`
   - Edge session start/click/fill/screenshot/cleanup passed
@@ -24,18 +24,24 @@ Backlog from current Windows VM provisioning and automation session.
   - Mail cached negative search returned 0 messages without error
   - Mail fresh negative search attached to Outlook, started sync, waited 45 seconds, searched, returned 0 messages, and left 0 Outlook processes
   - PowerPoint job enqueue/get/artifact/claim/fail/get passed
-  - PowerPoint add-in HTTPS served `https://localhost:3003/taskpane.html` from the Host scheduled task
+  - PowerPoint add-in taskpane served `https://localhost:3003/taskpane.html` through the Windows-side smoke probe after default `register-host-autostart.ps1`
   - Notepad-specific live smoke opened Notepad in the logged-in desktop, activated it, typed through UIA, captured a screenshot, and cleaned up
-  - Repeatable deep command: `scripts/linux/live-smoke.py --include-notepad --include-auth-live-negative --include-fresh-mail`
-  - Latest report: `/var/lib/windows-server/shared/operator-exchange/runs/live-smoke-20260620t222511z/live-smoke-report.json` (`43` passed, `0` failed)
+  - Repeatable Host-staged add-in smoke command: [development runbook](development.md#live-smoke)
+  - Latest full Host-staged report: `/var/lib/windows-server/shared/operator-exchange/runs/repo-align-live-smoke-final-20260628t225023z/live-smoke-report.json` (`44` passed, `0` failed)
+  - Older same-day and reboot baseline reports are archived in `/tmp/windows-operator-repo-alignment-20260628.md`
+  - Linux `127.0.0.1:3003` is not tunneled by default; use `--powerpoint-addin-windows-probe`, a temporary Vite server, or an explicit tunnel before using Linux curl against that URL.
+
+- Windows power guard verified live after bootstrap:
+  - AC sleep, hibernate, disk, and display timeouts are `0`.
+  - Hibernation is disabled; `powercfg /a` reports Hibernate and Fast Startup unavailable.
 
 ## High Priority
 
-- Decide final operator exchange root shape.
+- Keep operator exchange root shape minimal.
   - Linux path exists: `/var/lib/windows-server/shared/operator-exchange`
   - Windows path: `Z:\operator-exchange`
   - Live subdirs in use: `downloads`, `runs`
-  - Decide whether root-level `inbox`, `outbox`, `logs`, and `screenshots` are still required or obsolete
+  - Root-level `inbox`, `outbox`, `logs`, and `screenshots` are not current live contracts; add them only when a caller needs them
 
 - Rebuild/switch NixOS host with latest VM hardening.
   - `windows-server.service`: no start-limit, restart always
@@ -65,12 +71,6 @@ Backlog from current Windows VM provisioning and automation session.
   - If not viable, close Graph path and keep Outlook/OWA fallback as system truth
 
 ## Windows Provisioning
-
-- Verify `powercfg` guard live on Windows after next bootstrap.
-  - Hibernate disabled
-  - AC sleep timeout disabled
-  - AC disk timeout disabled
-  - AC monitor timeout disabled
 
 - Investigate hourly Windows guest exits in Event Log after VM recovers.
   - System log: shutdown/sleep/restart events

@@ -237,6 +237,40 @@ public sealed class RestAndMcpParityTests
     }
 
     [Fact]
+    public async Task WorkbenchSessionRoutes_ReturnStateScreenshotAndCleanup()
+    {
+        using var app = OperatorApp.Build(
+            Array.Empty<string>(),
+            services =>
+            {
+                ReplaceOperatorFacade(services);
+            },
+            useTestServer: true);
+        await app.StartAsync();
+        var client = app.GetTestClient();
+
+        var session = await client.GetFromJsonAsync<WorkbenchSessionResult>(
+            "/v1/sessions/example-session",
+            OperatorJson.SerializerOptions);
+        var screenshotResponse = await client.PostAsJsonAsync(
+            "/v1/sessions/example-session/screenshot",
+            new DesktopScreenshotRequest { Label = "generic-session" },
+            OperatorJson.SerializerOptions);
+        var screenshot = await screenshotResponse.Content.ReadFromJsonAsync<DesktopScreenshotResult>(OperatorJson.SerializerOptions);
+        var cleanupResponse = await client.PostAsync("/v1/sessions/example-session/cleanup", null);
+        var cleanup = await cleanupResponse.Content.ReadFromJsonAsync<WorkbenchSessionCleanupResult>(OperatorJson.SerializerOptions);
+
+        Assert.NotNull(session);
+        Assert.Equal("browser.edge", session!.Kind);
+        Assert.Equal("runs/workbench-test", session.ArtifactRoot.RelativePath);
+        screenshotResponse.EnsureSuccessStatusCode();
+        Assert.Equal("runs/workbench-test/screenshots/generic-session.png", screenshot!.Artifact.RelativePath);
+        cleanupResponse.EnsureSuccessStatusCode();
+        Assert.True(cleanup!.Success);
+        Assert.Equal(1, cleanup.ClosedWindows);
+    }
+
+    [Fact]
     public async Task MicrosoftDeviceLogin_RestEndpoint_ReturnsResult()
     {
         using var app = OperatorApp.Build(

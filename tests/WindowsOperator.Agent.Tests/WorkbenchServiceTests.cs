@@ -15,7 +15,7 @@ public sealed class WorkbenchServiceTests
         using var env = new ExchangeRootScope();
         var windows = new FakeWindowCatalogService();
         var screenshots = new FakeScreenshotService();
-        var service = new WorkbenchService(windows, screenshots, new FakeEdgeBrowserService(), env.Options);
+        var service = CreateService(env, windows, screenshots, new FakeEdgeBrowserService());
 
         var foreground = await service.CaptureDesktopScreenshotAsync(
             new DesktopScreenshotRequest { Target = "foreground", RunId = "run-1", Label = "front" },
@@ -41,11 +41,7 @@ public sealed class WorkbenchServiceTests
     public async Task CaptureDesktopScreenshotAsync_InvalidTargets_ReturnStableErrors()
     {
         using var env = new ExchangeRootScope();
-        var service = new WorkbenchService(
-            new FakeWindowCatalogService(),
-            new FakeScreenshotService(),
-            new FakeEdgeBrowserService(),
-            env.Options);
+        var service = CreateService(env);
 
         var missingTitle = await Assert.ThrowsAsync<OperatorFailureException>(
             () => service.CaptureDesktopScreenshotAsync(
@@ -65,11 +61,7 @@ public sealed class WorkbenchServiceTests
     {
         using var env = new ExchangeRootScope();
         var edge = new FakeEdgeBrowserService();
-        var service = new WorkbenchService(
-            new FakeWindowCatalogService(),
-            new FakeScreenshotService(),
-            edge,
-            env.Options);
+        var service = CreateService(env, edge: edge);
 
         var result = await service.OpenEdgeUrlAsync(
             new BrowserEdgeOpenUrlRequest
@@ -102,11 +94,7 @@ public sealed class WorkbenchServiceTests
             NextSuccess = false,
             NextErrors = new[] { "edge_failed" },
         };
-        var service = new WorkbenchService(
-            new FakeWindowCatalogService(),
-            new FakeScreenshotService(),
-            edge,
-            env.Options);
+        var service = CreateService(env, edge: edge);
 
         var result = await service.OpenEdgeUrlAsync(
             new BrowserEdgeOpenUrlRequest
@@ -126,11 +114,7 @@ public sealed class WorkbenchServiceTests
     {
         using var env = new ExchangeRootScope();
         var edge = new FakeEdgeBrowserService();
-        var service = new WorkbenchService(
-            new FakeWindowCatalogService(),
-            new FakeScreenshotService(),
-            edge,
-            env.Options);
+        var service = CreateService(env, edge: edge);
 
         var screenshot = await service.CaptureEdgeSessionScreenshotAsync(
             "example",
@@ -143,6 +127,52 @@ public sealed class WorkbenchServiceTests
         Assert.Equal("example", edge.LastStateSessionId);
         Assert.Equal("example", edge.LastClosedSessionId);
         Assert.False(cleanup.IsAlive);
+    }
+
+    [Fact]
+    public async Task GenericSessionReadAndScreenshot_UseRegisteredEdgeSession()
+    {
+        using var env = new ExchangeRootScope();
+        var edge = new FakeEdgeBrowserService();
+        var service = CreateService(env, edge: edge);
+
+        await service.OpenEdgeUrlAsync(
+            new BrowserEdgeOpenUrlRequest
+            {
+                Url = "https://example.com",
+                SessionId = "example",
+                RunId = "run-edge",
+                Capture = false,
+            },
+            CancellationToken.None);
+
+        var session = await service.GetSessionAsync("example", CancellationToken.None);
+        var screenshot = await service.CaptureSessionScreenshotAsync(
+            "example",
+            new DesktopScreenshotRequest { Label = "generic-session" },
+            CancellationToken.None);
+
+        Assert.True(session.Success);
+        Assert.Equal("browser.edge", session.Kind);
+        Assert.Equal("runs/run-edge", session.ArtifactRoot.RelativePath);
+        Assert.Equal(new[] { 202 }, session.OwnedProcessIds);
+        Assert.Equal(new[] { 22L }, session.Hwnds);
+        Assert.Equal("runs/run-edge/screenshots/generic-session.png", screenshot.Artifact.RelativePath);
+    }
+
+    private static WorkbenchService CreateService(
+        ExchangeRootScope env,
+        IWindowCatalogService? windows = null,
+        IScreenshotService? screenshots = null,
+        IEdgeBrowserService? edge = null)
+    {
+        var runs = new WorkbenchRunStore(env.Options);
+        return new WorkbenchService(
+            windows ?? new FakeWindowCatalogService(),
+            screenshots ?? new FakeScreenshotService(),
+            edge ?? new FakeEdgeBrowserService(),
+            runs,
+            new OwnedSessionRegistry(runs));
     }
 
     private sealed class ExchangeRootScope : IDisposable

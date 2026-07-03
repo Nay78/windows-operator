@@ -56,6 +56,8 @@ npm run build
 npm run manifest:validate
 ```
 
+Host-staged smoke command lives in the root [development runbook](../../docs/development.md#live-smoke).
+
 ## Template Setup
 
 In PowerPoint:

@@ -35,6 +35,28 @@ public static class OperatorEndpoints
             await OperatorHttp.ExecuteAsync(
                 () => workbench.CaptureDesktopScreenshotAsync(request, cancellationToken)));
 
+        group.MapGet("/sessions/{sessionId}", async Task<Results<Ok<WorkbenchSessionResult>, JsonHttpResult<OperatorError>>> (
+            string sessionId,
+            IWorkbenchService workbench,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => workbench.GetSessionAsync(sessionId, cancellationToken)));
+
+        group.MapPost("/sessions/{sessionId}/screenshot", async Task<Results<Ok<DesktopScreenshotResult>, JsonHttpResult<OperatorError>>> (
+            string sessionId,
+            DesktopScreenshotRequest request,
+            IWorkbenchService workbench,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => workbench.CaptureSessionScreenshotAsync(sessionId, request, cancellationToken)));
+
+        group.MapPost("/sessions/{sessionId}/cleanup", async Task<Results<Ok<WorkbenchSessionCleanupResult>, JsonHttpResult<OperatorError>>> (
+            string sessionId,
+            IWorkbenchService workbench,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => workbench.CleanupSessionAsync(sessionId, cancellationToken)));
+
         group.MapPost("/windows/{id:long}/activate", async Task<Results<Ok<ActionResult>, JsonHttpResult<OperatorError>>> (
             long id,
             IOperatorFacade facade,

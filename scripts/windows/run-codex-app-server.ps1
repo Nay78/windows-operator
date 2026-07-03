@@ -2,6 +2,8 @@
 param(
     [string]$StateRoot = (Join-Path $env:LOCALAPPDATA "Codex"),
 
+    [string]$CodexHome = (Join-Path $env:USERPROFILE ".codex"),
+
     [string]$ListenUrl = "ws://127.0.0.1:43118"
 )
 
@@ -57,12 +59,16 @@ function Find-CodexPath {
 }
 
 function Set-CodexEnvironment {
-    param([string]$Path)
+    param(
+        [string]$Path,
+        [string]$CodexHome
+    )
 
     $npmPrefix = Join-Path $Path "npm-global"
     $npmCache = Join-Path $Path "npm-cache"
     $env:npm_config_prefix = $npmPrefix
     $env:npm_config_cache = $npmCache
+    $env:CODEX_HOME = $CodexHome
 
     $pathEntries = @($npmPrefix)
     $nodeCommand = Find-CommandPath -Names @("node.exe", "node")
@@ -104,6 +110,8 @@ function Invoke-NativeCapture {
 
 Ensure-StateDirectories -Path $StateRoot
 $resolvedStateRoot = (Resolve-Path -LiteralPath $StateRoot).Path
+New-Item -ItemType Directory -Path $CodexHome -Force | Out-Null
+$resolvedCodexHome = (Resolve-Path -LiteralPath $CodexHome).Path
 $logRoot = Join-Path $resolvedStateRoot "logs"
 $logPath = Join-Path $logRoot ("codex-app-server-{0}.log" -f (Get-Date -Format "yyyyMMdd-HHmmss"))
 
@@ -115,7 +123,7 @@ function Write-Log {
 }
 
 try {
-    Set-CodexEnvironment -Path $resolvedStateRoot
+    Set-CodexEnvironment -Path $resolvedStateRoot -CodexHome $resolvedCodexHome
     $codexPath = Find-CodexPath -Path $resolvedStateRoot
     if (-not $codexPath) {
         Write-Log "Codex CLI missing. Run bootstrap-codex.ps1 first."

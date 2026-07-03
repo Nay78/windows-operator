@@ -3,7 +3,11 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$RepoRoot,
 
-    [string]$StateRoot = (Join-Path $env:LOCALAPPDATA "WindowsOperator")
+    [string]$StateRoot = (Join-Path $env:LOCALAPPDATA "WindowsOperator"),
+
+    [string]$ExchangeRoot = "",
+
+    [string]$HostExchangeRoot = ""
 )
 
 Set-StrictMode -Version Latest
@@ -77,12 +81,21 @@ function Find-DotnetPath {
 function Set-LocalStateEnvironment {
     param(
         [string]$Path,
-        [string]$DotnetPath
+        [string]$DotnetPath,
+        [string]$ExchangeRoot,
+        [string]$HostExchangeRoot
     )
 
     $env:WINDOWS_OPERATOR_LOCAL_STATE_ROOT = $Path
     $env:DOTNET_CLI_HOME = (Join-Path $Path "dotnet-home")
     $env:NUGET_PACKAGES = (Join-Path $Path "nuget-packages")
+    if (-not [string]::IsNullOrWhiteSpace($ExchangeRoot)) {
+        New-Item -ItemType Directory -Path $ExchangeRoot -Force | Out-Null
+        $env:WINDOWS_OPERATOR_EXCHANGE_ROOT = $ExchangeRoot
+    }
+    if (-not [string]::IsNullOrWhiteSpace($HostExchangeRoot)) {
+        $env:WINDOWS_OPERATOR_HOST_EXCHANGE_ROOT = $HostExchangeRoot
+    }
 
     $dotnetDir = Split-Path -Parent $DotnetPath
     if (-not $env:Path.Split(';').Contains($dotnetDir)) {
@@ -128,7 +141,7 @@ try {
     $resolvedRepoRoot = Wait-ForRepoRoot -Path $RepoRoot -TimeoutSeconds 120
 
     $dotnetPath = Find-DotnetPath -Path $resolvedStateRoot
-    Set-LocalStateEnvironment -Path $resolvedStateRoot -DotnetPath $dotnetPath
+    Set-LocalStateEnvironment -Path $resolvedStateRoot -DotnetPath $dotnetPath -ExchangeRoot $ExchangeRoot -HostExchangeRoot $HostExchangeRoot
 
     $solutionPath = Join-Path $resolvedRepoRoot "WindowsOperator.sln"
     $agentProjectPath = Join-Path $resolvedRepoRoot "src\\WindowsOperator.Agent\\WindowsOperator.Agent.csproj"

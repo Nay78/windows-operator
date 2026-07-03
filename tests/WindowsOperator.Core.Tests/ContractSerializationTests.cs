@@ -57,6 +57,19 @@ public sealed class ContractSerializationTests
         Assert.Contains("\"browserState\":\"browser_title_needs_user_action\"", json);
     }
 
+    [Theory]
+    [InlineData(MicrosoftDeviceLoginStatus.DryRun, true)]
+    [InlineData(MicrosoftDeviceLoginStatus.BrowserAccepted, true)]
+    [InlineData(MicrosoftDeviceLoginStatus.Submitted, false)]
+    [InlineData(MicrosoftDeviceLoginStatus.NeedsUserAction, false)]
+    [InlineData(MicrosoftDeviceLoginStatus.InvalidCode, false)]
+    [InlineData(MicrosoftDeviceLoginStatus.Failed, false)]
+    [InlineData(MicrosoftDeviceLoginStatus.TimedOut, false)]
+    public void MicrosoftDeviceLoginOutcomes_OnlyAcceptedOrDryRunSucceed(
+        MicrosoftDeviceLoginStatus status,
+        bool expected) =>
+        Assert.Equal(expected, MicrosoftDeviceLoginOutcomes.IsSuccess(status));
+
     [Fact]
     public void MicrosoftAuthorizeProbeResult_Serializes_StatusAsCamelCase()
     {

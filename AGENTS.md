@@ -2,6 +2,24 @@
 
 This repo is the Codex session root for Windows-side automation work.
 
+Default posture: operate the Windows computer from this repo. If SSH, sync,
+run-script, REST, or desktop automation can do the work safely, use it instead
+of giving the user manual Windows instructions. Ask only when credentials,
+admin approval, MFA, or destructive action blocks progress.
+
+Small safeguards:
+
+- Do not create, delete, overwrite, chmod, or append SSH keys/authorized_keys
+  without saying exactly which local/remote path and principal will change.
+- Prefer adding a new key line over replacing an existing key file. Back up
+  existing auth files before mutation when possible.
+- Never print private keys, tokens, cookies, or Codex auth contents. Report
+  presence, path, fingerprint, or account only.
+- Before changing autostart, firewall, PATH, registry, scheduled tasks, or
+  service state, name the target and verify current state first.
+- For remote file writes outside this repo or `%LOCALAPPDATA%\WindowsOperator`,
+  state the target path and whether it is machine-local state or shared source.
+
 ## Scope
 
 - Source of truth: `/home/alejg/proj/windows-operator`
@@ -16,6 +34,7 @@ This repo is the Codex session root for Windows-side automation work.
 - Desktop Agent runs in logged-in Windows desktop session and owns UI automation on Windows loopback `127.0.0.1:43119`.
 - No elevation by default for desktop automation.
 - Codex app-server binds Windows loopback `127.0.0.1:43118`.
+- Linux health checks use Host REST tunnel `127.0.0.1:43117`; do not treat failed Linux curls to `127.0.0.1:43119` as Desktop Agent failure. `43119` is Windows loopback for Host-to-Agent traffic unless an explicit temporary SSH debug tunnel is created.
 - Autostart uses Task Scheduler tasks:
   - `WindowsOperator.Host` (startup, SYSTEM, headless REST/proxy)
   - `WindowsOperator.Agent`

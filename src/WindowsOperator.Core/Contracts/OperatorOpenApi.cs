@@ -17,6 +17,12 @@ public static class OperatorOpenApi
                 Get("getDesktopForeground", "Read the current foreground desktop window.", schema.Ref<WindowRef>())),
             ["/v1/desktop/screenshot"] = Path(
                 Post("captureDesktopScreenshot", "Capture a desktop window screenshot and write it to exchange artifacts.", schema.Ref<DesktopScreenshotRequest>(), schema.Ref<DesktopScreenshotResult>())),
+            ["/v1/sessions/{sessionId}"] = Path(
+                Get("getWorkbenchSession", "Read an owned workbench session.", schema.Ref<WorkbenchSessionResult>(), PathParam("sessionId", "string"))),
+            ["/v1/sessions/{sessionId}/screenshot"] = Path(
+                Post("captureWorkbenchSessionScreenshot", "Capture an owned workbench session screenshot and write it to exchange artifacts.", schema.Ref<DesktopScreenshotRequest>(), schema.Ref<DesktopScreenshotResult>(), PathParam("sessionId", "string"))),
+            ["/v1/sessions/{sessionId}/cleanup"] = Path(
+                Post("cleanupWorkbenchSession", "Close an owned workbench session.", null, schema.Ref<WorkbenchSessionCleanupResult>(), PathParam("sessionId", "string"))),
             ["/v1/windows/{id}/activate"] = Path(
                 Post("activateWindow", "Activate a top-level window.", null, schema.Ref<ActionResult>(), PathParam("id", "integer", "int64"))),
             ["/v1/windows/{id}/screenshot"] = Path(

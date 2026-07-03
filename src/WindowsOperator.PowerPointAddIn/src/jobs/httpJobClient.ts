@@ -3,7 +3,11 @@ import type { UpdateError, UpdateJob, UpdateResult } from "../domain/types";
 import type { UpdateJobClient } from "../ports";
 
 export class HttpJobClient implements UpdateJobClient {
-  constructor(private readonly baseUrl = "") {}
+  private readonly baseUrl: string;
+
+  constructor(baseUrl = "") {
+    this.baseUrl = baseUrl.replace(/\/+$/u, "");
+  }
 
   async claimNextJob(documentUrl?: string): Promise<UpdateJob | null> {
     const response = await postJson(`${this.baseUrl}/v1/powerpoint/jobs/claim`, {

@@ -36,6 +36,34 @@ public sealed class DesktopAgentClient : IWorkbenchService
         CancellationToken cancellationToken) =>
         SendAsync<DesktopScreenshotResult>(HttpMethod.Post, "/v1/desktop/screenshot", request, cancellationToken);
 
+    public Task<WorkbenchSessionResult> GetSessionAsync(
+        string sessionId,
+        CancellationToken cancellationToken) =>
+        SendAsync<WorkbenchSessionResult>(
+            HttpMethod.Get,
+            $"/v1/sessions/{Uri.EscapeDataString(sessionId)}",
+            null,
+            cancellationToken);
+
+    public Task<DesktopScreenshotResult> CaptureSessionScreenshotAsync(
+        string sessionId,
+        DesktopScreenshotRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<DesktopScreenshotResult>(
+            HttpMethod.Post,
+            $"/v1/sessions/{Uri.EscapeDataString(sessionId)}/screenshot",
+            request,
+            cancellationToken);
+
+    public Task<WorkbenchSessionCleanupResult> CleanupSessionAsync(
+        string sessionId,
+        CancellationToken cancellationToken) =>
+        SendAsync<WorkbenchSessionCleanupResult>(
+            HttpMethod.Post,
+            $"/v1/sessions/{Uri.EscapeDataString(sessionId)}/cleanup",
+            null,
+            cancellationToken);
+
     public Task<ScreenshotResult> CaptureWindowAsync(long hwnd, ScreenshotFormat? format, CancellationToken cancellationToken)
     {
         var path = $"/v1/windows/{hwnd}/screenshot";
@@ -218,7 +246,17 @@ public sealed class DesktopAgentClient : IWorkbenchService
         using var _ = response;
         if (response.IsSuccessStatusCode)
         {
-            var result = await response.Content.ReadFromJsonAsync<T>(OperatorJson.SerializerOptions, cancellationToken);
+            T? result;
+            try
+            {
+                result = await response.Content.ReadFromJsonAsync<T>(OperatorJson.SerializerOptions, cancellationToken);
+            }
+            catch (JsonException ex)
+            {
+                throw new OperatorFailureException(
+                    OperatorErrors.LockedDesktop($"Desktop agent returned an invalid or empty response: {ex.Message}"));
+            }
+
             return result ?? throw new OperatorFailureException(
                 OperatorErrors.LockedDesktop("Desktop agent returned an empty response."));
         }

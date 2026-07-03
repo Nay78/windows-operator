@@ -233,9 +233,10 @@ Local:
 Live:
 
 - Build add-in assets with `npm run build --prefix src/WindowsOperator.PowerPointAddIn`.
-- Register Host with `scripts/windows/register-host-autostart.ps1`.
-- Start `WindowsOperator.Host` and confirm `GET http://127.0.0.1:43117/v1/health`.
+- Register and start Host with `scripts/windows/register-host-autostart.ps1`.
+- Confirm `GET http://127.0.0.1:43117/v1/health`.
 - From Windows, confirm `Invoke-WebRequest https://localhost:3003/taskpane.html` returns `200`.
+- From Linux, run the Host-staged add-in smoke from [Development](development.md#live-smoke).
 - Sideload add-in manifest.
 - Open target presentation in PowerPoint.
 - Enqueue job with matching `expectedDocumentUrl`.

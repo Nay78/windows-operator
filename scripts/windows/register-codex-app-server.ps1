@@ -1,6 +1,10 @@
 [CmdletBinding()]
 param(
+    [string]$RepoRoot = "",
+
     [string]$StateRoot = (Join-Path $env:LOCALAPPDATA "Codex"),
+
+    [string]$CodexHome = (Join-Path $env:USERPROFILE ".codex"),
 
     [string]$ListenUrl = "ws://127.0.0.1:43118"
 )
@@ -22,6 +26,9 @@ $runDir = Join-Path $resolvedStateRoot "run"
 New-Item -ItemType Directory -Path $runDir -Force | Out-Null
 
 $scriptPath = Join-Path $PSScriptRoot "run-codex-app-server.ps1"
+if (-not (Test-Path -LiteralPath $scriptPath) -and -not [string]::IsNullOrWhiteSpace($RepoRoot)) {
+    $scriptPath = Join-Path $RepoRoot "scripts\windows\run-codex-app-server.ps1"
+}
 if (-not (Test-Path -LiteralPath $scriptPath)) {
     throw "Launcher script missing: $scriptPath"
 }
@@ -33,6 +40,7 @@ $arguments = @(
     "-ExecutionPolicy", "Bypass",
     "-File", (Quote-Argument $scriptPath),
     "-StateRoot", (Quote-Argument $resolvedStateRoot),
+    "-CodexHome", (Quote-Argument $CodexHome),
     "-ListenUrl", (Quote-Argument $ListenUrl)
 ) -join " "
 
@@ -53,5 +61,6 @@ $settings = New-ScheduledTaskSettingsSet `
 
 $task = New-ScheduledTask -Action $action -Trigger $trigger -Principal $principal -Settings $settings
 Register-ScheduledTask -TaskName "Codex.AppServer" -InputObject $task -Force | Out-Null
+Start-ScheduledTask -TaskName "Codex.AppServer"
 
-Write-Host "[codex-autostart] Registered task Codex.AppServer for $userId"
+Write-Host "[codex-autostart] Registered and started task Codex.AppServer for $userId"

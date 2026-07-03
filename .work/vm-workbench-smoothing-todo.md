@@ -9,19 +9,35 @@ Implemented slice:
 - `POST /v1/browser/edge/open-url`
 - `POST /v1/browser/edge/session/{sessionId}/screenshot`
 - `POST /v1/browser/edge/session/{sessionId}/cleanup`
+- `GET /v1/sessions/{sessionId}`
+- `POST /v1/sessions/{sessionId}/screenshot`
+- `POST /v1/sessions/{sessionId}/cleanup`
+- workbench run state files: `events.jsonl`, `windows.json`, `state.json`
 
-Live smoke on 2026-06-16 proved foreground screenshot, Edge open-url screenshot,
-Edge session screenshot, Edge cleanup, and title-miss negative path through Host
-REST on `127.0.0.1:43117`.
+Live smoke through 2026-06-28 proved foreground screenshot, generic session routes,
+Edge open-url screenshot, Edge session screenshot/cleanup, Microsoft auth live
+negative cleanup, Notepad UIA typing, mail cached/fresh negative paths, and
+PowerPoint queue/artifact flow through Host REST on `127.0.0.1:43117`.
+Latest report:
+
+- `/var/lib/windows-server/shared/operator-exchange/runs/repo-align-live-smoke-final-20260628t225023z/live-smoke-report.json`
+
+Older same-day and reboot baseline reports are archived in
+`/tmp/windows-operator-repo-alignment-20260628.md`.
+
+Host-staged PowerPoint add-in listener was separately verified on 2026-06-28
+after default `register-host-autostart.ps1`. Windows
+`Invoke-WebRequest https://localhost:3003/taskpane.html` returned `200`,
+`Content-Length: 593`, and `Content-Type: text/html`. The smoke can now verify
+that same Host-staged listener from Linux with `--powerpoint-addin-windows-probe`;
+Linux `127.0.0.1:3003` still requires temporary Vite or an explicit tunnel.
 
 Remaining scope:
 
-- generic sessions
 - blocker detection
 - PowerPoint URL open diagnostics
 - owned PowerPoint cleanup
-- richer run artifact layout: `events.jsonl`, `windows.json`, `state.json`,
-  `requests/*.json`, `responses/*.json`
+- remaining richer run artifact layout: `requests/*.json`, `responses/*.json`
 
 ## Context
 

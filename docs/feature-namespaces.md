@@ -11,6 +11,7 @@ Good:
 - REST: `/v1/mail/...`
 - REST: `/v1/auth/microsoft/...`
 - REST: `/v1/browser/edge/...` for direct browser sessions
+- REST: `/v1/sessions/...` for generic operator-owned workbench sessions
 - REST: `/v1/powerpoint/...`
 - MCP: `mail_list_folders`
 - MCP: `auth_microsoft_device_login`
@@ -32,9 +33,10 @@ Use stable `/v1/<domain>/<provider-or-resource>/<action>` paths.
 
 Rules:
 
-- Domain is short and durable: `mail`, `auth`, `browser`, `powerpoint`, `windows`, `uia`, `input`.
+- Domain is short and durable: `mail`, `auth`, `browser`, `sessions`, `powerpoint`, `windows`, `uia`, `input`.
 - Provider appears when behavior is provider-specific: `auth/microsoft`.
 - Browser session endpoints use implementation namespace only when callers explicitly request browser control. Auth flows stay under `auth/microsoft`.
+- Generic workbench session endpoints stay under `sessions` when callers should not care whether the owner is Edge, PowerPoint, or another desktop app.
 - Action is explicit and boring: `device-login`, `claim`, `complete`, `download`.
 - Keep HTTP verbs meaningful. Use `GET` only for read-only status operations. Use `POST` for desktop actions, browser launches, refresh-aware reads, downloads, and anything with side effects.
 - Keep Host and Agent routes identical. Host may proxy, Agent owns desktop work.
@@ -44,6 +46,9 @@ Examples:
 ```text
 POST /v1/auth/microsoft/device-login
 POST /v1/browser/edge/session/start
+GET  /v1/sessions/{sessionId}
+POST /v1/sessions/{sessionId}/screenshot
+POST /v1/sessions/{sessionId}/cleanup
 POST /v1/powerpoint/jobs
 POST /v1/powerpoint/jobs/claim
 POST /v1/powerpoint/jobs/{jobId}/complete

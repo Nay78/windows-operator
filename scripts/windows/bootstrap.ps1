@@ -5,7 +5,11 @@ param(
 
     [string]$StateRoot = (Join-Path $env:LOCALAPPDATA "WindowsOperator"),
 
-    [switch]$EnableAutostart
+    [switch]$EnableAutostart,
+
+    [string]$ExchangeRoot = "",
+
+    [string]$HostExchangeRoot = ""
 )
 
 Set-StrictMode -Version Latest
@@ -240,12 +244,22 @@ if ($EnableAutostart) {
     }
 
     Write-Step "Registering logon autostart task."
+    $autostartArguments = @(
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-File", (Join-Path $PSScriptRoot "register-autostart.ps1"),
+        "-RepoRoot", $resolvedRepoRoot,
+        "-StateRoot", $resolvedStateRoot
+    )
+    if (-not [string]::IsNullOrWhiteSpace($ExchangeRoot)) {
+        $autostartArguments += @("-ExchangeRoot", $ExchangeRoot)
+    }
+    if (-not [string]::IsNullOrWhiteSpace($HostExchangeRoot)) {
+        $autostartArguments += @("-HostExchangeRoot", $HostExchangeRoot)
+    }
+
     & powershell.exe `
-        -NoProfile `
-        -ExecutionPolicy Bypass `
-        -File (Join-Path $PSScriptRoot "register-autostart.ps1") `
-        -RepoRoot $resolvedRepoRoot `
-        -StateRoot $resolvedStateRoot
+        @autostartArguments
 
     if ($LASTEXITCODE -ne 0) {
         throw "Autostart registration failed."

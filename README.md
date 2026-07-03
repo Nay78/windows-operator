@@ -1,6 +1,6 @@
 # Windows Operator
 
-Windows-first desktop operator scaffold for local automation. Repo targets a logged-in user session on Windows 10 2004+ and Windows 11. No Windows service, no Linux runtime glue, no remote bind by default.
+Windows-first desktop operator for local automation. Repo targets a logged-in user session on Windows 10 2004+ and Windows 11. No Windows service, no Linux runtime glue, no remote bind by default.
 
 ## Projects
 
@@ -24,6 +24,9 @@ Host REST binds `127.0.0.1:43117` by default and proxies desktop automation to t
 - `GET /v1/windows`
 - `GET /v1/desktop/foreground`
 - `POST /v1/desktop/screenshot`
+- `GET /v1/sessions/{sessionId}`
+- `POST /v1/sessions/{sessionId}/screenshot`
+- `POST /v1/sessions/{sessionId}/cleanup`
 - `POST /v1/windows/{id}/activate`
 - `GET /v1/windows/{id}/screenshot`
 - `POST /v1/uia/query`
@@ -101,7 +104,7 @@ Tool calls return full machine-readable JSON in `structuredContent`. Text conten
 
 ## Backend choices
 
-- UI automation backend seam exists, but scaffold ships only `FlaUI.UIA3`.
+- UI automation backend seam exists, but the current implementation ships only `FlaUI.UIA3`.
 - Screenshot backend chain is `WindowsGraphicsCapture -> PrintWindow -> GdiBitBlt`.
 - Default screenshot output is JPEG quality `85`, longest edge `1600px`. PNG available for debugging.
 - Workbench screenshots write files under `runs/<runId>/screenshots/` in `WINDOWS_OPERATOR_EXCHANGE_ROOT` or `Z:\operator-exchange`; Host paths map through `WINDOWS_OPERATOR_HOST_EXCHANGE_ROOT` or `/var/lib/windows-server/shared/operator-exchange`.
@@ -123,12 +126,12 @@ Provision a fresh Windows workstation with:
 powershell -ExecutionPolicy Bypass -File .\scripts\windows\bootstrap.ps1 -RepoRoot \\server\share\windows-operator -EnableAutostart
 ```
 
-Autostart uses two Task Scheduler entries. `WindowsOperator.Host` runs at startup as SYSTEM from a local published copy. Host REST always binds `127.0.0.1:43117`; PowerPoint add-in HTTPS on `https://localhost:3003` is enabled only when `register-host-autostart.ps1` stages a built add-in and localhost certificate. `WindowsOperator.Agent` runs only in the logged-in desktop session, unelevated, after a 30 second delay.
+Operator autostart uses two Task Scheduler entries. `WindowsOperator.Host` runs at startup as SYSTEM from a local published copy after a 30 second delay. Host REST always binds `127.0.0.1:43117`; PowerPoint add-in HTTPS on `https://localhost:3003` is enabled only when `register-host-autostart.ps1` stages a built add-in and localhost certificate. `WindowsOperator.Agent` runs only in the logged-in desktop session, unelevated, after a 30 second delay. Codex app-server autostart is a separate per-user task.
 
 The VM bootstrap wrapper also provisions Codex CLI under `%LOCALAPPDATA%\Codex`, using a local npm prefix/cache and a per-user `Codex.AppServer` scheduled task:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\windows\bootstrap-codex.ps1 -EnableAutostart
+powershell -ExecutionPolicy Bypass -File .\scripts\windows\bootstrap-codex.ps1 -EnableAutostart -InstallProfile
 ```
 
 Codex credentials are not provisioned. Run `codex login` manually in the Windows desktop session. After login, `Codex.AppServer` starts `codex app-server --listen ws://127.0.0.1:43118` on Windows loopback.
@@ -154,7 +157,7 @@ dotnet test WindowsOperator.sln
 dotnet run --project src/WindowsOperator.Agent
 ```
 
-On Linux, use the portable filter for core/MCP coverage:
+On Linux, use the portable filter for Linux-safe builds plus Host/MCP test coverage:
 
 ```bash
 dotnet test WindowsOperator.Portable.slnf
@@ -205,7 +208,7 @@ scripts/linux/windows-run-ps.sh scripts/windows/recover-outlook-mail.ps1 -Mode P
 
 Agent machine-local overrides belong in `%LOCALAPPDATA%\WindowsOperator\run\appsettings.Local.json`. Host autostart writes `%ProgramData%\WindowsOperator\run\host.appsettings.Local.json`.
 
-## Current scaffold limits
+## Current limits
 
 - WGC class exists as primary seam, but real WinRT interop still needs Windows validation and hardening.
 - Elevated/UAC targets are intentionally unsupported in v1. Errors return explicit remediation.

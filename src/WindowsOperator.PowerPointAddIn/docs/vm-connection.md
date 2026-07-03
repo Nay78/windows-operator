@@ -55,6 +55,7 @@ Live runtime checks before PowerPoint sideload:
 
 - `GET http://127.0.0.1:43117/v1/health`
 - Windows-side `Invoke-WebRequest https://localhost:3003/taskpane.html`
+- Linux smoke with Windows-loopback add-in probe, using the root [development runbook](../../../docs/development.md#live-smoke)
 - `POST http://127.0.0.1:43117/v1/powerpoint/jobs`
 - `POST http://127.0.0.1:43117/v1/powerpoint/jobs/claim`
 

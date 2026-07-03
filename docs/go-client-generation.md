@@ -53,7 +53,7 @@ go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.5.0 \
   -config openapi/go-client.oapi-codegen.yaml \
   openapi/windows-operator.openapi.json
 gofmt -w clients/go/windowsoperator.gen.go clients/go/generate.go
-(cd clients/go && go mod tidy)
+(cd clients/go && go mod tidy -go=1.22)
 ```
 
 From inside `clients/go`, this equivalent command is available:

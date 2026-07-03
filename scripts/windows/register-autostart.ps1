@@ -3,7 +3,11 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$RepoRoot,
 
-    [string]$StateRoot = (Join-Path $env:LOCALAPPDATA "WindowsOperator")
+    [string]$StateRoot = (Join-Path $env:LOCALAPPDATA "WindowsOperator"),
+
+    [string]$ExchangeRoot = "",
+
+    [string]$HostExchangeRoot = ""
 )
 
 Set-StrictMode -Version Latest
@@ -24,6 +28,9 @@ New-Item -ItemType Directory -Path $runDir -Force | Out-Null
 
 $scriptPath = Join-Path $PSScriptRoot "run-agent.ps1"
 if (-not (Test-Path -LiteralPath $scriptPath)) {
+    $scriptPath = Join-Path $RepoRoot "scripts\windows\run-agent.ps1"
+}
+if (-not (Test-Path -LiteralPath $scriptPath)) {
     throw "Launcher script missing: $scriptPath"
 }
 
@@ -35,7 +42,14 @@ $arguments = @(
     "-File", (Quote-Argument $scriptPath),
     "-RepoRoot", (Quote-Argument $RepoRoot),
     "-StateRoot", (Quote-Argument $resolvedStateRoot)
-) -join " "
+)
+if (-not [string]::IsNullOrWhiteSpace($ExchangeRoot)) {
+    $arguments += @("-ExchangeRoot", (Quote-Argument $ExchangeRoot))
+}
+if (-not [string]::IsNullOrWhiteSpace($HostExchangeRoot)) {
+    $arguments += @("-HostExchangeRoot", (Quote-Argument $HostExchangeRoot))
+}
+$arguments = $arguments -join " "
 
 $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $arguments -WorkingDirectory $runDir
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $userId

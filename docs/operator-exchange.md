@@ -9,13 +9,10 @@ Goal: make Windows-side automation artifacts directly available to Linux tools w
 
 This directory should be declared by NixOS as part of the Windows VM virtio-fs share. Windows scripts should treat it as an exchange/output area, not as source code.
 
-## Layout
+## Current Layout
 
 ```text
 operator-exchange/
-  inbox/
-  outbox/
-  logs/
   downloads/
     mail/
   runs/
@@ -26,8 +23,9 @@ operator-exchange/
       transcript.txt
       result.json
       request.json
-  screenshots/
 ```
+
+`inbox/`, `outbox/`, `logs/`, and root-level `screenshots/` are not part of the current live layout. Add them only when a caller needs that contract; screenshots produced by current tools belong under `runs/<run-id>/`.
 
 ## Rules
 
@@ -72,6 +70,74 @@ Useful overrides:
 - `WINDOWS_OPERATOR_RUN_ID`
 
 By default the runner uses `administrator@127.0.0.1:22555` and `/run/secrets/ssh_automation_key` when the secret exists.
+
+For per-machine defaults, create `.windows-operator.local.env` in the repo root. The file is ignored by git and loaded by both Linux helpers before built-in defaults:
+
+```bash
+: "${WINDOWS_OPERATOR_SSH_HOST:=<tailscale-host>}"
+: "${WINDOWS_OPERATOR_SSH_USER:=<windows-user>}"
+: "${WINDOWS_OPERATOR_SSH_PORT:=22}"
+: "${WINDOWS_OPERATOR_SSH_IDENTITY_FILE:=/run/secrets/ssh_automation_key}"
+: "${WINDOWS_OPERATOR_WINDOWS_REPO_ROOT:=C:\\src\\windows-operator}"
+: "${WINDOWS_OPERATOR_RUN_TRANSPORT:=ssh-copy}"
+```
+
+### Non-VM Tailscale Targets
+
+For physical Windows machines, there is no `Z:` shared drive. Sync the repo over SSH, then run commands with copy-backed staging:
+
+```bash
+export WINDOWS_OPERATOR_SSH_HOST=<tailscale-host>
+export WINDOWS_OPERATOR_SSH_PORT=22
+export WINDOWS_OPERATOR_SSH_USER=<windows-user>
+export WINDOWS_OPERATOR_WINDOWS_REPO_ROOT='C:\src\windows-operator'
+export WINDOWS_OPERATOR_RUN_TRANSPORT=ssh-copy
+
+scripts/linux/windows-sync-repo.sh
+scripts/linux/windows-run-ps.sh scripts/windows/bootstrap.ps1 \
+  -RepoRoot 'C:\src\windows-operator' \
+  -EnableAutostart \
+  -ExchangeRoot 'C:\ProgramData\WindowsOperator\exchange' \
+  -HostExchangeRoot 'C:\ProgramData\WindowsOperator\exchange'
+```
+
+`ssh-copy` keeps Linux-side artifacts under `WINDOWS_OPERATOR_EXCHANGE_ROOT`, stages `request.json` and `command.ps1` under `C:\ProgramData\WindowsOperator\exchange` on the Windows machine, runs the repo-owned executor, then copies `result.json` and `transcript.txt` back.
+
+Repo-owned PowerShell profile sync:
+
+```bash
+scripts/linux/windows-sync-powershell-profile.sh
+```
+
+This syncs the repo, then writes a managed source block into the Windows user's
+PowerShell profile files for `WindowsPowerShell` and `PowerShell`. The target
+profile files remain machine-local state; the actual aliases/functions live in
+`profiles\powershell\profile.ps1` inside the synced repo. Override targets with
+`WINDOWS_OPERATOR_POWERSHELL_PROFILE_TARGETS`, separated by semicolons.
+
+Top-level sync shortcut:
+
+```bash
+just sync
+```
+
+`just sync` probes configured targets, skips offline machines, and runs repo +
+profile sync on reachable machines. Configure multiple targets with
+`WINDOWS_OPERATOR_SYNC_TARGETS`, separated by whitespace:
+
+```bash
+export WINDOWS_OPERATOR_SYNC_TARGETS='alejg@legion9-win:22 other-win'
+just sync
+```
+
+Use `just sync-plan` to inspect target resolution without connecting.
+
+Keep Host REST loopback-only on non-VM targets too. Use an SSH local forward instead of binding unauthenticated Operator REST to the tailnet:
+
+```bash
+ssh -N -L 43127:127.0.0.1:43117 <windows-user>@<tailscale-host>
+curl http://127.0.0.1:43127/v1/health
+```
 
 ## REST Tunnel
 

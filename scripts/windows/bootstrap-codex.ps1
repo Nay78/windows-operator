@@ -2,7 +2,11 @@
 param(
     [string]$StateRoot = (Join-Path $env:LOCALAPPDATA "Codex"),
 
+    [string]$CodexHome = (Join-Path $env:USERPROFILE ".codex"),
+
     [switch]$EnableAutostart,
+
+    [switch]$InstallProfile,
 
     [string]$ListenUrl = "ws://127.0.0.1:43118"
 )
@@ -181,7 +185,8 @@ function Stop-ExistingCodex {
 function Set-CodexEnvironment {
     param(
         [string]$Path,
-        [hashtable]$NodePaths
+        [hashtable]$NodePaths,
+        [string]$CodexHome
     )
 
     $npmPrefix = Join-Path $Path "npm-global"
@@ -190,6 +195,7 @@ function Set-CodexEnvironment {
 
     $env:npm_config_prefix = $npmPrefix
     $env:npm_config_cache = $npmCache
+    $env:CODEX_HOME = $CodexHome
 
     foreach ($pathEntry in @($npmPrefix, $nodeDir)) {
         if (-not $env:Path.Split(';').Contains($pathEntry)) {
@@ -299,7 +305,10 @@ Ensure-StateDirectories -Path $resolvedStateRoot
 $resolvedStateRoot = (Resolve-Path -LiteralPath $resolvedStateRoot).Path
 
 $nodePaths = Ensure-Node -Path $resolvedStateRoot
-Set-CodexEnvironment -Path $resolvedStateRoot -NodePaths $nodePaths
+$resolvedCodexHome = $CodexHome
+New-Item -ItemType Directory -Path $resolvedCodexHome -Force | Out-Null
+$resolvedCodexHome = (Resolve-Path -LiteralPath $resolvedCodexHome).Path
+Set-CodexEnvironment -Path $resolvedStateRoot -NodePaths $nodePaths -CodexHome $resolvedCodexHome
 
 $npmPrefix = Join-Path $resolvedStateRoot "npm-global"
 $npmCache = Join-Path $resolvedStateRoot "npm-cache"
@@ -339,6 +348,23 @@ if ($versionResult.ExitCode -ne 0) {
 }
 Write-Step "Installed $($versionResult.Output)"
 
+if ($InstallProfile) {
+    Write-Step "Installing Windows Codex profile."
+    $profileProjectRoots = @("C:\src", (Join-Path $env:USERPROFILE "projects"), $repoRoot)
+    $profileProjectRootsText = $profileProjectRoots -join ';'
+    & powershell.exe `
+        -NoProfile `
+        -ExecutionPolicy Bypass `
+        -File (Join-Path $PSScriptRoot "configure-codex-profile.ps1") `
+        -CodexHome $resolvedCodexHome `
+        -TrustedProjectRootsText $profileProjectRootsText `
+        -ForceStaticProfile
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "Codex profile installation failed."
+    }
+}
+
 if ($EnableAutostart) {
     Write-Step "Registering Codex app-server logon task."
     & powershell.exe `
@@ -346,6 +372,7 @@ if ($EnableAutostart) {
         -ExecutionPolicy Bypass `
         -File (Join-Path $PSScriptRoot "register-codex-app-server.ps1") `
         -StateRoot $resolvedStateRoot `
+        -CodexHome $resolvedCodexHome `
         -ListenUrl $ListenUrl
 
     if ($LASTEXITCODE -ne 0) {
@@ -355,7 +382,7 @@ if ($EnableAutostart) {
 
 $loginStatus = Invoke-NativeCapture -CommandPath $codexPath -Arguments @("login", "status")
 if ($loginStatus.ExitCode -eq 0 -and ($loginStatus.Output -match "Logged in")) {
-    Write-Step "Codex login present. App server will listen on $ListenUrl at logon."
+    Write-Step "Codex login present. App server should be running on $ListenUrl and will restart at logon."
 } else {
     Write-Step "Codex login missing. Run 'codex login' in the Windows desktop session, then start task Codex.AppServer."
 }

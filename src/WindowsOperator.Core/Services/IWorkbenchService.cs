@@ -22,4 +22,17 @@ public interface IWorkbenchService
     Task<BrowserEdgeSessionStateResult> CleanupEdgeSessionAsync(
         string sessionId,
         CancellationToken cancellationToken);
+
+    Task<WorkbenchSessionResult> GetSessionAsync(
+        string sessionId,
+        CancellationToken cancellationToken);
+
+    Task<DesktopScreenshotResult> CaptureSessionScreenshotAsync(
+        string sessionId,
+        DesktopScreenshotRequest request,
+        CancellationToken cancellationToken);
+
+    Task<WorkbenchSessionCleanupResult> CleanupSessionAsync(
+        string sessionId,
+        CancellationToken cancellationToken);
 }

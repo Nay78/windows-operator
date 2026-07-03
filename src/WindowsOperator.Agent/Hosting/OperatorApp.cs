@@ -51,6 +51,8 @@ public static class OperatorApp
         builder.Services.AddSingleton<EdgeMicrosoftAuthService>();
         builder.Services.AddSingleton<IMicrosoftAuthService>(services => services.GetRequiredService<EdgeMicrosoftAuthService>());
         builder.Services.AddSingleton<IEdgeBrowserService>(services => services.GetRequiredService<EdgeMicrosoftAuthService>());
+        builder.Services.AddSingleton<WorkbenchRunStore>();
+        builder.Services.AddSingleton<OwnedSessionRegistry>();
         builder.Services.AddSingleton<IWorkbenchService, WorkbenchService>();
         builder.Services.AddSingleton<IOperatorFacade, OperatorFacade>();
         builder.Services.AddOperatorMcp(hostStdioServer: !useTestServer);

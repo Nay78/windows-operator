@@ -747,6 +747,70 @@ public sealed partial class EdgeMicrosoftAuthService
         }
     }
 
+    private static bool DispatchMouseClick(string webSocketDebuggerUrl, double x, double y) =>
+        SendDevToolsCommand(
+            webSocketDebuggerUrl,
+            "Input.dispatchMouseEvent",
+            new { type = "mouseMoved", x, y, button = "none" }) &&
+        SendDevToolsCommand(
+            webSocketDebuggerUrl,
+            "Input.dispatchMouseEvent",
+            new { type = "mousePressed", x, y, button = "left", clickCount = 1 }) &&
+        SendDevToolsCommand(
+            webSocketDebuggerUrl,
+            "Input.dispatchMouseEvent",
+            new { type = "mouseReleased", x, y, button = "left", clickCount = 1 });
+
+    private static bool SendDevToolsCommand(string webSocketDebuggerUrl, string method, object parameters)
+    {
+        try
+        {
+            using var client = new ClientWebSocket();
+            client.ConnectAsync(new Uri(webSocketDebuggerUrl), CancellationToken.None).GetAwaiter().GetResult();
+            var requestId = Random.Shared.Next(1, int.MaxValue);
+            var payload = JsonSerializer.Serialize(new { id = requestId, method, @params = parameters });
+            var requestBytes = Encoding.UTF8.GetBytes(payload);
+            client.SendAsync(
+                    new ArraySegment<byte>(requestBytes),
+                    WebSocketMessageType.Text,
+                    true,
+                    CancellationToken.None)
+                .GetAwaiter()
+                .GetResult();
+
+            var buffer = new byte[64 * 1024];
+            while (true)
+            {
+                var builder = new ArrayBufferWriter<byte>();
+                WebSocketReceiveResult result;
+                do
+                {
+                    result = client.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None).GetAwaiter().GetResult();
+                    if (result.MessageType == WebSocketMessageType.Close)
+                    {
+                        return false;
+                    }
+
+                    builder.Write(new ReadOnlySpan<byte>(buffer, 0, result.Count));
+                }
+                while (!result.EndOfMessage);
+
+                using var document = JsonDocument.Parse(builder.WrittenMemory);
+                if (!document.RootElement.TryGetProperty("id", out var idElement) ||
+                    idElement.GetInt32() != requestId)
+                {
+                    continue;
+                }
+
+                return !document.RootElement.TryGetProperty("error", out _);
+            }
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     private static string BuildClickExpression(BrowserEdgeSessionDomClickRequest request)
     {
         var selector = JsonSerializer.Serialize(request.Selector);
@@ -952,5 +1016,12 @@ public sealed partial class EdgeMicrosoftAuthService
 
     private sealed record BrowserElementPayload(string? TagName, string? Type, string? Text, string? Label, string? Id, string? Name);
 
-    private sealed record DomActionPayload(bool Success, string? Message, string? MatchedBy, string? MatchedText, string? TagName);
+    private sealed record DomActionPayload(
+        bool Success,
+        string? Message,
+        string? MatchedBy,
+        string? MatchedText,
+        string? TagName,
+        double? ClickX,
+        double? ClickY);
 }

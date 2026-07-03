@@ -958,19 +958,49 @@ def run_mail_checks(recorder: Recorder, client: SmokeClient, args: argparse.Name
 
 def run_powerpoint_checks(recorder: Recorder, client: SmokeClient, args: argparse.Namespace, run_id: str) -> None:
     if not args.skip_powerpoint_addin:
-        status, headers, body = fetch_url(args.powerpoint_addin_url, args.timeout_seconds, insecure_tls=True)
-        recorder.add(
-            "powerpoint_addin_taskpane",
-            status == 200 and b"Windows Operator PowerPoint" in body,
-            status,
-            (
-                f"bytes={len(body)} type={headers.get('Content-Type')}"
-                if isinstance(status, int)
-                else body.decode("utf-8", "replace")[:160]
-            ),
-            url=args.powerpoint_addin_url,
-            contentType=headers.get("Content-Type"),
-        )
+        if args.powerpoint_addin_windows_probe:
+            result_path, probe = run_windows_script(
+                recorder,
+                args,
+                "powerpoint_addin_windows_probe_script",
+                "scripts/windows/probe-url.ps1",
+                [
+                    "-Url",
+                    args.powerpoint_addin_windows_url,
+                    "-RequiredText",
+                    "Windows Operator PowerPoint",
+                    "-TimeoutSeconds",
+                    str(args.timeout_seconds),
+                ],
+                "ppt-addin-probe",
+            )
+            recorder.add(
+                "powerpoint_addin_taskpane",
+                isinstance(probe, dict) and probe.get("success") is True,
+                probe.get("statusCode") if isinstance(probe, dict) else "missing",
+                (
+                    f"bytes={probe.get('contentLength')} type={probe.get('contentType')}"
+                    if isinstance(probe, dict)
+                    else "Windows probe output missing"
+                ),
+                url=args.powerpoint_addin_windows_url,
+                contentType=probe.get("contentType") if isinstance(probe, dict) else None,
+                resultPath=str(result_path) if result_path else None,
+            )
+        else:
+            status, headers, body = fetch_url(args.powerpoint_addin_url, args.timeout_seconds, insecure_tls=True)
+            recorder.add(
+                "powerpoint_addin_taskpane",
+                status == 200 and b"Windows Operator PowerPoint" in body,
+                status,
+                (
+                    f"bytes={len(body)} type={headers.get('Content-Type')}"
+                    if isinstance(status, int)
+                    else body.decode("utf-8", "replace")[:160]
+                ),
+                url=args.powerpoint_addin_url,
+                contentType=headers.get("Content-Type"),
+            )
 
     job_id = f"{run_id}-ppt"
     artifact_id = "live-pixel"
@@ -1091,7 +1121,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--run-id", default=f"live-smoke-{utc_stamp().lower()}")
     parser.add_argument("--output", help="Report JSON path. Default: <exchange-root>/runs/<run-id>/live-smoke-report.json")
     parser.add_argument("--timeout-seconds", type=int, default=90)
-    parser.add_argument("--min-openapi-paths", type=int, default=39)
+    parser.add_argument("--min-openapi-paths", type=int, default=42)
     parser.add_argument("--include-notepad", action="store_true", help="Launch Notepad, type text through UIA, screenshot, then close it.")
     parser.add_argument("--include-fresh-mail", action="store_true", help="Run a slow no-match Outlook freshness search through the real mail worker.")
     parser.add_argument(
@@ -1114,6 +1144,16 @@ def parse_args() -> argparse.Namespace:
         "--powerpoint-addin-url",
         default=os.environ.get("WINDOWS_OPERATOR_POWERPOINT_ADDIN_URL", "https://127.0.0.1:3003/taskpane.html"),
         help="PowerPoint add-in taskpane URL to verify.",
+    )
+    parser.add_argument(
+        "--powerpoint-addin-windows-probe",
+        action="store_true",
+        help="Verify the PowerPoint add-in taskpane from Windows loopback through scripts/windows/probe-url.ps1.",
+    )
+    parser.add_argument(
+        "--powerpoint-addin-windows-url",
+        default=os.environ.get("WINDOWS_OPERATOR_POWERPOINT_ADDIN_WINDOWS_URL", "https://localhost:3003/taskpane.html"),
+        help="Windows-side PowerPoint add-in taskpane URL used with --powerpoint-addin-windows-probe.",
     )
     parser.add_argument("--skip-powerpoint-addin", action="store_true", help="Skip PowerPoint taskpane HTTPS check.")
     args = parser.parse_args()

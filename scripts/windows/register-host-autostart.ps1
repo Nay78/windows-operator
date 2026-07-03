@@ -32,19 +32,50 @@ function Quote-PowerShellLiteral {
     return "'" + $Value.Replace("'", "''") + "'"
 }
 
+function Test-DotnetSdk {
+    param([string]$DotnetPath)
+
+    if (-not (Test-Path -LiteralPath $DotnetPath)) {
+        return $false
+    }
+
+    $sdkList = & $DotnetPath --list-sdks 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        return $false
+    }
+
+    return [bool]($sdkList | Where-Object { $_ -match '^8\.' })
+}
+
 function Resolve-Dotnet {
-    param([string]$Candidate)
+    param(
+        [string]$Candidate,
+        [string]$StateRoot
+    )
+
+    $candidates = @()
 
     if (Test-Path -LiteralPath $Candidate) {
-        return (Resolve-Path -LiteralPath $Candidate).Path
+        $candidates += (Resolve-Path -LiteralPath $Candidate).Path
     }
+
+    $candidates += (Join-Path $StateRoot "dotnet-sdk\dotnet.exe")
+    $candidates += (Join-Path $env:LOCALAPPDATA "WindowsOperator\dotnet-sdk\dotnet.exe")
+    $candidates += (Join-Path $env:ProgramFiles "dotnet\dotnet.exe")
+    $candidates += (Join-Path ${env:ProgramFiles(x86)} "dotnet\dotnet.exe")
 
     $command = Get-Command $Candidate -ErrorAction SilentlyContinue
     if ($command) {
-        return $command.Source
+        $candidates += $command.Source
     }
 
-    throw "dotnet executable not found: $Candidate"
+    foreach ($candidatePath in $candidates | Select-Object -Unique) {
+        if (Test-DotnetSdk -DotnetPath $candidatePath) {
+            return $candidatePath
+        }
+    }
+
+    throw ".NET 8 SDK missing. Run bootstrap.ps1 first or pass -DotnetPath."
 }
 
 function Stop-ExistingHost {
@@ -138,7 +169,7 @@ New-Item -ItemType Directory -Path $hostRoot -Force | Out-Null
 New-Item -ItemType Directory -Path $runRoot -Force | Out-Null
 New-Item -ItemType Directory -Path $certRoot -Force | Out-Null
 
-$resolvedDotnetPath = Resolve-Dotnet -Candidate $DotnetPath
+$resolvedDotnetPath = Resolve-Dotnet -Candidate $DotnetPath -StateRoot $resolvedStateRoot.FullName
 
 Stop-ExistingHost -HostRoot $hostRoot
 
@@ -232,6 +263,9 @@ $arguments = @(
 
 $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $arguments -WorkingDirectory $hostRoot
 $trigger = New-ScheduledTaskTrigger -AtStartup
+if ($trigger.PSObject.Properties.Name -contains "Delay") {
+    $trigger.Delay = "PT30S"
+}
 $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
 $settings = New-ScheduledTaskSettingsSet `
     -AllowStartIfOnBatteries `
@@ -244,5 +278,6 @@ $settings = New-ScheduledTaskSettingsSet `
 
 $task = New-ScheduledTask -Action $action -Trigger $trigger -Principal $principal -Settings $settings
 Register-ScheduledTask -TaskName "WindowsOperator.Host" -InputObject $task -Force | Out-Null
+Start-ScheduledTask -TaskName "WindowsOperator.Host"
 
-Write-Step "Registered task WindowsOperator.Host as SYSTEM. HostRoot=$hostRoot"
+Write-Step "Registered and started task WindowsOperator.Host as SYSTEM. HostRoot=$hostRoot"

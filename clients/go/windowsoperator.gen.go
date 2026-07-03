@@ -622,6 +622,51 @@ type WorkbenchArtifactRef struct {
 	RelativePath string `json:"relativePath"`
 }
 
+// WorkbenchRunRef defines model for WorkbenchRunRef.
+type WorkbenchRunRef struct {
+	HostPath     string `json:"hostPath"`
+	Path         string `json:"path"`
+	RelativePath string `json:"relativePath"`
+	RunId        string `json:"runId"`
+}
+
+// WorkbenchSessionCleanupResult defines model for WorkbenchSessionCleanupResult.
+type WorkbenchSessionCleanupResult struct {
+	Actions            []string  `json:"actions"`
+	ClosedProcesses    int32     `json:"closedProcesses"`
+	ClosedWindows      int32     `json:"closedWindows"`
+	CompletedAtUtc     time.Time `json:"completedAtUtc"`
+	Errors             []string  `json:"errors"`
+	FailedProcesses    int32     `json:"failedProcesses"`
+	FailedWindows      int32     `json:"failedWindows"`
+	Kind               string    `json:"kind"`
+	MatchedProcesses   int32     `json:"matchedProcesses"`
+	MatchedWindows     int32     `json:"matchedWindows"`
+	PreservedProcesses int32     `json:"preservedProcesses"`
+	PreservedWindows   int32     `json:"preservedWindows"`
+	SessionId          string    `json:"sessionId"`
+	Success            bool      `json:"success"`
+}
+
+// WorkbenchSessionResult defines model for WorkbenchSessionResult.
+type WorkbenchSessionResult struct {
+	Actions         []string        `json:"actions"`
+	ArtifactRoot    WorkbenchRunRef `json:"artifactRoot"`
+	CreatedAtUtc    time.Time       `json:"createdAtUtc"`
+	Errors          []string        `json:"errors"`
+	Hwnds           []int64         `json:"hwnds"`
+	IsAlive         bool            `json:"isAlive"`
+	Kind            string          `json:"kind"`
+	ObservedAtUtc   time.Time       `json:"observedAtUtc"`
+	OwnedProcessIds []int32         `json:"ownedProcessIds"`
+	SessionId       string          `json:"sessionId"`
+	StatePath       string          `json:"statePath"`
+	Success         bool            `json:"success"`
+	Title           *string         `json:"title"`
+	Url             *string         `json:"url"`
+	Warnings        []string        `json:"warnings"`
+}
+
 // CaptureWindowParams defines parameters for CaptureWindow.
 type CaptureWindowParams struct {
 	Format *ScreenshotFormat `form:"format,omitempty" json:"format,omitempty"`
@@ -686,6 +731,9 @@ type CompletePowerPointJobJSONRequestBody = PowerPointUpdateResult
 
 // FailPowerPointJobJSONRequestBody defines body for FailPowerPointJob for application/json ContentType.
 type FailPowerPointJobJSONRequestBody = PowerPointUpdateError
+
+// CaptureWorkbenchSessionScreenshotJSONRequestBody defines body for CaptureWorkbenchSessionScreenshot for application/json ContentType.
+type CaptureWorkbenchSessionScreenshotJSONRequestBody = DesktopScreenshotRequest
 
 // ClickUiJSONRequestBody defines body for ClickUi for application/json ContentType.
 type ClickUiJSONRequestBody = UiaClickRequest
@@ -907,6 +955,17 @@ type ClientInterface interface {
 	FailPowerPointJobWithBody(ctx context.Context, jobId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	FailPowerPointJob(ctx context.Context, jobId string, body FailPowerPointJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetWorkbenchSession request
+	GetWorkbenchSession(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CleanupWorkbenchSession request
+	CleanupWorkbenchSession(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CaptureWorkbenchSessionScreenshotWithBody request with any body
+	CaptureWorkbenchSessionScreenshotWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CaptureWorkbenchSessionScreenshot(ctx context.Context, sessionId string, body CaptureWorkbenchSessionScreenshotJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ClickUiWithBody request with any body
 	ClickUiWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1559,6 +1618,54 @@ func (c *Client) FailPowerPointJobWithBody(ctx context.Context, jobId string, co
 
 func (c *Client) FailPowerPointJob(ctx context.Context, jobId string, body FailPowerPointJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewFailPowerPointJobRequest(c.Server, jobId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetWorkbenchSession(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetWorkbenchSessionRequest(c.Server, sessionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CleanupWorkbenchSession(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCleanupWorkbenchSessionRequest(c.Server, sessionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CaptureWorkbenchSessionScreenshotWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCaptureWorkbenchSessionScreenshotRequestWithBody(c.Server, sessionId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CaptureWorkbenchSessionScreenshot(ctx context.Context, sessionId string, body CaptureWorkbenchSessionScreenshotJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCaptureWorkbenchSessionScreenshotRequest(c.Server, sessionId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2933,6 +3040,121 @@ func NewFailPowerPointJobRequestWithBody(server string, jobId string, contentTyp
 	return req, nil
 }
 
+// NewGetWorkbenchSessionRequest generates requests for GetWorkbenchSession
+func NewGetWorkbenchSessionRequest(server string, sessionId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sessionId", runtime.ParamLocationPath, sessionId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/sessions/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCleanupWorkbenchSessionRequest generates requests for CleanupWorkbenchSession
+func NewCleanupWorkbenchSessionRequest(server string, sessionId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sessionId", runtime.ParamLocationPath, sessionId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/sessions/%s/cleanup", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCaptureWorkbenchSessionScreenshotRequest calls the generic CaptureWorkbenchSessionScreenshot builder with application/json body
+func NewCaptureWorkbenchSessionScreenshotRequest(server string, sessionId string, body CaptureWorkbenchSessionScreenshotJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCaptureWorkbenchSessionScreenshotRequestWithBody(server, sessionId, "application/json", bodyReader)
+}
+
+// NewCaptureWorkbenchSessionScreenshotRequestWithBody generates requests for CaptureWorkbenchSessionScreenshot with any type of body
+func NewCaptureWorkbenchSessionScreenshotRequestWithBody(server string, sessionId string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sessionId", runtime.ParamLocationPath, sessionId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/sessions/%s/screenshot", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewClickUiRequest calls the generic ClickUi builder with application/json body
 func NewClickUiRequest(server string, body ClickUiJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -3351,6 +3573,17 @@ type ClientWithResponsesInterface interface {
 	FailPowerPointJobWithBodyWithResponse(ctx context.Context, jobId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*FailPowerPointJobResponse, error)
 
 	FailPowerPointJobWithResponse(ctx context.Context, jobId string, body FailPowerPointJobJSONRequestBody, reqEditors ...RequestEditorFn) (*FailPowerPointJobResponse, error)
+
+	// GetWorkbenchSessionWithResponse request
+	GetWorkbenchSessionWithResponse(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*GetWorkbenchSessionResponse, error)
+
+	// CleanupWorkbenchSessionWithResponse request
+	CleanupWorkbenchSessionWithResponse(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*CleanupWorkbenchSessionResponse, error)
+
+	// CaptureWorkbenchSessionScreenshotWithBodyWithResponse request with any body
+	CaptureWorkbenchSessionScreenshotWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CaptureWorkbenchSessionScreenshotResponse, error)
+
+	CaptureWorkbenchSessionScreenshotWithResponse(ctx context.Context, sessionId string, body CaptureWorkbenchSessionScreenshotJSONRequestBody, reqEditors ...RequestEditorFn) (*CaptureWorkbenchSessionScreenshotResponse, error)
 
 	// ClickUiWithBodyWithResponse request with any body
 	ClickUiWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ClickUiResponse, error)
@@ -4168,6 +4401,78 @@ func (r FailPowerPointJobResponse) StatusCode() int {
 	return 0
 }
 
+type GetWorkbenchSessionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *WorkbenchSessionResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetWorkbenchSessionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetWorkbenchSessionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CleanupWorkbenchSessionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *WorkbenchSessionCleanupResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r CleanupWorkbenchSessionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CleanupWorkbenchSessionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CaptureWorkbenchSessionScreenshotResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DesktopScreenshotResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r CaptureWorkbenchSessionScreenshotResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CaptureWorkbenchSessionScreenshotResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ClickUiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -4767,6 +5072,41 @@ func (c *ClientWithResponses) FailPowerPointJobWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParseFailPowerPointJobResponse(rsp)
+}
+
+// GetWorkbenchSessionWithResponse request returning *GetWorkbenchSessionResponse
+func (c *ClientWithResponses) GetWorkbenchSessionWithResponse(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*GetWorkbenchSessionResponse, error) {
+	rsp, err := c.GetWorkbenchSession(ctx, sessionId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetWorkbenchSessionResponse(rsp)
+}
+
+// CleanupWorkbenchSessionWithResponse request returning *CleanupWorkbenchSessionResponse
+func (c *ClientWithResponses) CleanupWorkbenchSessionWithResponse(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*CleanupWorkbenchSessionResponse, error) {
+	rsp, err := c.CleanupWorkbenchSession(ctx, sessionId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCleanupWorkbenchSessionResponse(rsp)
+}
+
+// CaptureWorkbenchSessionScreenshotWithBodyWithResponse request with arbitrary body returning *CaptureWorkbenchSessionScreenshotResponse
+func (c *ClientWithResponses) CaptureWorkbenchSessionScreenshotWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CaptureWorkbenchSessionScreenshotResponse, error) {
+	rsp, err := c.CaptureWorkbenchSessionScreenshotWithBody(ctx, sessionId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCaptureWorkbenchSessionScreenshotResponse(rsp)
+}
+
+func (c *ClientWithResponses) CaptureWorkbenchSessionScreenshotWithResponse(ctx context.Context, sessionId string, body CaptureWorkbenchSessionScreenshotJSONRequestBody, reqEditors ...RequestEditorFn) (*CaptureWorkbenchSessionScreenshotResponse, error) {
+	rsp, err := c.CaptureWorkbenchSessionScreenshot(ctx, sessionId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCaptureWorkbenchSessionScreenshotResponse(rsp)
 }
 
 // ClickUiWithBodyWithResponse request with arbitrary body returning *ClickUiResponse
@@ -6136,6 +6476,126 @@ func ParseFailPowerPointJobResponse(rsp *http.Response) (*FailPowerPointJobRespo
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest PowerPointJobRecord
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetWorkbenchSessionResponse parses an HTTP response from a GetWorkbenchSessionWithResponse call
+func ParseGetWorkbenchSessionResponse(rsp *http.Response) (*GetWorkbenchSessionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetWorkbenchSessionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest WorkbenchSessionResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCleanupWorkbenchSessionResponse parses an HTTP response from a CleanupWorkbenchSessionWithResponse call
+func ParseCleanupWorkbenchSessionResponse(rsp *http.Response) (*CleanupWorkbenchSessionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CleanupWorkbenchSessionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest WorkbenchSessionCleanupResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCaptureWorkbenchSessionScreenshotResponse parses an HTTP response from a CaptureWorkbenchSessionScreenshotWithResponse call
+func ParseCaptureWorkbenchSessionScreenshotResponse(rsp *http.Response) (*CaptureWorkbenchSessionScreenshotResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CaptureWorkbenchSessionScreenshotResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DesktopScreenshotResult
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
