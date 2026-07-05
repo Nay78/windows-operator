@@ -20,9 +20,19 @@ public sealed class PowerPointJobService : IPowerPointJobService
     private const string Skipped = "skipped";
     private const string ReplaceText = "replaceText";
     private const string ReplaceImage = "replaceImage";
+    private const string ReadTable = "readTable";
+    private const string ReplaceTableCell = "replaceTableCell";
+    private const string ReplaceTableRange = "replaceTableRange";
     private const string Plain = "plain";
     private const string Contain = "contain";
     private const string Cover = "cover";
+    private const string TextTargetType = "text";
+    private const string ImageTargetType = "image";
+    private const string TableTargetType = "table";
+    private const string UnknownTargetType = "unknown";
+    private const string BindingTargetSource = "binding";
+    private const string NameTargetSource = "name";
+    private const string RepairedNameTargetSource = "repairedName";
 
     private readonly HttpClient _httpClient;
     private readonly PowerPointAddInOptions _options;
@@ -110,11 +120,11 @@ public sealed class PowerPointJobService : IPowerPointJobService
         PowerPointUpdateResult result,
         CancellationToken cancellationToken)
     {
-        ValidateResult(jobId, result);
         await _lock.WaitAsync(cancellationToken);
         try
         {
             var record = await ReadRecordAsync(jobId, cancellationToken);
+            ValidateResult(jobId, result, record.Job.ValidateOnly);
             var status = string.Equals(result.Status, Succeeded, StringComparison.OrdinalIgnoreCase)
                 ? Succeeded
                 : Failed;
@@ -365,18 +375,23 @@ public sealed class PowerPointJobService : IPowerPointJobService
             throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed("requestedBy is required."));
         }
 
-        if (job.Operations is null || job.Operations.Count == 0)
+        if (job.Operations is null)
         {
-            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed("At least one PowerPoint operation is required."));
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed("PowerPoint operations are required."));
+        }
+
+        if (job.Operations.Count == 0 && !job.DiscoverTargets)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed("At least one PowerPoint operation is required unless discoverTargets=true."));
         }
 
         foreach (var operation in job.Operations)
         {
-            ValidateOperation(operation);
+            ValidateOperation(operation, job.ValidateOnly);
         }
     }
 
-    private static void ValidateOperation(PowerPointUpdateOperation operation)
+    private static void ValidateOperation(PowerPointUpdateOperation operation, bool validateOnly)
     {
         if (operation is null)
         {
@@ -390,27 +405,46 @@ public sealed class PowerPointJobService : IPowerPointJobService
 
         if (string.Equals(operation.Kind, ReplaceText, StringComparison.Ordinal))
         {
-            ValidateTextOperation(operation);
+            ValidateTextOperation(operation, validateOnly);
             return;
         }
 
         if (string.Equals(operation.Kind, ReplaceImage, StringComparison.Ordinal))
         {
-            ValidateImageOperation(operation);
+            ValidateImageOperation(operation, validateOnly);
+            return;
+        }
+
+        if (string.Equals(operation.Kind, ReadTable, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        if (string.Equals(operation.Kind, ReplaceTableCell, StringComparison.Ordinal))
+        {
+            ValidateTableCellOperation(operation, validateOnly);
+            return;
+        }
+
+        if (string.Equals(operation.Kind, ReplaceTableRange, StringComparison.Ordinal))
+        {
+            ValidateTableRangeOperation(operation, validateOnly);
             return;
         }
 
         throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"Unsupported PowerPoint operation kind: {operation.Kind}"));
     }
 
-    private static void ValidateTextOperation(PowerPointUpdateOperation operation)
+    private static void ValidateTextOperation(PowerPointUpdateOperation operation, bool validateOnly)
     {
-        if (operation.Text is null)
+        if (!validateOnly && operation.Text is null)
         {
             throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"replaceText requires text: {operation.TargetId}"));
         }
 
-        if (string.IsNullOrWhiteSpace(operation.Text) && operation.AllowEmpty is not true)
+        if (!validateOnly &&
+            string.IsNullOrWhiteSpace(operation.Text) &&
+            operation.AllowEmpty is not true)
         {
             throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"replaceText text cannot be empty: {operation.TargetId}"));
         }
@@ -422,9 +456,9 @@ public sealed class PowerPointJobService : IPowerPointJobService
         }
     }
 
-    private static void ValidateImageOperation(PowerPointUpdateOperation operation)
+    private static void ValidateImageOperation(PowerPointUpdateOperation operation, bool validateOnly)
     {
-        if (operation.Artifact is null)
+        if (!validateOnly && operation.Artifact is null)
         {
             throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"replaceImage requires artifact: {operation.TargetId}"));
         }
@@ -435,10 +469,112 @@ public sealed class PowerPointJobService : IPowerPointJobService
             throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"Unsupported replaceImage fit: {operation.Fit}"));
         }
 
-        ValidateArtifact(operation.Artifact);
+        if (operation.Artifact is not null)
+        {
+            ValidateArtifact(operation.Artifact);
+        }
     }
 
-    private static void ValidateResult(string jobId, PowerPointUpdateResult result)
+    private static void ValidateTableCellOperation(PowerPointUpdateOperation operation, bool validateOnly)
+    {
+        if (operation.RowIndex is not null && operation.RowIndex < 0)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"replaceTableCell rowIndex must be zero or greater: {operation.TargetId}"));
+        }
+
+        if (operation.ColumnIndex is not null && operation.ColumnIndex < 0)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"replaceTableCell columnIndex must be zero or greater: {operation.TargetId}"));
+        }
+
+        if (validateOnly)
+        {
+            return;
+        }
+
+        if (operation.RowIndex is null)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"replaceTableCell requires rowIndex: {operation.TargetId}"));
+        }
+
+        if (operation.ColumnIndex is null)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"replaceTableCell requires columnIndex: {operation.TargetId}"));
+        }
+
+        if (operation.Text is null)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"replaceTableCell requires text: {operation.TargetId}"));
+        }
+
+        if (string.IsNullOrWhiteSpace(operation.Text) && operation.AllowEmpty is not true)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"replaceTableCell text cannot be empty: {operation.TargetId}"));
+        }
+    }
+
+    private static void ValidateTableRangeOperation(PowerPointUpdateOperation operation, bool validateOnly)
+    {
+        if (operation.StartRowIndex is not null && operation.StartRowIndex < 0)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"replaceTableRange startRowIndex must be zero or greater: {operation.TargetId}"));
+        }
+
+        if (operation.StartColumnIndex is not null && operation.StartColumnIndex < 0)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"replaceTableRange startColumnIndex must be zero or greater: {operation.TargetId}"));
+        }
+
+        if (operation.Values is not null)
+        {
+            ValidateTableValues(operation.TargetId, operation.Values, operation.AllowEmpty is true);
+        }
+
+        if (!validateOnly && operation.Values is null)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"replaceTableRange requires values: {operation.TargetId}"));
+        }
+    }
+
+    private static void ValidateTableValues(
+        string targetId,
+        IReadOnlyList<IReadOnlyList<string>> values,
+        bool allowEmpty)
+    {
+        if (values.Count == 0)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"replaceTableRange values require at least one row: {targetId}"));
+        }
+
+        var width = values[0].Count;
+        if (width == 0)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"replaceTableRange values require at least one column: {targetId}"));
+        }
+
+        foreach (var row in values)
+        {
+            if (row.Count != width)
+            {
+                throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"replaceTableRange values must be rectangular: {targetId}"));
+            }
+
+            foreach (var value in row)
+            {
+                if (value is null)
+                {
+                    throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"replaceTableRange values must be strings: {targetId}"));
+                }
+
+                if (!allowEmpty && string.IsNullOrWhiteSpace(value))
+                {
+                    throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"replaceTableRange values cannot be empty: {targetId}"));
+                }
+            }
+        }
+    }
+
+    private static void ValidateResult(string jobId, PowerPointUpdateResult result, bool validateOnly)
     {
         ValidatePathSegment(jobId, "jobId");
 
@@ -464,11 +600,19 @@ public sealed class PowerPointJobService : IPowerPointJobService
 
         foreach (var target in result.Targets)
         {
-            ValidateTargetResult(target);
+            ValidateTargetResult(target, validateOnly);
+        }
+
+        if (result.DiscoveredTargets is not null)
+        {
+            foreach (var discoveredTarget in result.DiscoveredTargets)
+            {
+                ValidateDiscoveredTarget(discoveredTarget);
+            }
         }
     }
 
-    private static void ValidateTargetResult(PowerPointTargetResult target)
+    private static void ValidateTargetResult(PowerPointTargetResult target, bool validateOnly)
     {
         if (target is null)
         {
@@ -480,7 +624,7 @@ public sealed class PowerPointJobService : IPowerPointJobService
             throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed("PowerPoint target result targetId is required."));
         }
 
-        if (target.OperationKind is not ReplaceText and not ReplaceImage)
+        if (target.OperationKind is not ReplaceText and not ReplaceImage and not ReadTable and not ReplaceTableCell and not ReplaceTableRange)
         {
             throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"Unsupported PowerPoint target operation kind: {target.OperationKind}"));
         }
@@ -490,9 +634,77 @@ public sealed class PowerPointJobService : IPowerPointJobService
             throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"Unsupported PowerPoint target result status: {target.Status}"));
         }
 
+        if (!validateOnly && string.Equals(target.Status, Skipped, StringComparison.Ordinal))
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"PowerPoint target result skipped is only supported for validateOnly jobs: {target.TargetId}"));
+        }
+
+        if (!string.IsNullOrWhiteSpace(target.Type) &&
+            target.Type is not TextTargetType and not ImageTargetType and not TableTargetType and not UnknownTargetType)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"Unsupported PowerPoint target result type: {target.Type}"));
+        }
+
+        ValidateTargetSource(target.Source, $"PowerPoint target result source for {target.TargetId}");
+
+        if (target.Table is not null)
+        {
+            ValidateTableSnapshot(target.Table, target.TargetId);
+        }
+
         if (target.Error is not null)
         {
             ValidateError(target.Error, $"PowerPoint target result error for {target.TargetId}");
+        }
+    }
+
+    private static void ValidateDiscoveredTarget(PowerPointDiscoveredTarget target)
+    {
+        if (target is null)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed("PowerPoint discovered target is required."));
+        }
+
+        if (string.IsNullOrWhiteSpace(target.TargetId))
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed("PowerPoint discovered target targetId is required."));
+        }
+
+        if (target.Type is not TextTargetType and not ImageTargetType and not TableTargetType and not UnknownTargetType)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"Unsupported PowerPoint discovered target type: {target.Type}"));
+        }
+
+        ValidateTargetSource(target.Source, $"PowerPoint discovered target source for {target.TargetId}");
+    }
+
+    private static void ValidateTargetSource(string? source, string subject)
+    {
+        if (!string.IsNullOrWhiteSpace(source) &&
+            source is not BindingTargetSource and not NameTargetSource and not RepairedNameTargetSource)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"Unsupported {subject}: {source}"));
+        }
+    }
+
+    private static void ValidateTableSnapshot(PowerPointTableSnapshot table, string targetId)
+    {
+        if (table.RowCount < 0 || table.ColumnCount < 0)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"PowerPoint table dimensions must be non-negative: {targetId}"));
+        }
+
+        if (table.Values.Count != table.RowCount)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"PowerPoint table row count mismatch: {targetId}"));
+        }
+
+        foreach (var row in table.Values)
+        {
+            if (row.Count != table.ColumnCount)
+            {
+                throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"PowerPoint table column count mismatch: {targetId}"));
+            }
         }
     }
 
@@ -576,13 +788,105 @@ public sealed class PowerPointJobService : IPowerPointJobService
         }
     }
 
-    private static bool MatchesDocument(string? expected, string? actual) =>
-        string.IsNullOrWhiteSpace(expected) ||
-        string.IsNullOrWhiteSpace(actual) ||
-        string.Equals(NormalizeDocumentUrl(expected), NormalizeDocumentUrl(actual), StringComparison.Ordinal);
+    private static bool MatchesDocument(string? expected, string? actual)
+    {
+        if (string.IsNullOrWhiteSpace(expected) || string.IsNullOrWhiteSpace(actual))
+        {
+            return true;
+        }
 
-    private static string NormalizeDocumentUrl(string value) =>
-        value.Trim().TrimEnd('/').ToLowerInvariant();
+        var expectedIdentity = CreateDocumentIdentity(expected);
+        var actualIdentity = CreateDocumentIdentity(actual);
+        if (string.Equals(expectedIdentity.NormalizedUrl, actualIdentity.NormalizedUrl, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(expectedIdentity.SourceDoc) &&
+            string.Equals(expectedIdentity.SourceDoc, actualIdentity.SourceDoc, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return !string.IsNullOrWhiteSpace(expectedIdentity.Host) &&
+            string.Equals(expectedIdentity.Host, actualIdentity.Host, StringComparison.Ordinal) &&
+            !string.IsNullOrWhiteSpace(expectedIdentity.FileName) &&
+            string.Equals(expectedIdentity.FileName, actualIdentity.FileName, StringComparison.Ordinal);
+    }
+
+    private static DocumentIdentity CreateDocumentIdentity(string value)
+    {
+        if (!Uri.TryCreate(value.Trim(), UriKind.Absolute, out var uri))
+        {
+            return new DocumentIdentity(value.Trim().TrimEnd('/').ToLowerInvariant(), null, null, null);
+        }
+
+        var normalizedPath = string.IsNullOrWhiteSpace(uri.AbsolutePath)
+            ? "/"
+            : uri.AbsolutePath.TrimEnd('/').ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(normalizedPath))
+        {
+            normalizedPath = "/";
+        }
+
+        var query = ParseQuery(uri.Query);
+        var normalizedQuery = query
+            .Where(pair => pair.Key is not ("action" or "mobileredirect" or "web"))
+            .OrderBy(pair => pair.Key, StringComparer.Ordinal)
+            .ThenBy(pair => pair.Value, StringComparer.Ordinal)
+            .Select(pair => $"{Uri.EscapeDataString(pair.Key)}={Uri.EscapeDataString(pair.Value)}")
+            .ToArray();
+        var normalizedUrl = $"{uri.Scheme.ToLowerInvariant()}://{uri.Authority.ToLowerInvariant()}{normalizedPath}";
+        if (normalizedQuery.Length > 0)
+        {
+            normalizedUrl += "?" + string.Join("&", normalizedQuery);
+        }
+
+        var sourceDoc = query
+            .Where(pair => pair.Key == "sourcedoc")
+            .Select(pair => pair.Value.Trim('{', '}').ToLowerInvariant())
+            .FirstOrDefault();
+        var fileName = query
+            .Where(pair => pair.Key == "file")
+            .Select(pair => NormalizeFileName(pair.Value))
+            .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+        fileName ??= NormalizeFileName(Path.GetFileName(Uri.UnescapeDataString(uri.AbsolutePath)));
+
+        return new DocumentIdentity(
+            normalizedUrl,
+            uri.Authority.ToLowerInvariant(),
+            sourceDoc,
+            fileName);
+    }
+
+    private static IReadOnlyList<KeyValuePair<string, string>> ParseQuery(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return Array.Empty<KeyValuePair<string, string>>();
+        }
+
+        return query
+            .TrimStart('?')
+            .Split('&', StringSplitOptions.RemoveEmptyEntries)
+            .Select(segment =>
+            {
+                var parts = segment.Split('=', 2);
+                var key = Uri.UnescapeDataString(parts[0]).ToLowerInvariant();
+                var value = parts.Length > 1 ? Uri.UnescapeDataString(parts[1]) : string.Empty;
+                return new KeyValuePair<string, string>(key, value);
+            })
+            .ToArray();
+    }
+
+    private static string? NormalizeFileName(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim().ToLowerInvariant();
+
+    private sealed record DocumentIdentity(
+        string NormalizedUrl,
+        string? Host,
+        string? SourceDoc,
+        string? FileName);
 
     private string StateRoot()
     {

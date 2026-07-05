@@ -237,6 +237,106 @@ public sealed class RestAndMcpParityTests
     }
 
     [Fact]
+    public async Task PowerPointOnlineSessionStart_RestEndpoint_ReturnsResult()
+    {
+        using var app = OperatorApp.Build(
+            Array.Empty<string>(),
+            services =>
+            {
+                ReplaceOperatorFacade(services);
+            },
+            useTestServer: true);
+        await app.StartAsync();
+        var client = app.GetTestClient();
+
+        var response = await client.PostAsJsonAsync(
+            "/v1/powerpoint/online/sessions",
+            new PowerPointOnlineSessionStartRequest
+            {
+                DeckUrl = "https://example.sharepoint.com/deck.pptx?web=1",
+                SessionId = "ppt-session",
+                Capture = true,
+            },
+            OperatorJson.SerializerOptions);
+        var result = await response.Content.ReadFromJsonAsync<PowerPointOnlineSessionResult>(OperatorJson.SerializerOptions);
+
+        response.EnsureSuccessStatusCode();
+        Assert.NotNull(result);
+        Assert.Equal("ppt-session", result!.SessionId);
+        Assert.Equal(PowerPointOnlineSessionStatus.Ready, result.Status);
+    }
+
+    [Fact]
+    public async Task PowerPointOnlineSessionRoutes_ReturnStateSlideSelectScreenshotAndCleanup()
+    {
+        using var app = OperatorApp.Build(
+            Array.Empty<string>(),
+            services =>
+            {
+                ReplaceOperatorFacade(services);
+            },
+            useTestServer: true);
+        await app.StartAsync();
+        var client = app.GetTestClient();
+
+        var session = await client.GetFromJsonAsync<PowerPointOnlineSessionResult>(
+            "/v1/powerpoint/online/sessions/ppt-session",
+            OperatorJson.SerializerOptions);
+        var slideSelectResponse = await client.PostAsJsonAsync(
+            "/v1/powerpoint/online/sessions/ppt-session/slides/select",
+            new PowerPointOnlineSlideSelectRequest { SlideNumber = 4, Capture = false, WaitSeconds = 0 },
+            OperatorJson.SerializerOptions);
+        var slideSelect = await slideSelectResponse.Content.ReadFromJsonAsync<PowerPointOnlineSessionResult>(OperatorJson.SerializerOptions);
+        var saveWaitResponse = await client.PostAsJsonAsync(
+            "/v1/powerpoint/online/sessions/ppt-session/save/wait",
+            new PowerPointOnlineSaveWaitRequest { TimeoutSeconds = 3, PollSeconds = 1, Capture = false },
+            OperatorJson.SerializerOptions);
+        var saveWait = await saveWaitResponse.Content.ReadFromJsonAsync<PowerPointOnlineSessionResult>(OperatorJson.SerializerOptions);
+        var prepareResponse = await client.PostAsJsonAsync(
+            "/v1/powerpoint/online/sessions/ppt-session/template/prepare",
+            new PowerPointOnlineTemplateRequest { Capture = true, WaitSeconds = 1, AllowDeckMutation = true, Label = "template-prepare" },
+            OperatorJson.SerializerOptions);
+        var prepare = await prepareResponse.Content.ReadFromJsonAsync<PowerPointOnlineSessionResult>(OperatorJson.SerializerOptions);
+        var templateCleanupResponse = await client.PostAsJsonAsync(
+            "/v1/powerpoint/online/sessions/ppt-session/template/cleanup",
+            new PowerPointOnlineTemplateRequest { Capture = true, WaitSeconds = 1, AllowDeckMutation = true, Label = "template-cleanup" },
+            OperatorJson.SerializerOptions);
+        var templateCleanup = await templateCleanupResponse.Content.ReadFromJsonAsync<PowerPointOnlineSessionResult>(OperatorJson.SerializerOptions);
+        var runPendingJobResponse = await client.PostAsJsonAsync(
+            "/v1/powerpoint/online/sessions/ppt-session/addin/run-pending-job",
+            new PowerPointOnlineAddInCommandRequest { Capture = true, WaitSeconds = 1, Label = "run-pending-job" },
+            OperatorJson.SerializerOptions);
+        var runPendingJob = await runPendingJobResponse.Content.ReadFromJsonAsync<PowerPointOnlineSessionResult>(OperatorJson.SerializerOptions);
+        var screenshotResponse = await client.PostAsJsonAsync(
+            "/v1/powerpoint/online/sessions/ppt-session/screenshot",
+            new PowerPointOnlineSessionScreenshotRequest { Label = "ppt-online-shot" },
+            OperatorJson.SerializerOptions);
+        var screenshot = await screenshotResponse.Content.ReadFromJsonAsync<PowerPointOnlineSessionResult>(OperatorJson.SerializerOptions);
+        var cleanupResponse = await client.PostAsync("/v1/powerpoint/online/sessions/ppt-session/cleanup", null);
+        var cleanup = await cleanupResponse.Content.ReadFromJsonAsync<PowerPointOnlineSessionResult>(OperatorJson.SerializerOptions);
+
+        Assert.NotNull(session);
+        Assert.Equal(PowerPointOnlineSessionStatus.Ready, session!.Status);
+        slideSelectResponse.EnsureSuccessStatusCode();
+        Assert.Contains("slide_selected:4", slideSelect!.Actions);
+        saveWaitResponse.EnsureSuccessStatusCode();
+        Assert.Equal("saved", saveWait!.SaveState);
+        prepareResponse.EnsureSuccessStatusCode();
+        Assert.Contains("template_prepare_click_dispatched", prepare!.Actions);
+        Assert.Equal("runs/workbench-test/screenshots/template-prepare.png", Assert.Single(prepare.Evidence).Artifact.RelativePath);
+        templateCleanupResponse.EnsureSuccessStatusCode();
+        Assert.Contains("template_cleanup_click_dispatched", templateCleanup!.Actions);
+        Assert.Equal("runs/workbench-test/screenshots/template-cleanup.png", Assert.Single(templateCleanup.Evidence).Artifact.RelativePath);
+        runPendingJobResponse.EnsureSuccessStatusCode();
+        Assert.Contains("addin_run_pending_job_click_dispatched", runPendingJob!.Actions);
+        Assert.Equal("runs/workbench-test/screenshots/run-pending-job.png", Assert.Single(runPendingJob.Evidence).Artifact.RelativePath);
+        screenshotResponse.EnsureSuccessStatusCode();
+        Assert.Equal("runs/workbench-test/screenshots/ppt-online-shot.png", Assert.Single(screenshot!.Evidence).Artifact.RelativePath);
+        cleanupResponse.EnsureSuccessStatusCode();
+        Assert.Equal(PowerPointOnlineSessionStatus.Closed, cleanup!.Status);
+    }
+
+    [Fact]
     public async Task WorkbenchSessionRoutes_ReturnStateScreenshotAndCleanup()
     {
         using var app = OperatorApp.Build(
@@ -477,5 +577,9 @@ public sealed class RestAndMcpParityTests
         var existingWorkbench = services.Single(descriptor => descriptor.ServiceType == typeof(IWorkbenchService));
         services.Remove(existingWorkbench);
         services.AddSingleton<IWorkbenchService, FakeWorkbenchService>();
+
+        var existingPowerPointOnline = services.Single(descriptor => descriptor.ServiceType == typeof(IPowerPointOnlineService));
+        services.Remove(existingPowerPointOnline);
+        services.AddSingleton<IPowerPointOnlineService, FakePowerPointOnlineService>();
     }
 }

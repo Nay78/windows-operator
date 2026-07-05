@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Diagnostics;
+using System.Net.Http;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
@@ -11,6 +12,8 @@ namespace WindowsOperator.Agent.Services;
 
 public sealed partial class EdgeMicrosoftAuthService
 {
+    private static readonly TimeSpan DevToolsCapabilityTtl = TimeSpan.FromSeconds(15);
+
     public Task<BrowserEdgeResetResult> ResetAsync(
         BrowserEdgeResetRequest request,
         CancellationToken cancellationToken) =>
@@ -138,6 +141,13 @@ public sealed partial class EdgeMicrosoftAuthService
         var profile = request.ProfileMode == BrowserEdgeProfileMode.Temp
             ? EdgeProfileSelection.Temp(Path.Combine(runRoot, "edge-profile"))
             : EdgeWorkProfileSelection();
+        if (!string.IsNullOrWhiteSpace(profile.UserDataDir) &&
+            !string.IsNullOrWhiteSpace(profile.ProfileDirectory))
+        {
+            var preferencesPath = Path.Combine(profile.UserDataDir, profile.ProfileDirectory, "Preferences");
+            actions.Add(NormalizeEdgePreferencesExitState(preferencesPath));
+        }
+
         var startedAfterUtc = DateTimeOffset.UtcNow.AddSeconds(-2);
         var edge = StartEdge(edgePath, profile, request.InPrivate, startUrl, devToolsPort);
         actions.Add("edge_opened");
@@ -147,6 +157,11 @@ public sealed partial class EdgeMicrosoftAuthService
             actions.Add($"profile_directory:{profile.ProfileDirectory}");
         }
         Thread.Sleep(TimeSpan.FromSeconds(pageLoadSeconds));
+
+        if (request.ProfileMode == BrowserEdgeProfileMode.Work)
+        {
+            TryPruneStartupTargets(devToolsPort, startUrl, actions);
+        }
 
         var window = FindAuthorizeWindow(
             edge.Id,
@@ -165,7 +180,9 @@ public sealed partial class EdgeMicrosoftAuthService
             startUrl,
             window is null ? null : window.Value.Hwnd.ToInt64(),
             window?.Title,
-            DateTimeOffset.UtcNow);
+            DateTimeOffset.UtcNow,
+            DevToolsProbeStatus.Unknown,
+            null);
         PersistBrowserSession(metadata);
 
         return ReadAndPersistBrowserState(metadata, actions, errors, "session_started");
@@ -288,10 +305,21 @@ public sealed partial class EdgeMicrosoftAuthService
         var errors = new List<string>();
         var deadline = DateTimeOffset.UtcNow.AddSeconds(Math.Clamp(timeoutSeconds, 1, 30));
         DomActionPayload? payload = null;
+        var probe = ReadDevToolsCapability(metadata, allowCachedFailure: true);
 
         do
         {
-            var target = TryReadEdgeTarget(metadata.DevToolsPort, metadata.PreferredUrl);
+            if (probe.MetadataChanged)
+            {
+                metadata = probe.Metadata;
+            }
+
+            if (probe.Status is DevToolsProbeStatus.TargetUnavailable or DevToolsProbeStatus.PortClosed)
+            {
+                break;
+            }
+
+            var target = probe.Target;
             if (target is not null)
             {
                 payload = EvaluateJson<DomActionPayload>(target.Value.WebSocketDebuggerUrl, expression);
@@ -301,12 +329,26 @@ public sealed partial class EdgeMicrosoftAuthService
                     break;
                 }
             }
+            else if (probe.Status is not DevToolsProbeStatus.Unknown)
+            {
+                break;
+            }
 
             Thread.Sleep(350);
+            probe = ReadDevToolsCapability(metadata, allowCachedFailure: false);
         }
         while (DateTimeOffset.UtcNow <= deadline);
 
-        if (payload is null)
+        actions.Add(FormatDevToolsStatusAction(probe.Status));
+        if (probe.Status is DevToolsProbeStatus.TargetUnavailable)
+        {
+            errors.Add("DevTools target unavailable.");
+        }
+        else if (probe.Status is DevToolsProbeStatus.PortClosed)
+        {
+            errors.Add("DevTools target unavailable.");
+        }
+        else if (payload is null)
         {
             errors.Add("DevTools target unavailable.");
         }
@@ -315,7 +357,11 @@ public sealed partial class EdgeMicrosoftAuthService
             errors.Add(payload.Message ?? $"Browser DOM {actionName} failed.");
         }
 
-        Thread.Sleep(500);
+        if (payload is { Success: true })
+        {
+            Thread.Sleep(350);
+        }
+
         var state = ReadAndPersistBrowserState(metadata, new List<string>(), new List<string>(), $"{actionName}_observed");
         return new BrowserEdgeSessionDomActionResult(
             errors.Count == 0,
@@ -340,8 +386,13 @@ public sealed partial class EdgeMicrosoftAuthService
         string observedAction)
     {
         var isAlive = IsProcessAlive(metadata.ProcessId);
-        var target = TryReadEdgeTarget(metadata.DevToolsPort, metadata.PreferredUrl);
-        var snapshot = target is null ? null : TryReadEdgeSnapshot(target.Value);
+        var probe = ReadDevToolsCapability(metadata, allowCachedFailure: true);
+        if (probe.MetadataChanged)
+        {
+            metadata = probe.Metadata;
+        }
+
+        var snapshot = probe.Target is null ? null : TryReadEdgeSnapshot(probe.Target.Value);
         var window = FindAuthorizeWindow(
             metadata.ProcessId,
             metadata.StartedAtUtc.AddSeconds(-2),
@@ -350,12 +401,15 @@ public sealed partial class EdgeMicrosoftAuthService
         var updated = metadata with
         {
             ProcessId = window?.ProcessId ?? metadata.ProcessId,
-            PreferredUrl = snapshot?.Url ?? target?.Url ?? metadata.PreferredUrl,
+            PreferredUrl = snapshot?.Url ?? probe.Target?.Url ?? metadata.PreferredUrl,
             Hwnd = window is null ? metadata.Hwnd : window.Value.Hwnd.ToInt64(),
             Title = snapshot?.Title ?? window?.Title ?? metadata.Title,
+            DevToolsStatus = probe.Status,
+            DevToolsStatusObservedAtUtc = probe.ObservedAtUtc,
         };
         PersistBrowserSession(updated);
         actions.Add(observedAction);
+        actions.Add(FormatDevToolsStatusAction(probe.Status));
         if (snapshot is null)
         {
             actions.Add("devtools_snapshot_unavailable");
@@ -495,94 +549,178 @@ public sealed partial class EdgeMicrosoftAuthService
         ?? throw new OperatorFailureException(
             OperatorErrors.AuthUnavailable($"DevTools target unavailable for Edge browser session '{metadata.SessionId}'."));
 
-    private static EdgePageTarget? TryReadEdgeTarget(int devToolsPort, string? preferredUrl)
+    private DevToolsCapabilityRead ReadDevToolsCapability(
+        EdgeBrowserSessionMetadata metadata,
+        bool allowCachedFailure)
     {
+        var nowUtc = DateTimeOffset.UtcNow;
+        if (allowCachedFailure &&
+            metadata.DevToolsStatusObservedAtUtc is { } observedAtUtc &&
+            nowUtc - observedAtUtc <= DevToolsCapabilityTtl &&
+            metadata.DevToolsStatus is DevToolsProbeStatus.TargetUnavailable or DevToolsProbeStatus.PortClosed)
+        {
+            return new DevToolsCapabilityRead(
+                metadata,
+                null,
+                metadata.DevToolsStatus,
+                observedAtUtc,
+                false);
+        }
+
+        var probe = ProbeDevToolsCapability(metadata.DevToolsPort, metadata.PreferredUrl);
+        var updatedMetadata = metadata with
+        {
+            DevToolsStatus = probe.Status,
+            DevToolsStatusObservedAtUtc = probe.ObservedAtUtc,
+        };
+        PersistBrowserSession(updatedMetadata);
+        return new DevToolsCapabilityRead(
+            updatedMetadata,
+            probe.Target,
+            probe.Status,
+            probe.ObservedAtUtc,
+            true);
+    }
+
+    private static DevToolsCapabilityProbe ProbeDevToolsCapability(int devToolsPort, string? preferredUrl)
+    {
+        var observedAtUtc = DateTimeOffset.UtcNow;
+
         try
         {
             using var response = DevToolsHttpClient.GetAsync($"http://127.0.0.1:{devToolsPort}/json/list").GetAwaiter().GetResult();
             if (!response.IsSuccessStatusCode)
             {
-                return null;
+                return new DevToolsCapabilityProbe(null, DevToolsProbeStatus.PortClosed, observedAtUtc);
             }
 
             using var stream = response.Content.ReadAsStream();
             using var document = JsonDocument.Parse(stream);
-            if (document.RootElement.ValueKind != JsonValueKind.Array)
-            {
-                return null;
-            }
-
-            EdgePageTarget? best = null;
-            foreach (var candidate in document.RootElement.EnumerateArray())
-            {
-                if (candidate.ValueKind != JsonValueKind.Object)
-                {
-                    continue;
-                }
-
-                var type = candidate.TryGetProperty("type", out var typeElement) ? typeElement.GetString() : null;
-                if (!string.Equals(type, "page", StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                var url = candidate.TryGetProperty("url", out var urlElement) ? urlElement.GetString() : null;
-                var title = candidate.TryGetProperty("title", out var titleElement) ? titleElement.GetString() : null;
-                var webSocketDebuggerUrl = candidate.TryGetProperty("webSocketDebuggerUrl", out var wsElement)
-                    ? wsElement.GetString()
-                    : null;
-                if (string.IsNullOrWhiteSpace(webSocketDebuggerUrl))
-                {
-                    continue;
-                }
-
-                var target = new EdgePageTarget(title, url, webSocketDebuggerUrl);
-                if (best is null || ScoreEdgeTarget(target, preferredUrl) > ScoreEdgeTarget(best.Value, preferredUrl))
-                {
-                    best = target;
-                }
-            }
-
-            return best;
+            var targets = ParseEdgePageTargets(document.RootElement);
+            var target = SelectBestEdgeTarget(targets, preferredUrl);
+            return new DevToolsCapabilityProbe(
+                target,
+                target is null ? DevToolsProbeStatus.TargetUnavailable : DevToolsProbeStatus.Ready,
+                observedAtUtc);
+        }
+        catch (HttpRequestException)
+        {
+            return new DevToolsCapabilityProbe(null, DevToolsProbeStatus.PortClosed, observedAtUtc);
+        }
+        catch (TaskCanceledException)
+        {
+            return new DevToolsCapabilityProbe(null, DevToolsProbeStatus.PortClosed, observedAtUtc);
         }
         catch
         {
-            return null;
+            return new DevToolsCapabilityProbe(null, DevToolsProbeStatus.Unknown, observedAtUtc);
         }
     }
 
-    private static int ScoreEdgeTarget(EdgePageTarget target, string? preferredUrl)
+    internal static string FormatDevToolsStatusAction(DevToolsProbeStatus status) =>
+        $"devtools_status:{status switch
+        {
+            DevToolsProbeStatus.Ready => "ready",
+            DevToolsProbeStatus.TargetUnavailable => "target_unavailable",
+            DevToolsProbeStatus.PortClosed => "port_closed",
+            _ => "unknown",
+        }}";
+
+    internal static DevToolsProbeStatus ReadDevToolsStatus(IReadOnlyList<string>? actions)
     {
-        var score = 0;
-        if (!string.IsNullOrWhiteSpace(target.Url))
+        if (actions is null)
         {
-            score += 10;
+            return DevToolsProbeStatus.Unknown;
         }
 
-        if (!string.IsNullOrWhiteSpace(preferredUrl) &&
-            string.Equals(target.Url, preferredUrl, StringComparison.OrdinalIgnoreCase))
+        for (var index = actions.Count - 1; index >= 0; index--)
         {
-            score += 400;
-        }
-
-        if (Uri.TryCreate(preferredUrl, UriKind.Absolute, out var preferredUri) &&
-            Uri.TryCreate(target.Url, UriKind.Absolute, out var targetUri) &&
-            string.Equals(preferredUri.Host, targetUri.Host, StringComparison.OrdinalIgnoreCase))
-        {
-            score += 60;
-        }
-
-        if (Uri.TryCreate(target.Url, UriKind.Absolute, out var uri))
-        {
-            if (!string.Equals(uri.Scheme, "devtools", StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(uri.Scheme, "edge", StringComparison.OrdinalIgnoreCase))
+            var action = actions[index];
+            if (string.Equals(action, "devtools_status:ready", StringComparison.Ordinal))
             {
-                score += 20;
+                return DevToolsProbeStatus.Ready;
+            }
+
+            if (string.Equals(action, "devtools_status:target_unavailable", StringComparison.Ordinal))
+            {
+                return DevToolsProbeStatus.TargetUnavailable;
+            }
+
+            if (string.Equals(action, "devtools_status:port_closed", StringComparison.Ordinal))
+            {
+                return DevToolsProbeStatus.PortClosed;
             }
         }
 
-        return score;
+        return DevToolsProbeStatus.Unknown;
     }
+
+    private static void TryPruneStartupTargets(
+        int devToolsPort,
+        string? preferredUrl,
+        List<string> actions)
+    {
+        try
+        {
+            var targets = TryReadEdgeTargets(devToolsPort);
+            if (targets is null)
+            {
+                return;
+            }
+
+            actions.Add($"startup_targets_observed:{targets.Count}");
+            var plan = PlanStartupTargetPrune(targets, preferredUrl);
+            if (plan.TargetsToClose.Count == 0)
+            {
+                actions.Add("startup_targets_pruned:0");
+                return;
+            }
+
+            var closed = 0;
+            foreach (var target in plan.TargetsToClose)
+            {
+                if (TryCloseEdgeTarget(devToolsPort, target.TargetId))
+                {
+                    closed++;
+                }
+            }
+
+            actions.Add($"startup_targets_pruned:{closed}");
+            if (closed != plan.TargetsToClose.Count)
+            {
+                actions.Add($"startup_targets_prune_incomplete:{closed}/{plan.TargetsToClose.Count}");
+            }
+        }
+        catch
+        {
+            actions.Add("startup_targets_prune_failed");
+        }
+    }
+
+    private static EdgePageTarget? TryReadEdgeTarget(int devToolsPort, string? preferredUrl) =>
+        EdgeDevToolsService.TryReadEdgeTarget(devToolsPort, preferredUrl);
+
+    internal static IReadOnlyList<EdgePageTarget>? TryReadEdgeTargets(int devToolsPort) =>
+        EdgeDevToolsService.TryReadEdgeTargets(devToolsPort);
+
+    internal static IReadOnlyList<EdgePageTarget> ParseEdgePageTargets(JsonElement root) =>
+        EdgeDevToolsService.ParseEdgePageTargets(root);
+
+    internal static EdgePageTarget? SelectBestEdgeTarget(
+        IEnumerable<EdgePageTarget> targets,
+        string? preferredUrl) =>
+        EdgeDevToolsService.SelectBestEdgeTarget(targets, preferredUrl);
+
+    internal static StartupTargetPrunePlan PlanStartupTargetPrune(
+        IEnumerable<EdgePageTarget> targets,
+        string? preferredUrl) =>
+        EdgeDevToolsService.PlanStartupTargetPrune(targets, preferredUrl);
+
+    internal static int ScoreEdgeTarget(EdgePageTarget target, string? preferredUrl) =>
+        EdgeDevToolsService.ScoreEdgeTarget(target, preferredUrl);
+
+    private static bool TryCloseEdgeTarget(int devToolsPort, string? targetId) =>
+        EdgeDevToolsService.TryCloseEdgeTarget(devToolsPort, targetId);
 
     private static BrowserSnapshot? TryReadEdgeSnapshot(EdgePageTarget target)
     {
@@ -666,86 +804,8 @@ public sealed partial class EdgeMicrosoftAuthService
                 .ToArray() ?? Array.Empty<BrowserEdgeSessionElementRef>());
     }
 
-    private static T? EvaluateJson<T>(string webSocketDebuggerUrl, string expression)
-    {
-        try
-        {
-            using var client = new ClientWebSocket();
-            client.ConnectAsync(new Uri(webSocketDebuggerUrl), CancellationToken.None).GetAwaiter().GetResult();
-            var requestId = Random.Shared.Next(1, int.MaxValue);
-            var payload = JsonSerializer.Serialize(
-                new
-                {
-                    id = requestId,
-                    method = "Runtime.evaluate",
-                    @params = new
-                    {
-                        expression,
-                        returnByValue = true,
-                        awaitPromise = true,
-                    },
-                });
-            var requestBytes = Encoding.UTF8.GetBytes(payload);
-            client.SendAsync(
-                    new ArraySegment<byte>(requestBytes),
-                    WebSocketMessageType.Text,
-                    true,
-                    CancellationToken.None)
-                .GetAwaiter()
-                .GetResult();
-
-            var buffer = new byte[64 * 1024];
-            while (true)
-            {
-                var builder = new ArrayBufferWriter<byte>();
-                WebSocketReceiveResult result;
-                do
-                {
-                    result = client.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None).GetAwaiter().GetResult();
-                    if (result.MessageType == WebSocketMessageType.Close)
-                    {
-                        return default;
-                    }
-
-                    builder.Write(new ReadOnlySpan<byte>(buffer, 0, result.Count));
-                }
-                while (!result.EndOfMessage);
-
-                using var document = JsonDocument.Parse(builder.WrittenMemory);
-                if (!document.RootElement.TryGetProperty("id", out var idElement) ||
-                    idElement.GetInt32() != requestId)
-                {
-                    continue;
-                }
-
-                if (document.RootElement.TryGetProperty("result", out var resultElement) &&
-                    resultElement.TryGetProperty("result", out var runtimeResult))
-                {
-                    if (runtimeResult.TryGetProperty("value", out var valueElement))
-                    {
-                        if (typeof(T) == typeof(string))
-                        {
-                            return (T)(object)(valueElement.GetString() ?? string.Empty);
-                        }
-
-                        var raw = valueElement.GetString();
-                        if (string.IsNullOrWhiteSpace(raw))
-                        {
-                            return default;
-                        }
-
-                        return JsonSerializer.Deserialize<T>(raw, OperatorJson.SerializerOptions);
-                    }
-                }
-
-                return default;
-            }
-        }
-        catch
-        {
-            return default;
-        }
-    }
+    private static T? EvaluateJson<T>(string webSocketDebuggerUrl, string expression) =>
+        EdgeDevToolsService.EvaluateJson<T>(webSocketDebuggerUrl, expression);
 
     private static bool DispatchMouseClick(string webSocketDebuggerUrl, double x, double y) =>
         SendDevToolsCommand(
@@ -761,55 +821,8 @@ public sealed partial class EdgeMicrosoftAuthService
             "Input.dispatchMouseEvent",
             new { type = "mouseReleased", x, y, button = "left", clickCount = 1 });
 
-    private static bool SendDevToolsCommand(string webSocketDebuggerUrl, string method, object parameters)
-    {
-        try
-        {
-            using var client = new ClientWebSocket();
-            client.ConnectAsync(new Uri(webSocketDebuggerUrl), CancellationToken.None).GetAwaiter().GetResult();
-            var requestId = Random.Shared.Next(1, int.MaxValue);
-            var payload = JsonSerializer.Serialize(new { id = requestId, method, @params = parameters });
-            var requestBytes = Encoding.UTF8.GetBytes(payload);
-            client.SendAsync(
-                    new ArraySegment<byte>(requestBytes),
-                    WebSocketMessageType.Text,
-                    true,
-                    CancellationToken.None)
-                .GetAwaiter()
-                .GetResult();
-
-            var buffer = new byte[64 * 1024];
-            while (true)
-            {
-                var builder = new ArrayBufferWriter<byte>();
-                WebSocketReceiveResult result;
-                do
-                {
-                    result = client.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None).GetAwaiter().GetResult();
-                    if (result.MessageType == WebSocketMessageType.Close)
-                    {
-                        return false;
-                    }
-
-                    builder.Write(new ReadOnlySpan<byte>(buffer, 0, result.Count));
-                }
-                while (!result.EndOfMessage);
-
-                using var document = JsonDocument.Parse(builder.WrittenMemory);
-                if (!document.RootElement.TryGetProperty("id", out var idElement) ||
-                    idElement.GetInt32() != requestId)
-                {
-                    continue;
-                }
-
-                return !document.RootElement.TryGetProperty("error", out _);
-            }
-        }
-        catch
-        {
-            return false;
-        }
-    }
+    private static bool SendDevToolsCommand(string webSocketDebuggerUrl, string method, object parameters) =>
+        EdgeDevToolsService.SendDevToolsCommand(webSocketDebuggerUrl, method, parameters);
 
     private static string BuildClickExpression(BrowserEdgeSessionDomClickRequest request)
     {
@@ -1006,9 +1019,29 @@ public sealed partial class EdgeMicrosoftAuthService
         string PreferredUrl,
         long? Hwnd,
         string? Title,
-        DateTimeOffset StartedAtUtc);
+        DateTimeOffset StartedAtUtc,
+        DevToolsProbeStatus DevToolsStatus,
+        DateTimeOffset? DevToolsStatusObservedAtUtc);
 
-    private readonly record struct EdgePageTarget(string? Title, string? Url, string WebSocketDebuggerUrl);
+    internal enum DevToolsProbeStatus
+    {
+        Unknown,
+        Ready,
+        TargetUnavailable,
+        PortClosed,
+    }
+
+    private sealed record DevToolsCapabilityProbe(
+        EdgePageTarget? Target,
+        DevToolsProbeStatus Status,
+        DateTimeOffset ObservedAtUtc);
+
+    private sealed record DevToolsCapabilityRead(
+        EdgeBrowserSessionMetadata Metadata,
+        EdgePageTarget? Target,
+        DevToolsProbeStatus Status,
+        DateTimeOffset ObservedAtUtc,
+        bool MetadataChanged);
 
     private sealed record BrowserSnapshot(string? Title, string? Url, string? BodyText, IReadOnlyList<BrowserEdgeSessionElementRef> Elements);
 

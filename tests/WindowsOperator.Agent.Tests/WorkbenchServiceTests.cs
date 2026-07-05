@@ -1,7 +1,5 @@
-using Microsoft.Extensions.Options;
 using WindowsOperator.Agent.Services;
 using WindowsOperator.Core;
-using WindowsOperator.Core.Configuration;
 using WindowsOperator.Core.Contracts;
 using WindowsOperator.Core.Services;
 
@@ -12,7 +10,7 @@ public sealed class WorkbenchServiceTests
     [Fact]
     public async Task CaptureDesktopScreenshotAsync_TargetModes_WriteArtifactRefs()
     {
-        using var env = new ExchangeRootScope();
+        using var env = new ExchangeRootScope("windows-operator-workbench-tests");
         var windows = new FakeWindowCatalogService();
         var screenshots = new FakeScreenshotService();
         var service = CreateService(env, windows, screenshots, new FakeEdgeBrowserService());
@@ -40,7 +38,7 @@ public sealed class WorkbenchServiceTests
     [Fact]
     public async Task CaptureDesktopScreenshotAsync_InvalidTargets_ReturnStableErrors()
     {
-        using var env = new ExchangeRootScope();
+        using var env = new ExchangeRootScope("windows-operator-workbench-tests");
         var service = CreateService(env);
 
         var missingTitle = await Assert.ThrowsAsync<OperatorFailureException>(
@@ -59,7 +57,7 @@ public sealed class WorkbenchServiceTests
     [Fact]
     public async Task OpenEdgeUrlAsync_StartsOwnedSessionAndCapturesOptionalScreenshot()
     {
-        using var env = new ExchangeRootScope();
+        using var env = new ExchangeRootScope("windows-operator-workbench-tests");
         var edge = new FakeEdgeBrowserService();
         var service = CreateService(env, edge: edge);
 
@@ -88,7 +86,7 @@ public sealed class WorkbenchServiceTests
     [Fact]
     public async Task OpenEdgeUrlAsync_ReturnsUnderlyingSessionSuccess()
     {
-        using var env = new ExchangeRootScope();
+        using var env = new ExchangeRootScope("windows-operator-workbench-tests");
         var edge = new FakeEdgeBrowserService
         {
             NextSuccess = false,
@@ -112,7 +110,7 @@ public sealed class WorkbenchServiceTests
     [Fact]
     public async Task EdgeSessionScreenshotAndCleanup_UseStoredSessionHwndAndClose()
     {
-        using var env = new ExchangeRootScope();
+        using var env = new ExchangeRootScope("windows-operator-workbench-tests");
         var edge = new FakeEdgeBrowserService();
         var service = CreateService(env, edge: edge);
 
@@ -132,7 +130,7 @@ public sealed class WorkbenchServiceTests
     [Fact]
     public async Task GenericSessionReadAndScreenshot_UseRegisteredEdgeSession()
     {
-        using var env = new ExchangeRootScope();
+        using var env = new ExchangeRootScope("windows-operator-workbench-tests");
         var edge = new FakeEdgeBrowserService();
         var service = CreateService(env, edge: edge);
 
@@ -174,33 +172,6 @@ public sealed class WorkbenchServiceTests
             runs,
             new OwnedSessionRegistry(runs));
     }
-
-    private sealed class ExchangeRootScope : IDisposable
-    {
-        public ExchangeRootScope()
-        {
-            Root = Path.Combine(Path.GetTempPath(), "windows-operator-workbench-tests", Guid.NewGuid().ToString("N"));
-            Options = Microsoft.Extensions.Options.Options.Create(
-                new WorkbenchOptions
-                {
-                    ExchangeRoot = Root,
-                    HostExchangeRoot = "/host-exchange",
-                });
-        }
-
-        public string Root { get; }
-
-        public IOptions<WorkbenchOptions> Options { get; }
-
-        public void Dispose()
-        {
-            if (Directory.Exists(Root))
-            {
-                Directory.Delete(Root, recursive: true);
-            }
-        }
-    }
-
     private sealed class FakeWindowCatalogService : IWindowCatalogService
     {
         private readonly IReadOnlyList<WindowRef> _windows = new[]

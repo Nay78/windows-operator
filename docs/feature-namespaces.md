@@ -13,6 +13,8 @@ Good:
 - REST: `/v1/browser/edge/...` for direct browser sessions
 - REST: `/v1/sessions/...` for generic operator-owned workbench sessions
 - REST: `/v1/powerpoint/...`
+- REST: `/v1/powerpoint/online/...` for PowerPoint Online session/update orchestration
+- REST: `/v1/dev/...` for disabled-by-default local debug harnesses only
 - MCP: `mail_list_folders`
 - MCP: `auth_microsoft_device_login`
 - Contracts: `MailFoldersResult`, `MicrosoftDeviceLoginRequest`
@@ -25,7 +27,8 @@ Bad:
 - MCP: `edge_login`
 - Contracts: `BrowserLoginRequest`
 
-Reason: callers care about business intent. Edge, Outlook COM, UIA, scheduled tasks, SSH, and PowerShell are implementation details.
+Reason: callers care about business intent. Edge, Outlook COM, UIA, scheduled
+tasks, SSH, and PowerShell are implementation details.
 
 ## REST
 
@@ -33,12 +36,18 @@ Use stable `/v1/<domain>/<provider-or-resource>/<action>` paths.
 
 Rules:
 
-- Domain is short and durable: `mail`, `auth`, `browser`, `sessions`, `powerpoint`, `windows`, `uia`, `input`.
+- Domain is short and durable: `mail`, `auth`, `browser`, `sessions`, `powerpoint`, `windows`, `uia`, `input`, `dev`.
 - Provider appears when behavior is provider-specific: `auth/microsoft`.
-- Browser session endpoints use implementation namespace only when callers explicitly request browser control. Auth flows stay under `auth/microsoft`.
-- Generic workbench session endpoints stay under `sessions` when callers should not care whether the owner is Edge, PowerPoint, or another desktop app.
+- Browser session endpoints use implementation namespace only when callers
+  explicitly request browser control. Auth flows stay under `auth/microsoft`.
+- Generic workbench session endpoints stay under `sessions` when callers should
+  not care whether the owner is Edge, PowerPoint, or another desktop app.
+- PowerPoint Online orchestration stays under `powerpoint/online`, even though Edge and Office.js are implementation details.
+- Development harness routes stay under `dev` and must be disabled by default. Do not expose them through an external-service relay.
 - Action is explicit and boring: `device-login`, `claim`, `complete`, `download`.
-- Keep HTTP verbs meaningful. Use `GET` only for read-only status operations. Use `POST` for desktop actions, browser launches, refresh-aware reads, downloads, and anything with side effects.
+- Keep HTTP verbs meaningful. Use `GET` only for read-only status operations.
+  Use `POST` for desktop actions, browser launches, refresh-aware reads,
+  downloads, and anything with side effects.
 - Keep Host and Agent routes identical. Host may proxy, Agent owns desktop work.
 
 Examples:
@@ -54,6 +63,11 @@ POST /v1/powerpoint/jobs/claim
 POST /v1/powerpoint/jobs/{jobId}/complete
 POST /v1/powerpoint/jobs/{jobId}/fail
 GET  /v1/powerpoint/jobs/{jobId}
+POST /v1/powerpoint/online/sessions
+POST /v1/powerpoint/online/sessions/{sessionId}/slides/select
+POST /v1/powerpoint/online/updates
+POST /v1/dev/powerpoint/online/sessions/{sessionId}/script
+POST /v1/dev/browser/edge/sessions/{sessionId}/eval
 GET  /v1/mail/status
 POST /v1/mail/folders
 POST /v1/mail/attachments/download
@@ -93,7 +107,8 @@ Rules:
 - Domain objects stay in `WindowsOperator.Core.Contracts`.
 - Service interfaces use domain verbs: `StartMicrosoftDeviceLoginAsync`, `ListMailFoldersAsync`.
 - Results include timestamp and enough action/error detail for operators.
-- Do not expose implementation paths, registry keys, COM object names, browser process ids, or scheduled task mechanics unless that is the feature's purpose.
+- Do not expose implementation paths, registry keys, COM object names, browser
+  process ids, or scheduled task mechanics unless that is the feature's purpose.
 
 ## Services
 
@@ -105,7 +120,8 @@ Examples:
 - `IMicrosoftAuthService` should own Edge handoff policy.
 - `IOperatorFacade` exposes domain operations, not browser/UIA details.
 
-Do not add shallow wrappers just to rename existing UIA calls. Add service boundary only when it hides real platform work or gives a test seam.
+Do not add shallow wrappers just to rename existing UIA calls. Add service
+boundary only when it hides real platform work or gives a test seam.
 
 ## Scripts
 
@@ -117,7 +133,8 @@ Rules:
 - Keep scripts idempotent when possible.
 - Scripts may schedule interactive desktop work, but REST should be preferred for external service integration.
 - Script parameters should match contract names when a REST equivalent exists.
-- Never require external services to know Windows repo paths, scheduled task names, or exchange layout unless they are explicitly using the Linux runner.
+- Never require external services to know Windows repo paths, scheduled task
+  names, or exchange layout unless they are explicitly using the Linux runner.
 
 ## State
 

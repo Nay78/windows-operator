@@ -1,4 +1,5 @@
 import "./styles.css";
+import { registerRunPendingJobCommandHandler } from "./addInCommandProtocol";
 import { HttpArtifactResolver } from "./artifacts/httpArtifactResolver";
 import { readConfig } from "./config";
 import { toUpdateError } from "./domain/errors";
@@ -22,6 +23,9 @@ const state = {
   running: false,
   log: [] as string[],
 };
+const runPendingJob = () => runJob();
+
+registerRunPendingJobCommandHandler(window, runPendingJob);
 
 void boot();
 
@@ -49,7 +53,10 @@ function render(): void {
   controls.className = "controls";
   controls.append(
     actionButton("Prepare Template", () => void prepareTemplate(), state.running),
-    actionButton(state.running ? "Running..." : "Run Pending Job", () => void runJob(), state.running),
+    actionButton("Prepare Named Targets", () => void prepareNamedTargets(), state.running),
+    actionButton("Cleanup Template", () => void cleanupTemplate(), state.running),
+    actionButton("Cleanup Named Targets", () => void cleanupNamedTargets(), state.running),
+    actionButton(state.running ? "Running..." : "Run Pending Job", () => void runPendingJob(), state.running),
   );
 
   const logList = document.createElement("ol");
@@ -113,6 +120,54 @@ async function prepareTemplate(): Promise<void> {
     const bootstrapper = new OfficeTemplateBootstrapper();
     const result = await bootstrapper.ensureMockTargets();
     log(`template ready created=${result.created.length} existing=${result.existing.length}`);
+  } catch (error) {
+    log(toUpdateError(error, "OFFICE_SYNC_FAILED").operatorMessage);
+  } finally {
+    state.running = false;
+    render();
+  }
+}
+
+async function prepareNamedTargets(): Promise<void> {
+  state.running = true;
+  render();
+
+  try {
+    const bootstrapper = new OfficeTemplateBootstrapper();
+    const result = await bootstrapper.ensureNamedOnlyMockTargets();
+    log(`named targets ready created=${result.created.length} existing=${result.existing.length}`);
+  } catch (error) {
+    log(toUpdateError(error, "OFFICE_SYNC_FAILED").operatorMessage);
+  } finally {
+    state.running = false;
+    render();
+  }
+}
+
+async function cleanupTemplate(): Promise<void> {
+  state.running = true;
+  render();
+
+  try {
+    const bootstrapper = new OfficeTemplateBootstrapper();
+    const result = await bootstrapper.cleanupMockTargets();
+    log(`template cleanup deleted=${result.deleted.length} missing=${result.missing.length} skipped=${result.skipped.length}`);
+  } catch (error) {
+    log(toUpdateError(error, "OFFICE_SYNC_FAILED").operatorMessage);
+  } finally {
+    state.running = false;
+    render();
+  }
+}
+
+async function cleanupNamedTargets(): Promise<void> {
+  state.running = true;
+  render();
+
+  try {
+    const bootstrapper = new OfficeTemplateBootstrapper();
+    const result = await bootstrapper.cleanupNamedOnlyMockTargets();
+    log(`named cleanup deleted=${result.deleted.length} missing=${result.missing.length} skipped=${result.skipped.length}`);
   } catch (error) {
     log(toUpdateError(error, "OFFICE_SYNC_FAILED").operatorMessage);
   } finally {

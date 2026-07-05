@@ -81,6 +81,27 @@ public static class OperatorErrors
             "Check the job id or rerun the edit request.",
             detail);
 
+    public static OperatorError DevAutomationDisabled(string detail) =>
+        Create(
+            ErrorCodes.DevAutomationDisabled,
+            "Developer automation is disabled.",
+            "Set DevAutomation:Enabled=true or WINDOWS_OPERATOR_DEV_AUTOMATION=1, then retry.",
+            detail);
+
+    public static OperatorError DevRawJsDisabled(string detail) =>
+        Create(
+            ErrorCodes.DevRawJsDisabled,
+            "Raw JavaScript evaluation is disabled.",
+            "Set DevAutomation:AllowRawJs=true or WINDOWS_OPERATOR_DEV_RAW_JS=1 and send allowUnsafeRawJs=true.",
+            detail);
+
+    public static OperatorError DevAutomationValidationFailed(string detail) =>
+        Create(
+            ErrorCodes.DevAutomationValidationFailed,
+            "Developer automation request is invalid.",
+            "Fix the script id, source, or mutation approval fields, then retry.",
+            detail);
+
     public static OperatorError MailUnavailable(string detail) =>
         Create(
             ErrorCodes.MailUnavailable,

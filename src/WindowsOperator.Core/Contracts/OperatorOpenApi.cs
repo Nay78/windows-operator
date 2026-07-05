@@ -62,6 +62,89 @@ public static class OperatorOpenApi
                 Post("captureEdgeBrowserSessionScreenshot", "Capture an owned Edge session window screenshot and write it to exchange artifacts.", schema.Ref<DesktopScreenshotRequest>(), schema.Ref<DesktopScreenshotResult>(), PathParam("sessionId", "string"))),
             ["/v1/browser/edge/session/{sessionId}/cleanup"] = Path(
                 Post("cleanupEdgeBrowserSession", "Close an owned Edge session.", null, schema.Ref<BrowserEdgeSessionStateResult>(), PathParam("sessionId", "string"))),
+            ["/v1/dev/browser/edge/sessions/{sessionId}/eval"] = Path(
+                Post("evaluateEdgeBrowserDevScript", "Run raw gated JavaScript in an Edge browser session for development diagnostics.", schema.Ref<BrowserEdgeDevEvalRequest>(), schema.Ref<DevScriptResult>(), PathParam("sessionId", "string"))),
+            ["/v1/powerpoint/online/sessions"] = Path(
+                Post(
+                    "startPowerPointOnlineSession",
+                    "Open or reuse a PowerPoint Online browser session for a deck URL.",
+                    schema.Ref<PowerPointOnlineSessionStartRequest>(),
+                    schema.Ref<PowerPointOnlineSessionResult>())),
+            ["/v1/powerpoint/online/sessions/{sessionId}"] = Path(
+                Get(
+                    "getPowerPointOnlineSession",
+                    "Read a PowerPoint Online session state.",
+                    schema.Ref<PowerPointOnlineSessionResult>(),
+                    PathParam("sessionId", "string"))),
+            ["/v1/powerpoint/online/sessions/{sessionId}/slides/select"] = Path(
+                Post(
+                    "selectPowerPointOnlineSlide",
+                    "Select a slide in an existing PowerPoint Online session.",
+                    schema.Ref<PowerPointOnlineSlideSelectRequest>(),
+                    schema.Ref<PowerPointOnlineSessionResult>(),
+                    PathParam("sessionId", "string"))),
+            ["/v1/powerpoint/online/sessions/{sessionId}/addin/probe"] = Path(
+                Post(
+                    "probePowerPointOnlineAddIn",
+                    "Probe PowerPoint Online add-in readiness and activation evidence.",
+                    schema.Ref<PowerPointOnlineAddInProbeRequest>(),
+                    schema.Ref<PowerPointOnlineAddInProbeResult>(),
+                    PathParam("sessionId", "string"))),
+            ["/v1/powerpoint/online/sessions/{sessionId}/save/wait"] = Path(
+                Post(
+                    "waitPowerPointOnlineSave",
+                    "Wait for PowerPoint Online save state to reach saved.",
+                    schema.Ref<PowerPointOnlineSaveWaitRequest>(),
+                    schema.Ref<PowerPointOnlineSessionResult>(),
+                    PathParam("sessionId", "string"))),
+            ["/v1/powerpoint/online/sessions/{sessionId}/template/prepare"] = Path(
+                Post(
+                    "preparePowerPointOnlineTemplate",
+                    "Click the PowerPoint add-in template setup command in an existing session.",
+                    schema.Ref<PowerPointOnlineTemplateRequest>(),
+                    schema.Ref<PowerPointOnlineSessionResult>(),
+                    PathParam("sessionId", "string"))),
+            ["/v1/powerpoint/online/sessions/{sessionId}/template/cleanup"] = Path(
+                Post(
+                    "cleanupPowerPointOnlineTemplate",
+                    "Click the PowerPoint add-in template cleanup command in an existing session.",
+                    schema.Ref<PowerPointOnlineTemplateRequest>(),
+                    schema.Ref<PowerPointOnlineSessionResult>(),
+                    PathParam("sessionId", "string"))),
+            ["/v1/powerpoint/online/sessions/{sessionId}/addin/run-pending-job"] = Path(
+                Post(
+                    "runPowerPointOnlinePendingJob",
+                    "Click the PowerPoint add-in run pending job command in an existing session.",
+                    schema.Ref<PowerPointOnlineAddInCommandRequest>(),
+                    schema.Ref<PowerPointOnlineSessionResult>(),
+                    PathParam("sessionId", "string"))),
+            ["/v1/powerpoint/online/sessions/{sessionId}/screenshot"] = Path(
+                Post(
+                    "capturePowerPointOnlineSessionScreenshot",
+                    "Capture PowerPoint Online session evidence through the workbench artifact path.",
+                    schema.Ref<PowerPointOnlineSessionScreenshotRequest>(),
+                    schema.Ref<PowerPointOnlineSessionResult>(),
+                    PathParam("sessionId", "string"))),
+            ["/v1/powerpoint/online/sessions/{sessionId}/cleanup"] = Path(
+                Post(
+                    "cleanupPowerPointOnlineSession",
+                    "Close a PowerPoint Online session consistently.",
+                    null,
+                    schema.Ref<PowerPointOnlineSessionResult>(),
+                    PathParam("sessionId", "string"))),
+            ["/v1/dev/powerpoint/online/sessions/{sessionId}/script"] = Path(
+                Post(
+                    "runPowerPointOnlineDevScript",
+                    "Run a named gated PowerPoint Online development script in an Edge session.",
+                    schema.Ref<PowerPointDevScriptRequest>(),
+                    schema.Ref<DevScriptResult>(),
+                    PathParam("sessionId", "string"))),
+            ["/v1/powerpoint/online/updates"] = Path(
+                Post(
+                    "updatePowerPointOnlinePresentation",
+                    "Run an Office.js PowerPoint update job against a PowerPoint Online session.",
+                    schema.Ref<PowerPointOnlineUpdateRequest>(),
+                    schema.Ref<PowerPointOnlineUpdateResult>())),
             ["/v1/auth/microsoft/cleanup"] = Path(
                 Post(
                     "cleanupMicrosoftAuthWindows",

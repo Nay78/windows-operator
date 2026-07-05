@@ -1,0 +1,4 @@
+interface:
+  display_name: "Office.js PowerPoint Debug"
+  short_description: "PowerPoint Online and Office.js debugging"
+  default_prompt: "Use $office-js-powerpoint-debug to debug a PowerPoint Online Office.js add-in issue."

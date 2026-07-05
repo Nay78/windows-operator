@@ -34,6 +34,33 @@ public sealed class PowerPointJobServiceTests
     }
 
     [Fact]
+    public async Task ClaimNextAsync_MatchesSharePointCanonicalUrl_ToOfficeDocumentPath()
+    {
+        using var workspace = new TestWorkspace();
+        var service = CreateService(workspace.Root);
+
+        await service.EnqueueAsync(
+            CreateJob(
+                "job-sharepoint",
+                "https://tenant.sharepoint.com/:p:/r/personal/user/_layouts/15/Doc.aspx?sourcedoc=%7BBA878CDB-CE08-495B-BB23-6B8FFC5DBB25%7D&file=SEM27%20-%20Plan%20Semanal%20Servicios%20Mina.pptx&action=edit&mobileredirect=true"),
+            CancellationToken.None);
+
+        var claimed = await service.ClaimNextAsync(
+            new PowerPointClaimJobRequest
+            {
+                WorkerId = "officejs-taskpane",
+                DocumentUrl = "https://tenant.sharepoint.com/personal/user/Documents/SEM27%20-%20Plan%20Semanal%20Servicios%20Mina.pptx?web=1",
+            },
+            CancellationToken.None);
+
+        Assert.NotNull(claimed);
+        Assert.Equal("job-sharepoint", claimed!.JobId);
+        var record = await service.GetAsync("job-sharepoint", CancellationToken.None);
+        Assert.Equal("running", record.Status);
+        Assert.Equal("officejs-taskpane", record.ClaimedBy);
+    }
+
+    [Fact]
     public async Task CompleteAsync_PersistsOfficeJsResult()
     {
         using var workspace = new TestWorkspace();
@@ -133,6 +160,219 @@ public sealed class PowerPointJobServiceTests
     }
 
     [Fact]
+    public async Task EnqueueAsync_ValidateOnly_AllowsMissingExecutionPayload()
+    {
+        using var workspace = new TestWorkspace();
+        var service = CreateService(workspace.Root);
+        var job = CreateJob("job-validate-only", "https://tenant/site/validate.pptx") with
+        {
+            ValidateOnly = true,
+            Operations = new PowerPointUpdateOperation[]
+            {
+                new()
+                {
+                    Kind = "replaceText",
+                    TargetId = "summary-status",
+                    Mode = "plain",
+                },
+                new()
+                {
+                    Kind = "replaceImage",
+                    TargetId = "hero-image",
+                    Fit = "contain",
+                },
+            },
+        };
+
+        var record = await service.EnqueueAsync(job, CancellationToken.None);
+
+        Assert.True(record.Job.ValidateOnly);
+        Assert.Null(record.Job.Operations[0].Text);
+        Assert.Null(record.Job.Operations[1].Artifact);
+        Assert.Equal("queued", record.Status);
+    }
+
+    [Fact]
+    public async Task EnqueueAsync_ValidateOnly_StillValidatesProvidedImageArtifact()
+    {
+        using var workspace = new TestWorkspace();
+        var service = CreateService(workspace.Root);
+        var job = CreateJob("job-validate-artifact", "https://tenant/site/validate.pptx") with
+        {
+            ValidateOnly = true,
+            Operations = new[]
+            {
+                ImageOperation(artifact: ValidArtifact() with { MediaType = "image/gif" }),
+            },
+        };
+
+        await AssertPowerPointValidationFailedAsync(
+            () => service.EnqueueAsync(job, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task EnqueueAsync_DiscoverTargets_AllowsZeroOperations()
+    {
+        using var workspace = new TestWorkspace();
+        var service = CreateService(workspace.Root);
+        var job = CreateJob("job-discover", "https://tenant/site/discover.pptx") with
+        {
+            DiscoverTargets = true,
+            Operations = Array.Empty<PowerPointUpdateOperation>(),
+        };
+
+        var record = await service.EnqueueAsync(job, CancellationToken.None);
+
+        Assert.True(record.Job.DiscoverTargets);
+        Assert.Empty(record.Job.Operations);
+        Assert.Equal("queued", record.Status);
+    }
+
+    [Fact]
+    public async Task EnqueueAsync_AllowsTableOperations()
+    {
+        using var workspace = new TestWorkspace();
+        var service = CreateService(workspace.Root);
+        var job = CreateJob("job-table", "https://tenant/site/table.pptx") with
+        {
+            Operations = new[]
+            {
+                new PowerPointUpdateOperation
+                {
+                    Kind = "readTable",
+                    TargetId = "DATA_TABLE",
+                },
+                new PowerPointUpdateOperation
+                {
+                    Kind = "replaceTableCell",
+                    TargetId = "DATA_TABLE",
+                    RowIndex = 1,
+                    ColumnIndex = 2,
+                    Text = "42",
+                },
+                new PowerPointUpdateOperation
+                {
+                    Kind = "replaceTableRange",
+                    TargetId = "DATA_TABLE",
+                    StartRowIndex = 1,
+                    StartColumnIndex = 1,
+                    Values = new[]
+                    {
+                        new[] { "42", "43" },
+                        new[] { "98%", "99%" },
+                    },
+                },
+            },
+        };
+
+        var record = await service.EnqueueAsync(job, CancellationToken.None);
+
+        Assert.Equal("queued", record.Status);
+        Assert.Equal(3, record.Job.Operations.Count);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_AllowsTableReadResult()
+    {
+        using var workspace = new TestWorkspace();
+        var service = CreateService(workspace.Root);
+        await service.EnqueueAsync(CreateJob("job-table-result", "https://tenant/site/table.pptx"), CancellationToken.None);
+
+        var completed = await service.CompleteAsync(
+            "job-table-result",
+            new PowerPointUpdateResult
+            {
+                JobId = "job-table-result",
+                Status = "succeeded",
+                StartedAt = DateTimeOffset.Parse("2026-06-17T12:00:00Z"),
+                FinishedAt = DateTimeOffset.Parse("2026-06-17T12:00:01Z"),
+                Targets = new[]
+                {
+                    new PowerPointTargetResult(
+                        "DATA_TABLE",
+                        "readTable",
+                        "succeeded",
+                        Type: "table",
+                        Table: new PowerPointTableSnapshot(
+                            2,
+                            2,
+                            new[]
+                            {
+                                new[] { "Metric", "Plan" },
+                                new[] { "Tonnes", "42" },
+                            })),
+                },
+            },
+            CancellationToken.None);
+
+        Assert.Equal("succeeded", completed.Status);
+        Assert.Equal("DATA_TABLE", completed.Result!.Targets.Single().TargetId);
+        Assert.Equal("42", completed.Result.Targets.Single().Table!.Values[1][1]);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_ValidateOnly_AllowsSkippedInspectionTargets()
+    {
+        using var workspace = new TestWorkspace();
+        var service = CreateService(workspace.Root);
+        await service.EnqueueAsync(
+            CreateJob("job-validate-complete", "https://tenant/site/validate.pptx") with
+            {
+                ValidateOnly = true,
+            },
+            CancellationToken.None);
+
+        var completed = await service.CompleteAsync(
+            "job-validate-complete",
+            CreateResult("job-validate-complete", "succeeded") with
+            {
+                Targets = new[]
+                {
+                    new PowerPointTargetResult(
+                        "summary-status",
+                        "replaceText",
+                        "skipped",
+                        Found: true,
+                        Editable: true,
+                        Type: "text"),
+                },
+            },
+            CancellationToken.None);
+
+        Assert.Equal("succeeded", completed.Status);
+        Assert.Equal("skipped", completed.Result!.Targets[0].Status);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_PersistsDiscoveredTargets()
+    {
+        using var workspace = new TestWorkspace();
+        var service = CreateService(workspace.Root);
+        await service.EnqueueAsync(
+            CreateJob("job-discovered-result", "https://tenant/site/discover.pptx") with
+            {
+                DiscoverTargets = true,
+                Operations = Array.Empty<PowerPointUpdateOperation>(),
+            },
+            CancellationToken.None);
+
+        var completed = await service.CompleteAsync(
+            "job-discovered-result",
+            CreateResult("job-discovered-result", "succeeded") with
+            {
+                Targets = Array.Empty<PowerPointTargetResult>(),
+                DiscoveredTargets = new[]
+                {
+                    new PowerPointDiscoveredTarget("TITLE_MAIN", true, "text", "Tagged binding."),
+                },
+            },
+            CancellationToken.None);
+
+        Assert.Single(completed.Result!.DiscoveredTargets!);
+        Assert.Equal("TITLE_MAIN", completed.Result.DiscoveredTargets![0].TargetId);
+    }
+
+    [Fact]
     public async Task CompleteAsync_RejectsMismatchedResultJobId()
     {
         using var workspace = new TestWorkspace();
@@ -205,6 +445,7 @@ public sealed class PowerPointJobServiceTests
             CreateJob("con", "https://tenant/site/deck.pptx"),
             CreateJob("job-no-requester", "https://tenant/site/deck.pptx") with { RequestedBy = " " },
             CreateJob("job-null-operations", "https://tenant/site/deck.pptx") with { Operations = null! },
+            CreateJob("job-empty-operations", "https://tenant/site/deck.pptx") with { Operations = Array.Empty<PowerPointUpdateOperation>() },
             CreateJob("job-unknown-kind", "https://tenant/site/deck.pptx") with
             {
                 Operations = new[]
@@ -307,6 +548,97 @@ public sealed class PowerPointJobServiceTests
                     ImageOperation(artifact: ValidArtifact() with { Url = "data:image/png;base64,not-base64!!!" }),
                 },
             },
+            CreateJob("job-validate-missing-text", "https://tenant/site/deck.pptx") with
+            {
+                ValidateOnly = false,
+                Operations = new[]
+                {
+                    TextOperation(overrideText: null),
+                },
+            },
+            CreateJob("job-table-missing-row", "https://tenant/site/deck.pptx") with
+            {
+                Operations = new[]
+                {
+                    new PowerPointUpdateOperation
+                    {
+                        Kind = "replaceTableCell",
+                        TargetId = "DATA_TABLE",
+                        ColumnIndex = 1,
+                        Text = "42",
+                    },
+                },
+            },
+            CreateJob("job-table-negative-column", "https://tenant/site/deck.pptx") with
+            {
+                Operations = new[]
+                {
+                    new PowerPointUpdateOperation
+                    {
+                        Kind = "replaceTableCell",
+                        TargetId = "DATA_TABLE",
+                        RowIndex = 1,
+                        ColumnIndex = -1,
+                        Text = "42",
+                    },
+                },
+            },
+            CreateJob("job-table-missing-text", "https://tenant/site/deck.pptx") with
+            {
+                Operations = new[]
+                {
+                    new PowerPointUpdateOperation
+                    {
+                        Kind = "replaceTableCell",
+                        TargetId = "DATA_TABLE",
+                        RowIndex = 1,
+                        ColumnIndex = 1,
+                    },
+                },
+            },
+            CreateJob("job-table-empty-range", "https://tenant/site/deck.pptx") with
+            {
+                Operations = new[]
+                {
+                    new PowerPointUpdateOperation
+                    {
+                        Kind = "replaceTableRange",
+                        TargetId = "DATA_TABLE",
+                        Values = Array.Empty<IReadOnlyList<string>>(),
+                    },
+                },
+            },
+            CreateJob("job-table-ragged-range", "https://tenant/site/deck.pptx") with
+            {
+                Operations = new[]
+                {
+                    new PowerPointUpdateOperation
+                    {
+                        Kind = "replaceTableRange",
+                        TargetId = "DATA_TABLE",
+                        Values = new[]
+                        {
+                            new[] { "42", "43" },
+                            new[] { "98%" },
+                        },
+                    },
+                },
+            },
+            CreateJob("job-table-empty-value", "https://tenant/site/deck.pptx") with
+            {
+                Operations = new[]
+                {
+                    new PowerPointUpdateOperation
+                    {
+                        Kind = "replaceTableRange",
+                        TargetId = "DATA_TABLE",
+                        Values = new[]
+                        {
+                            new[] { "42", " " },
+                        },
+                    },
+                },
+            },
         };
 
     public static TheoryData<PowerPointUpdateResult> InvalidCompleteResults() =>
@@ -326,6 +658,34 @@ public sealed class PowerPointJobServiceTests
                 Targets = new[]
                 {
                     new PowerPointTargetResult("summary-status", "replaceText", "done"),
+                },
+            },
+            CreateResult("job-result", "succeeded") with
+            {
+                Targets = new[]
+                {
+                    new PowerPointTargetResult("summary-status", "replaceText", "skipped"),
+                },
+            },
+            CreateResult("job-result", "succeeded") with
+            {
+                Targets = new[]
+                {
+                    new PowerPointTargetResult("summary-status", "replaceText", "skipped", Type: "shape"),
+                },
+            },
+            CreateResult("job-result", "succeeded") with
+            {
+                DiscoveredTargets = new[]
+                {
+                    new PowerPointDiscoveredTarget("", true, "text"),
+                },
+            },
+            CreateResult("job-result", "succeeded") with
+            {
+                DiscoveredTargets = new[]
+                {
+                    new PowerPointDiscoveredTarget("summary-status", true, "shape"),
                 },
             },
         };

@@ -1,6 +1,4 @@
-using Microsoft.Extensions.Options;
 using WindowsOperator.Agent.Services;
-using WindowsOperator.Core.Configuration;
 
 namespace WindowsOperator.Agent.Tests;
 
@@ -9,7 +7,7 @@ public sealed class WorkbenchRunStoreTests
     [Fact]
     public void WriteArtifact_SanitizesNamesAndKeepsUniqueFiles()
     {
-        using var env = new ExchangeRootScope();
+        using var env = new ExchangeRootScope("windows-operator-run-store-tests");
         var store = new WorkbenchRunStore(env.Options);
 
         var first = store.WriteArtifact(
@@ -36,7 +34,7 @@ public sealed class WorkbenchRunStoreTests
     [Fact]
     public void WriteJson_WritesTrailingNewlineForShellFriendlyArtifacts()
     {
-        using var env = new ExchangeRootScope();
+        using var env = new ExchangeRootScope("windows-operator-run-store-tests");
         var store = new WorkbenchRunStore(env.Options);
         var run = store.ResolveRun("Run One", "workbench");
 
@@ -55,31 +53,5 @@ public sealed class WorkbenchRunStoreTests
     public void SanitizePathSegment_ReturnsSingleSafeSegment(string? raw, string fallback, string expected)
     {
         Assert.Equal(expected, WorkbenchRunStore.SanitizePathSegment(raw, fallback));
-    }
-
-    private sealed class ExchangeRootScope : IDisposable
-    {
-        public ExchangeRootScope()
-        {
-            Root = Path.Combine(Path.GetTempPath(), "windows-operator-run-store-tests", Guid.NewGuid().ToString("N"));
-            Options = Microsoft.Extensions.Options.Options.Create(
-                new WorkbenchOptions
-                {
-                    ExchangeRoot = Root,
-                    HostExchangeRoot = "/host-exchange",
-                });
-        }
-
-        public string Root { get; }
-
-        public IOptions<WorkbenchOptions> Options { get; }
-
-        public void Dispose()
-        {
-            if (Directory.Exists(Root))
-            {
-                Directory.Delete(Root, recursive: true);
-            }
-        }
     }
 }

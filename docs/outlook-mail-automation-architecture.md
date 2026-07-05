@@ -1,10 +1,13 @@
 # Outlook Mail Automation Target Architecture
 
-Goal: external callers request mail intent while Windows Operator owns Outlook refresh, attach/start/close behavior, retries, and recovery.
+Goal: external callers request mail intent while Windows Operator owns Outlook
+refresh, attach/start/close behavior, retries, and recovery.
 
 ## Decision
 
-Mail callers should not need to know whether Outlook is open, stale, syncing, blocked by COM, or needs recovery. The operator should abstract those Windows details behind mail REST and MCP operations.
+Mail callers should not need to know whether Outlook is open, stale, syncing,
+blocked by COM, or needs recovery. The operator should abstract those Windows
+details behind mail REST and MCP operations.
 
 Default behavior:
 
@@ -244,7 +247,9 @@ force
   kill Outlook processes only after timeout/escalation
 ```
 
-Default for normal mail calls should be `soft`. Escalation to `restart` or `force` should require config that marks the Windows desktop as automation-dedicated.
+Default for normal mail calls should be `soft`. Escalation to `restart` or
+`force` should require config that marks the Windows desktop as
+automation-dedicated.
 
 ## Configuration
 

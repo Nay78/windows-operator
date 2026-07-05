@@ -9,10 +9,19 @@ Usage:
 Environment:
   WINDOWS_OPERATOR_LOCAL_ENV        Optional shell env file. Default: .windows-operator.local.env
   WINDOWS_OPERATOR_SYNC_TARGETS     Optional whitespace-separated targets: host, user@host, or user@host:port.
+  WINDOWS_OPERATOR_SSH_USER         Default SSH user when a target omits user. Default: administrator.
+  WINDOWS_OPERATOR_SSH_HOST         Default SSH host when no targets are configured. Default: 127.0.0.1.
+  WINDOWS_OPERATOR_SSH_TARGET       Full SSH target fallback when WINDOWS_OPERATOR_SYNC_TARGETS is empty.
+  WINDOWS_OPERATOR_SSH_PORT         Default SSH port when a target omits port. Default: 22555.
+  WINDOWS_OPERATOR_SSH_IDENTITY_FILE SSH private key. Default: /run/secrets/ssh_automation_key when present.
+  WINDOWS_OPERATOR_SSH_TIMEOUT      Per-target probe timeout seconds. Default: 5.
+  WINDOWS_OPERATOR_RUN_ID           Optional run id base.
   WINDOWS_OPERATOR_SYNC_PROFILE     Sync PowerShell profile after repo sync. Default: 1.
+  WINDOWS_OPERATOR_SYNC_CODEX       Sync Codex config, agents, rules, and skills. Default: 1.
 
 The script probes configured SSH targets. Offline targets are skipped. Reachable
-targets receive the repo sync and, by default, the repo-owned PowerShell profile.
+targets receive the repo sync and, by default, the repo-owned PowerShell profile
+plus durable Codex config and skills.
 USAGE
 }
 
@@ -53,8 +62,12 @@ resolve_target() {
   [[ -n "$target_user" ]] || die "target user missing for spec: $spec"
   [[ -n "$target_host" ]] || die "target host missing for spec: $spec"
   [[ -n "$target_port" ]] || die "target port missing for spec: $spec"
+  [[ "$target_port" =~ ^[0-9]+$ ]] || die "target port invalid for spec: $spec"
 
-  printf '%s\t%s\t%s\t%s\n' "$target_user" "$target_host" "$target_port" "${target_user}@${target_host}"
+  RESOLVED_TARGET_USER=$target_user
+  RESOLVED_TARGET_HOST=$target_host
+  RESOLVED_TARGET_PORT=$target_port
+  RESOLVED_TARGET="${target_user}@${target_host}"
 }
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
@@ -91,6 +104,7 @@ else
 fi
 ssh_timeout="${WINDOWS_OPERATOR_SSH_TIMEOUT:-5}"
 sync_profile="${WINDOWS_OPERATOR_SYNC_PROFILE:-1}"
+sync_codex="${WINDOWS_OPERATOR_SYNC_CODEX:-1}"
 run_id_base="${WINDOWS_OPERATOR_RUN_ID:-sync-available-$(date -u +%Y%m%dT%H%M%SZ)-$$}"
 
 if [[ -n "${WINDOWS_OPERATOR_SYNC_TARGETS:-}" ]]; then
@@ -119,12 +133,22 @@ available=0
 failed=0
 
 for spec in "${target_specs[@]}"; do
-  IFS=$'\t' read -r target_user target_host target_port target <<<"$(resolve_target "$spec" "$ssh_user" "$ssh_port")"
-  target_label="$(sanitize_run_id_part "$target_host")"
+  resolve_target "$spec" "$ssh_user" "$ssh_port"
+  target_user=$RESOLVED_TARGET_USER
+  target_host=$RESOLVED_TARGET_HOST
+  target_port=$RESOLVED_TARGET_PORT
+  target=$RESOLVED_TARGET
+  target_label="$(sanitize_run_id_part "${target_user}@${target_host}:${target_port}")"
   printf '[sync] target=%s port=%s user=%s\n' "$target_host" "$target_port" "$target_user"
 
   if [[ "$dry_run" -eq 1 ]]; then
-    printf '[sync] dry-run: would probe %s:%s and sync repo%s\n' "$target_host" "$target_port" "$(if [[ "$sync_profile" != "0" ]]; then printf ' + profile'; fi)"
+    printf '[sync] dry-run: would probe %s:%s and sync repo%s%s run-id-base=%s target-label=%s\n' \
+      "$target_host" \
+      "$target_port" \
+      "$(if [[ "$sync_profile" != "0" ]]; then printf ' + profile'; fi)" \
+      "$(if [[ "$sync_codex" != "0" ]]; then printf ' + codex'; fi)" \
+      "$run_id_base" \
+      "$target_label"
     continue
   fi
 
@@ -134,6 +158,7 @@ for spec in "${target_specs[@]}"; do
   fi
 
   available=$((available + 1))
+  target_failed=0
 
   if [[ "$sync_profile" != "0" ]]; then
     if ! WINDOWS_OPERATOR_RUN_ID="${run_id_base}-${target_label}" \
@@ -144,6 +169,7 @@ for spec in "${target_specs[@]}"; do
       "$repo_root/scripts/linux/windows-sync-powershell-profile.sh"; then
       printf '[sync] failed target=%s\n' "$target_host" >&2
       failed=$((failed + 1))
+      target_failed=1
     fi
   else
     if ! WINDOWS_OPERATOR_RUN_ID="${run_id_base}-${target_label}-repo" \
@@ -153,6 +179,19 @@ for spec in "${target_specs[@]}"; do
       WINDOWS_OPERATOR_SSH_PORT="$target_port" \
       "$repo_root/scripts/linux/windows-sync-repo.sh"; then
       printf '[sync] failed target=%s\n' "$target_host" >&2
+      failed=$((failed + 1))
+      target_failed=1
+    fi
+  fi
+
+  if [[ "$sync_codex" != "0" && "$target_failed" -eq 0 ]]; then
+    if ! WINDOWS_OPERATOR_RUN_ID="${run_id_base}-${target_label}-codex" \
+      WINDOWS_OPERATOR_SSH_USER="$target_user" \
+      WINDOWS_OPERATOR_SSH_HOST="$target_host" \
+      WINDOWS_OPERATOR_SSH_TARGET="$target" \
+      WINDOWS_OPERATOR_SSH_PORT="$target_port" \
+      "$repo_root/scripts/linux/windows-sync-codex-profile.sh"; then
+      printf '[sync] codex failed target=%s\n' "$target_host" >&2
       failed=$((failed + 1))
     fi
   fi

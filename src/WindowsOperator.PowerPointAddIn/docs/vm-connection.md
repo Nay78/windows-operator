@@ -59,4 +59,7 @@ Live runtime checks before PowerPoint sideload:
 - `POST http://127.0.0.1:43117/v1/powerpoint/jobs`
 - `POST http://127.0.0.1:43117/v1/powerpoint/jobs/claim`
 
-Full edit verification requires PowerPoint running in Windows with the add-in sideloaded and a real presentation open.
+Package-level full edit verification requires PowerPoint running in Windows with
+the add-in sideloaded and a real presentation open. PowerPoint Online harness
+proof, including SEM27 text/image and table edits, is tracked in the
+[PowerPoint automation architecture](../../../docs/powerpoint-automation-architecture.md).

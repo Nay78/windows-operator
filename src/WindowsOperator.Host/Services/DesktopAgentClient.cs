@@ -8,7 +8,7 @@ using WindowsOperator.Core.Services;
 
 namespace WindowsOperator.Host.Services;
 
-public sealed class DesktopAgentClient : IWorkbenchService
+public sealed class DesktopAgentClient : IWorkbenchService, IPowerPointOnlineService, IDevAutomationService
 {
     private readonly HttpClient _httpClient;
     private readonly IOptions<DesktopAgentOptions> _options;
@@ -170,6 +170,123 @@ public sealed class DesktopAgentClient : IWorkbenchService
             HttpMethod.Post,
             $"/v1/browser/edge/session/{Uri.EscapeDataString(sessionId)}/cleanup",
             null,
+            cancellationToken);
+
+    public Task<DevScriptResult> EvaluateEdgeBrowserSessionAsync(
+        string sessionId,
+        BrowserEdgeDevEvalRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<DevScriptResult>(
+            HttpMethod.Post,
+            $"/v1/dev/browser/edge/sessions/{Uri.EscapeDataString(sessionId)}/eval",
+            request,
+            cancellationToken);
+
+    public Task<PowerPointOnlineSessionResult> StartOnlineSessionAsync(
+        PowerPointOnlineSessionStartRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<PowerPointOnlineSessionResult>(
+            HttpMethod.Post,
+            "/v1/powerpoint/online/sessions",
+            request,
+            cancellationToken);
+
+    public Task<PowerPointOnlineSessionResult> GetOnlineSessionAsync(
+        string sessionId,
+        CancellationToken cancellationToken) =>
+        SendAsync<PowerPointOnlineSessionResult>(
+            HttpMethod.Get,
+            $"/v1/powerpoint/online/sessions/{Uri.EscapeDataString(sessionId)}",
+            null,
+            cancellationToken);
+
+    public Task<PowerPointOnlineSessionResult> SelectOnlineSlideAsync(
+        string sessionId,
+        PowerPointOnlineSlideSelectRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<PowerPointOnlineSessionResult>(
+            HttpMethod.Post,
+            $"/v1/powerpoint/online/sessions/{Uri.EscapeDataString(sessionId)}/slides/select",
+            request,
+            cancellationToken);
+
+    public Task<PowerPointOnlineAddInProbeResult> ProbeOnlineAddInAsync(
+        string sessionId,
+        PowerPointOnlineAddInProbeRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<PowerPointOnlineAddInProbeResult>(
+            HttpMethod.Post,
+            $"/v1/powerpoint/online/sessions/{Uri.EscapeDataString(sessionId)}/addin/probe",
+            request,
+            cancellationToken);
+
+    public Task<PowerPointOnlineSessionResult> WaitForOnlineSaveAsync(
+        string sessionId,
+        PowerPointOnlineSaveWaitRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<PowerPointOnlineSessionResult>(
+            HttpMethod.Post,
+            $"/v1/powerpoint/online/sessions/{Uri.EscapeDataString(sessionId)}/save/wait",
+            request,
+            cancellationToken);
+
+    public Task<PowerPointOnlineSessionResult> PrepareOnlineTemplateAsync(
+        string sessionId,
+        PowerPointOnlineTemplateRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<PowerPointOnlineSessionResult>(
+            HttpMethod.Post,
+            $"/v1/powerpoint/online/sessions/{Uri.EscapeDataString(sessionId)}/template/prepare",
+            request,
+            cancellationToken);
+
+    public Task<PowerPointOnlineSessionResult> CleanupOnlineTemplateAsync(
+        string sessionId,
+        PowerPointOnlineTemplateRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<PowerPointOnlineSessionResult>(
+            HttpMethod.Post,
+            $"/v1/powerpoint/online/sessions/{Uri.EscapeDataString(sessionId)}/template/cleanup",
+            request,
+            cancellationToken);
+
+    public Task<PowerPointOnlineSessionResult> RunOnlinePendingJobAsync(
+        string sessionId,
+        PowerPointOnlineAddInCommandRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<PowerPointOnlineSessionResult>(
+            HttpMethod.Post,
+            $"/v1/powerpoint/online/sessions/{Uri.EscapeDataString(sessionId)}/addin/run-pending-job",
+            request,
+            cancellationToken);
+
+    public Task<PowerPointOnlineSessionResult> CaptureOnlineSessionScreenshotAsync(
+        string sessionId,
+        PowerPointOnlineSessionScreenshotRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<PowerPointOnlineSessionResult>(
+            HttpMethod.Post,
+            $"/v1/powerpoint/online/sessions/{Uri.EscapeDataString(sessionId)}/screenshot",
+            request,
+            cancellationToken);
+
+    public Task<PowerPointOnlineSessionResult> CleanupOnlineSessionAsync(
+        string sessionId,
+        CancellationToken cancellationToken) =>
+        SendAsync<PowerPointOnlineSessionResult>(
+            HttpMethod.Post,
+            $"/v1/powerpoint/online/sessions/{Uri.EscapeDataString(sessionId)}/cleanup",
+            null,
+            cancellationToken);
+
+    public Task<DevScriptResult> RunPowerPointOnlineScriptAsync(
+        string sessionId,
+        PowerPointDevScriptRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<DevScriptResult>(
+            HttpMethod.Post,
+            $"/v1/dev/powerpoint/online/sessions/{Uri.EscapeDataString(sessionId)}/script",
+            request,
             cancellationToken);
 
     public Task<MicrosoftAuthCleanupResult> CleanupMicrosoftAuthWindowsAsync(

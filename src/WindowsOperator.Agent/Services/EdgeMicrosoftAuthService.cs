@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using FlaUI.Core.AutomationElements;
 using FlaUI.UIA3;
 using WindowsOperator.Core;
@@ -559,6 +560,7 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
         };
         edge.StartInfo.ArgumentList.Add("--new-window");
         edge.StartInfo.ArgumentList.Add("--no-first-run");
+        edge.StartInfo.ArgumentList.Add("--no-session-restore");
         if (!string.IsNullOrWhiteSpace(profile.UserDataDir))
         {
             edge.StartInfo.ArgumentList.Add($"--user-data-dir={profile.UserDataDir}");
@@ -628,6 +630,85 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
             "User Data");
         var profileDirectory = TryResolveSignedInProfileDirectory(userDataDir) ?? "Default";
         return new EdgeProfileSelection(userDataDir, profileDirectory);
+    }
+
+    internal static string NormalizeEdgePreferencesExitState(string preferencesPath)
+    {
+        try
+        {
+            if (!File.Exists(preferencesPath))
+            {
+                return "profile_exit_state_normalize_skipped:preferences_missing";
+            }
+
+            var root = JsonNode.Parse(File.ReadAllText(preferencesPath)) as JsonObject;
+            if (root is null)
+            {
+                return "profile_exit_state_normalize_skipped:invalid_root";
+            }
+
+            JsonObject profile;
+            if (root["profile"] is null)
+            {
+                profile = new JsonObject();
+                root["profile"] = profile;
+            }
+            else if (root["profile"] is JsonObject existingProfile)
+            {
+                profile = existingProfile;
+            }
+            else
+            {
+                return "profile_exit_state_normalize_skipped:profile_not_object";
+            }
+
+            var changed = false;
+            changed |= SetJsonValue(profile, "exited_cleanly", true);
+            changed |= SetJsonValue(profile, "exit_type", "Normal");
+
+            if (root.ContainsKey("exited_cleanly"))
+            {
+                changed |= SetJsonValue(root, "exited_cleanly", true);
+            }
+
+            if (root.ContainsKey("exit_type"))
+            {
+                changed |= SetJsonValue(root, "exit_type", "Normal");
+            }
+
+            if (changed)
+            {
+                File.WriteAllText(
+                    preferencesPath,
+                    root.ToJsonString());
+            }
+
+            return "profile_exit_state_normalized";
+        }
+        catch (JsonException)
+        {
+            return "profile_exit_state_normalize_skipped:invalid_json";
+        }
+        catch (IOException)
+        {
+            return "profile_exit_state_normalize_skipped:io_failed";
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return "profile_exit_state_normalize_skipped:access_denied";
+        }
+    }
+
+    private static bool SetJsonValue<T>(JsonObject obj, string propertyName, T value)
+    {
+        if (obj.TryGetPropertyValue(propertyName, out var existing) &&
+            JsonNode.DeepEquals(existing, JsonValue.Create(value)))
+        {
+            return false;
+        }
+
+        obj[propertyName] = JsonValue.Create(value);
+        return true;
     }
 
     private static string? TryResolveSignedInProfileDirectory(string userDataDir)

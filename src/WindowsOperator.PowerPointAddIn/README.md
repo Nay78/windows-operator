@@ -13,6 +13,16 @@ Production shape:
 
 No Graph path. No desktop PowerPoint COM edit path. No browser DOM slide mutation.
 
+Harness integration:
+
+- The high-level PowerPoint Online harness wraps this add-in with browser
+  session control, add-in activation, save-state wait, screenshot evidence,
+  reopen verification, and cleanup.
+- Live SEM27 text/image and table proof evidence is tracked in
+  [PowerPoint automation architecture](../../docs/powerpoint-automation-architecture.md).
+- This is tier-3 reopen visual proof. It is still not Graph/SharePoint version
+  proof.
+
 ## Source Shape
 
 - `src/app.ts`: task pane wiring.
@@ -66,8 +76,30 @@ In PowerPoint:
 2. Select the slide to use as the mock template.
 3. Click `Prepare Template`.
 4. Click `Run Mock Job` or `Run Pending Job`.
+5. Click `Cleanup Template` to remove targets created by this setup.
 
 `Prepare Template` creates and binds:
 
 - `TITLE_MAIN`: text box target.
 - `HERO_IMAGE`: image fill target.
+- `DATA_TABLE`: table target.
+
+`Prepare Named Targets` creates the same mock shapes with only
+`shape.name = TARGET_<TARGET_ID>`. It leaves bindings/tags absent so
+`bindNamedTargets` can be smoke-tested. `Cleanup Named Targets` deletes those
+mock names and removes matching repaired bindings when present. On a newly
+reopened verification session, activate/probe the add-in task pane before
+clicking cleanup.
+
+Supported operation kinds are `replaceText`, `replaceImage`, `readTable`,
+`replaceTableCell`, and `replaceTableRange`. Table reads return a structured
+snapshot; table writes address zero-based cells or rectangular ranges.
+
+`Cleanup Template` deletes only bound shapes carrying the matching `TARGET_ID`
+tag, then removes their bindings. Existing authored shapes are skipped.
+
+Target ids use uppercase semantic cues such as `TITLE_MAIN`, `HERO_IMAGE`,
+`DATA_TABLE`, or `KPI_TONNES_VALUE`. Binding id and `TARGET_ID` tag must match
+the target id. Authored or generated shape names use `TARGET_<TARGET_ID>`.
+Set `bindNamedTargets: true` on a job to repair named-only shapes into durable
+bindings and tags before apply; this is a deck mutation.

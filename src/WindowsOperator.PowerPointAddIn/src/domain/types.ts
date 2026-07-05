@@ -3,17 +3,28 @@ export type JobStatus = "queued" | "running" | "succeeded" | "failed" | "partial
 export interface UpdateJob {
   jobId: string;
   expectedDocumentUrl?: string;
+  discoverTargets?: boolean;
+  bindNamedTargets?: boolean;
+  validateOnly?: boolean;
   operations: UpdateOperation[];
   requestedBy: string;
   createdAt: string;
 }
 
-export type UpdateOperation = TextUpdateOperation | ImageUpdateOperation;
+export type TargetType = "text" | "image" | "table" | "unknown";
+export type TargetSource = "binding" | "name" | "repairedName";
+
+export type UpdateOperation =
+  | TextUpdateOperation
+  | ImageUpdateOperation
+  | ReadTableOperation
+  | TableCellUpdateOperation
+  | TableRangeUpdateOperation;
 
 export interface TextUpdateOperation {
   kind: "replaceText";
   targetId: string;
-  text: string;
+  text?: string;
   mode: "plain";
   allowEmpty?: boolean;
 }
@@ -21,9 +32,32 @@ export interface TextUpdateOperation {
 export interface ImageUpdateOperation {
   kind: "replaceImage";
   targetId: string;
-  artifact: ArtifactRef;
+  artifact?: ArtifactRef;
   altText?: string;
   fit?: "cover" | "contain";
+}
+
+export interface ReadTableOperation {
+  kind: "readTable";
+  targetId: string;
+}
+
+export interface TableCellUpdateOperation {
+  kind: "replaceTableCell";
+  targetId: string;
+  rowIndex?: number;
+  columnIndex?: number;
+  text?: string;
+  allowEmpty?: boolean;
+}
+
+export interface TableRangeUpdateOperation {
+  kind: "replaceTableRange";
+  targetId: string;
+  startRowIndex?: number;
+  startColumnIndex?: number;
+  values?: string[][];
+  allowEmpty?: boolean;
 }
 
 export interface ArtifactRef {
@@ -52,6 +86,7 @@ export interface UpdateResult {
   startedAt: string;
   finishedAt: string;
   targets: TargetResult[];
+  discoveredTargets?: DiscoveredTarget[];
 }
 
 export interface TargetResult {
@@ -59,6 +94,32 @@ export interface TargetResult {
   operationKind: UpdateOperation["kind"];
   status: "succeeded" | "failed" | "skipped";
   error?: UpdateError;
+  found?: boolean;
+  editable?: boolean;
+  type?: TargetType;
+  message?: string;
+  shapeName?: string;
+  source?: TargetSource;
+  bound?: boolean;
+  tagged?: boolean;
+  table?: TableSnapshot;
+}
+
+export interface DiscoveredTarget {
+  targetId: string;
+  editable: boolean;
+  type: TargetType;
+  message?: string;
+  shapeName?: string;
+  source?: TargetSource;
+  bound?: boolean;
+  tagged?: boolean;
+}
+
+export interface TableSnapshot {
+  rowCount: number;
+  columnCount: number;
+  values: string[][];
 }
 
 export interface UpdateError {
@@ -93,6 +154,10 @@ export interface TargetInspection {
   targetId: string;
   found: boolean;
   editable: boolean;
-  type?: "text" | "image" | "unknown";
+  type?: TargetType;
   message?: string;
+  shapeName?: string;
+  source?: TargetSource;
+  bound?: boolean;
+  tagged?: boolean;
 }

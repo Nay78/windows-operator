@@ -1,4 +1,6 @@
-export type TemplateTargetKind = "text" | "image";
+import { shapeNameForTargetId } from "./namedTargetContract";
+
+export type TemplateTargetKind = "text" | "image" | "table";
 
 export interface TemplateTarget {
   targetId: string;
@@ -11,14 +13,20 @@ export const MOCK_TEMPLATE_TARGETS: TemplateTarget[] = [
   {
     targetId: "TITLE_MAIN",
     kind: "text",
-    shapeName: "TARGET_TITLE_MAIN",
+    shapeName: shapeNameForTargetId("TITLE_MAIN"),
     description: "Main title text box.",
   },
   {
     targetId: "HERO_IMAGE",
     kind: "image",
-    shapeName: "TARGET_HERO_IMAGE",
+    shapeName: shapeNameForTargetId("HERO_IMAGE"),
     description: "Hero image placeholder.",
+  },
+  {
+    targetId: "DATA_TABLE",
+    kind: "table",
+    shapeName: shapeNameForTargetId("DATA_TABLE"),
+    description: "Structured table target.",
   },
 ];
 

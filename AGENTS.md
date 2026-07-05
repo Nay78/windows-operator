@@ -23,7 +23,8 @@ Small safeguards:
 ## Scope
 
 - Source of truth: `/home/alejg/proj/windows-operator`
-- Windows path: `Z:\windows-operator`
+- Windows shared path: `Z:\windows-operator`
+- Windows SSH-copy source path: `C:\src\windows-operator` unless `WINDOWS_OPERATOR_WINDOWS_REPO_ROOT` overrides it
 - NixOS repo: `/home/alejg/nixos`, only for VM/share/tunnel declarations
 - Do not move this repo into `nixos`
 - Do not put machine-specific config in shared source
@@ -121,7 +122,9 @@ Linux host checks use the NixOS Operator REST tunnel on `127.0.0.1:43117`.
 - [Development notes](docs/development.md)
 - [Current backlog](docs/todo.md)
 - [Feature namespaces](docs/feature-namespaces.md)
+- [Operator harness target architecture](docs/operator-harness-architecture.md)
 - [Go client generation](docs/go-client-generation.md)
+- [Local machine overrides](docs/local-machine-overrides.md)
 - [Linux/Windows exchange plan](docs/operator-exchange.md)
 - [Email attachment automation plan](docs/email-attachment-automation.md)
 - [Outlook mail automation target architecture](docs/outlook-mail-automation-architecture.md)

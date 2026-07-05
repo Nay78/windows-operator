@@ -1,5 +1,6 @@
 import type {
   ArtifactRef,
+  DiscoveredTarget,
   ResolvedArtifact,
   TargetInspection,
   UpdateError,
@@ -19,6 +20,8 @@ export interface ArtifactResolver {
 }
 
 export interface PresentationAdapter {
+  discoverTargets(): Promise<DiscoveredTarget[]>;
+  bindNamedTargets(operations: UpdateOperation[]): Promise<TargetInspection[]>;
   inspectTargets(targetIds: string[]): Promise<TargetInspection[]>;
   apply(operations: UpdateOperation[], artifacts: Map<string, ResolvedArtifact>): Promise<UpdateResult["targets"]>;
 }

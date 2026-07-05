@@ -1,6 +1,9 @@
 # Windows Operator
 
-Windows-first desktop operator for local automation. Repo targets a logged-in user session on Windows 10 2004+ and Windows 11. No Windows service, no Linux runtime glue, no remote bind by default.
+Windows-first desktop operator for local automation. Repo targets a logged-in
+user session on Windows 10 2004+ and Windows 11. Host and Agent run on Windows;
+Linux scripts are operator-side helpers. No Windows service or remote bind by
+default.
 
 ## Projects
 
@@ -13,7 +16,7 @@ Windows-first desktop operator for local automation. Repo targets a logged-in us
 - `src/WindowsOperator.Mcp`: MCP tool catalog plus HTTP/stdio transports.
 - `src/WindowsOperator.MailWorker`: short-lived Classic Outlook COM worker.
 - `tests/*`: unit and integration coverage.
-- `docs/`: development notes and phase 2 Codex adapter boundary.
+- `docs/`: development notes, operator runbooks, and automation boundaries.
 - `openapi/` and `clients/go/`: committed OpenAPI spec and generated Go client.
 
 ## v1 surfaces
@@ -44,6 +47,8 @@ Host REST binds `127.0.0.1:43117` by default and proxies desktop automation to t
 - `POST /v1/browser/edge/session/{sessionId}/close`
 - `POST /v1/browser/edge/session/{sessionId}/screenshot`
 - `POST /v1/browser/edge/session/{sessionId}/cleanup`
+- `POST /v1/dev/browser/edge/sessions/{sessionId}/eval`
+- `POST /v1/dev/powerpoint/online/sessions/{sessionId}/script`
 - `POST /v1/auth/microsoft/cleanup`
 - `POST /v1/auth/microsoft/authorize-probe`
 - `GET /v1/auth/microsoft/authorize-probe/status/latest`
@@ -57,6 +62,17 @@ Host REST binds `127.0.0.1:43117` by default and proxies desktop automation to t
 - `POST /v1/powerpoint/jobs/{jobId}/fail`
 - `GET /v1/powerpoint/jobs/{jobId}`
 - `GET /v1/powerpoint/jobs/{jobId}/artifacts/{artifactId}`
+- `POST /v1/powerpoint/online/sessions`
+- `GET /v1/powerpoint/online/sessions/{sessionId}`
+- `POST /v1/powerpoint/online/sessions/{sessionId}/addin/probe`
+- `POST /v1/powerpoint/online/sessions/{sessionId}/addin/run-pending-job`
+- `POST /v1/powerpoint/online/sessions/{sessionId}/cleanup`
+- `POST /v1/powerpoint/online/sessions/{sessionId}/save/wait`
+- `POST /v1/powerpoint/online/sessions/{sessionId}/screenshot`
+- `POST /v1/powerpoint/online/sessions/{sessionId}/slides/select`
+- `POST /v1/powerpoint/online/sessions/{sessionId}/template/cleanup`
+- `POST /v1/powerpoint/online/sessions/{sessionId}/template/prepare`
+- `POST /v1/powerpoint/online/updates`
 - `POST /v1/mail/folders`
 - `POST /v1/mail/messages/search`
 - `POST /v1/mail/attachments/download`
@@ -65,6 +81,8 @@ Host REST binds `127.0.0.1:43117` by default and proxies desktop automation to t
 - `GET /openapi.json`
 
 MCP tools expose the AI-facing operator subset at `POST /mcp`. PowerPoint mutation stays REST-only unless a direct MCP workflow is added.
+
+`/v1/dev/...` routes are disabled by default and exist for local debugging harnesses only.
 
 Each MCP tool carries agent-facing metadata:
 
@@ -107,12 +125,17 @@ Tool calls return full machine-readable JSON in `structuredContent`. Text conten
 - UI automation backend seam exists, but the current implementation ships only `FlaUI.UIA3`.
 - Screenshot backend chain is `WindowsGraphicsCapture -> PrintWindow -> GdiBitBlt`.
 - Default screenshot output is JPEG quality `85`, longest edge `1600px`. PNG available for debugging.
-- Workbench screenshots write files under `runs/<runId>/screenshots/` in `WINDOWS_OPERATOR_EXCHANGE_ROOT` or `Z:\operator-exchange`; Host paths map through `WINDOWS_OPERATOR_HOST_EXCHANGE_ROOT` or `/var/lib/windows-server/shared/operator-exchange`.
+- Workbench screenshots write files under `runs/<runId>/screenshots/` in
+  `WINDOWS_OPERATOR_EXCHANGE_ROOT` or `Z:\operator-exchange`; Host paths map
+  through `WINDOWS_OPERATOR_HOST_EXCHANGE_ROOT` or
+  `/var/lib/windows-server/shared/operator-exchange`.
 - Active window appears first in window listings. v1 keeps privacy/token scope on active-window capture flow.
 
 ## Provisioning model
 
-Shared repo stays canonical source. Windows host builds from shared source in place, but mutable state stays local under `%LOCALAPPDATA%\WindowsOperator` by default:
+Shared repo stays canonical source. Windows host builds from shared source in
+place, but mutable state stays local under `%LOCALAPPDATA%\WindowsOperator` by
+default:
 
 - `DOTNET_CLI_HOME`
 - `NUGET_PACKAGES`
@@ -126,17 +149,29 @@ Provision a fresh Windows workstation with:
 powershell -ExecutionPolicy Bypass -File .\scripts\windows\bootstrap.ps1 -RepoRoot \\server\share\windows-operator -EnableAutostart
 ```
 
-Operator autostart uses two Task Scheduler entries. `WindowsOperator.Host` runs at startup as SYSTEM from a local published copy after a 30 second delay. Host REST always binds `127.0.0.1:43117`; PowerPoint add-in HTTPS on `https://localhost:3003` is enabled only when `register-host-autostart.ps1` stages a built add-in and localhost certificate. `WindowsOperator.Agent` runs only in the logged-in desktop session, unelevated, after a 30 second delay. Codex app-server autostart is a separate per-user task.
+Operator autostart uses two Task Scheduler entries. `WindowsOperator.Host` runs
+at startup as SYSTEM from a local published copy after a 30 second delay. Host
+REST always binds `127.0.0.1:43117`; PowerPoint add-in HTTPS on
+`https://localhost:3003` is enabled only when `register-host-autostart.ps1`
+stages a built add-in and localhost certificate. `WindowsOperator.Agent` runs
+only in the logged-in desktop session, unelevated, after a 30 second delay.
+Codex app-server autostart is a separate per-user task.
 
-The VM bootstrap wrapper also provisions Codex CLI under `%LOCALAPPDATA%\Codex`, using a local npm prefix/cache and a per-user `Codex.AppServer` scheduled task:
+The VM bootstrap wrapper also provisions Codex CLI under
+`%LOCALAPPDATA%\Codex`, using a local npm prefix/cache and a per-user
+`Codex.AppServer` scheduled task:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\windows\bootstrap-codex.ps1 -EnableAutostart -InstallProfile
 ```
 
-Codex credentials are not provisioned. Run `codex login` manually in the Windows desktop session. After login, `Codex.AppServer` starts `codex app-server --listen ws://127.0.0.1:43118` on Windows loopback.
+Codex credentials are not provisioned. Run `codex login` manually in the
+Windows desktop session. After login, `Codex.AppServer` starts
+`codex app-server --listen ws://127.0.0.1:43118` on Windows loopback.
 
-For shell usability, bootstrap also persists `%LOCALAPPDATA%\Codex\npm-global` on the user `PATH` and writes compatibility shims into `%APPDATA%\npm\codex.cmd` and `%APPDATA%\npm\codex.ps1`.
+For shell usability, bootstrap also persists `%LOCALAPPDATA%\Codex\npm-global`
+on the user `PATH` and writes compatibility shims into
+`%APPDATA%\npm\codex.cmd` and `%APPDATA%\npm\codex.ps1`.
 
 ## Local dev
 
@@ -157,7 +192,7 @@ dotnet test WindowsOperator.sln
 dotnet run --project src/WindowsOperator.Agent
 ```
 
-On Linux, use the portable filter for Linux-safe builds plus Host/MCP test coverage:
+On Linux, use the portable solution filter for Linux-safe builds plus Host/MCP test coverage:
 
 ```bash
 dotnet test WindowsOperator.Portable.slnf
@@ -178,9 +213,8 @@ From Linux, run repo-owned Windows scripts through the exchange runner:
 scripts/linux/windows-run-ps.sh scripts/windows/bootstrap-vm.ps1
 ```
 
-The runner defaults to `administrator@127.0.0.1:22555` and uses `/run/secrets/ssh_automation_key` when present.
-
-The runner stages a copy under `operator-exchange/runs/<run-id>` and verifies it against the repo script hash before Windows executes it.
+The runner defaults to `administrator@127.0.0.1:22555`. Staging, SSH, and
+copy-backed target details live in [operator exchange](docs/operator-exchange.md#linux-runner).
 
 For Microsoft device-code login, hand off to Edge in the logged-in Windows desktop session:
 
@@ -206,7 +240,10 @@ For Outlook profile recovery when REST mail calls are degraded:
 scripts/linux/windows-run-ps.sh scripts/windows/recover-outlook-mail.ps1 -Mode Profile
 ```
 
-Agent machine-local overrides belong in `%LOCALAPPDATA%\WindowsOperator\run\appsettings.Local.json`. Host autostart writes `%ProgramData%\WindowsOperator\run\host.appsettings.Local.json`.
+Agent machine-local overrides belong in
+`%LOCALAPPDATA%\WindowsOperator\run\appsettings.Local.json`. Host autostart
+writes `%ProgramData%\WindowsOperator\run\host.appsettings.Local.json`.
+Template shapes live in [local machine overrides](docs/local-machine-overrides.md).
 
 ## Current limits
 

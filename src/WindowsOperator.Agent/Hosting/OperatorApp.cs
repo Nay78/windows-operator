@@ -36,7 +36,9 @@ public static class OperatorApp
         builder.Services.Configure<JsonOptions>(options => OperatorJson.Configure(options.SerializerOptions));
         builder.Services.Configure<OperatorOptions>(builder.Configuration.GetSection(OperatorOptions.SectionName));
         builder.Services.Configure<WorkbenchOptions>(builder.Configuration.GetSection(WorkbenchOptions.SectionName));
+        builder.Services.Configure<DevAutomationOptions>(builder.Configuration.GetSection(DevAutomationOptions.SectionName));
         builder.Services.PostConfigure<WorkbenchOptions>(ApplyWorkbenchEnvironmentOverrides);
+        builder.Services.PostConfigure<DevAutomationOptions>(ApplyDevAutomationEnvironmentOverrides);
 
         var options = builder.Configuration.GetSection(OperatorOptions.SectionName).Get<OperatorOptions>() ?? new OperatorOptions();
         builder.WebHost.UseUrls(options.RestBaseUrl);
@@ -51,9 +53,22 @@ public static class OperatorApp
         builder.Services.AddSingleton<EdgeMicrosoftAuthService>();
         builder.Services.AddSingleton<IMicrosoftAuthService>(services => services.GetRequiredService<EdgeMicrosoftAuthService>());
         builder.Services.AddSingleton<IEdgeBrowserService>(services => services.GetRequiredService<EdgeMicrosoftAuthService>());
+        builder.Services.AddSingleton<IEdgeDevToolsService, EdgeDevToolsService>();
+        builder.Services.AddSingleton<IPowerPointDevScriptCatalog, PowerPointDevScriptCatalog>();
         builder.Services.AddSingleton<WorkbenchRunStore>();
         builder.Services.AddSingleton<OwnedSessionRegistry>();
         builder.Services.AddSingleton<IWorkbenchService, WorkbenchService>();
+        builder.Services.AddHttpClient<IPowerPointOnlineAddInHostProbe, HttpPowerPointOnlineAddInHostProbe>();
+        builder.Services.AddSingleton<IPowerPointOnlineService>(services =>
+            new PowerPointOnlineService(
+                services.GetRequiredService<IEdgeBrowserService>(),
+                services.GetRequiredService<IInputService>(),
+                services.GetRequiredService<IPowerPointOnlineAddInHostProbe>(),
+                services.GetRequiredService<IUiAutomationService>(),
+                services.GetRequiredService<WorkbenchRunStore>(),
+                services.GetRequiredService<IWorkbenchService>(),
+                services.GetRequiredService<IEdgeDevToolsService>()));
+        builder.Services.AddSingleton<IDevAutomationService, PowerPointDevAutomationService>();
         builder.Services.AddSingleton<IOperatorFacade, OperatorFacade>();
         builder.Services.AddOperatorMcp(hostStdioServer: !useTestServer);
 
@@ -86,4 +101,23 @@ public static class OperatorApp
             options.HostExchangeRoot = hostExchangeRoot;
         }
     }
+
+    private static void ApplyDevAutomationEnvironmentOverrides(DevAutomationOptions options)
+    {
+        if (IsEnabled(Environment.GetEnvironmentVariable("WINDOWS_OPERATOR_DEV_AUTOMATION")))
+        {
+            options.Enabled = true;
+        }
+
+        if (IsEnabled(Environment.GetEnvironmentVariable("WINDOWS_OPERATOR_DEV_RAW_JS")))
+        {
+            options.AllowRawJs = true;
+        }
+    }
+
+    private static bool IsEnabled(string? value) =>
+        string.Equals(value, "1", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(value, "true", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(value, "yes", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(value, "on", StringComparison.OrdinalIgnoreCase);
 }

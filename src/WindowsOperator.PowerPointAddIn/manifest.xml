@@ -9,7 +9,7 @@
   <ProviderName>Local</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="Windows Operator PowerPoint"/>
-  <Description DefaultValue="Updates bound PowerPoint text and image targets from external job payloads."/>
+  <Description DefaultValue="Updates bound PowerPoint text, image, and table targets from external job payloads."/>
   <IconUrl DefaultValue="https://localhost:3003/assets/icon-32.png"/>
   <HighResolutionIconUrl DefaultValue="https://localhost:3003/assets/icon-80.png"/>
   <SupportUrl DefaultValue="https://localhost:3003"/>

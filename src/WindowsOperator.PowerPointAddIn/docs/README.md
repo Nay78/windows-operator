@@ -1,6 +1,6 @@
 # PowerPoint Add-in Docs
 
-Purpose: update text and images in the active PowerPoint presentation through Office.js, with Windows Operator Host owning job queue and artifact staging.
+Purpose: update text, images, and tables in the active PowerPoint presentation through Office.js, with Windows Operator Host owning job queue and artifact staging.
 
 ## Docs
 
@@ -19,4 +19,6 @@ Purpose: update text and images in the active PowerPoint presentation through Of
 
 Verified in this implementation: local contracts, build, add-in tests, manifest validation.
 
-Not verified here: live PowerPoint desktop/web mutation in Windows VM.
+Live PowerPoint Online mutation is verified at the harness level, not inside the
+add-in package docs. Current SEM27 text/image and table proof evidence lives in
+[PowerPoint automation architecture](../../../docs/powerpoint-automation-architecture.md).

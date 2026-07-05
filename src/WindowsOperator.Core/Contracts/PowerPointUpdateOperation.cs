@@ -17,4 +17,14 @@ public sealed record PowerPointUpdateOperation
     public string? AltText { get; init; }
 
     public string? Fit { get; init; }
+
+    public int? RowIndex { get; init; }
+
+    public int? ColumnIndex { get; init; }
+
+    public int? StartRowIndex { get; init; }
+
+    public int? StartColumnIndex { get; init; }
+
+    public IReadOnlyList<IReadOnlyList<string>>? Values { get; init; }
 }

@@ -145,6 +145,153 @@ public sealed class DesktopAgentClientTests
         Assert.Null(handler.Body);
     }
 
+    [Fact]
+    public async Task PowerPointOnlineSessionEndpoints_EscapeSessionId_AndPostExpectedPayloads()
+    {
+        var handler = new RecordingResponseHandler(request =>
+            request.RequestUri?.AbsolutePath.EndsWith("/addin/probe", StringComparison.Ordinal) == true
+                ? JsonResponse(CreatePowerPointOnlineAddInProbeResult())
+                : JsonResponse(CreatePowerPointOnlineSessionResult()));
+        var client = CreateClient(handler);
+
+        await client.StartOnlineSessionAsync(
+            new PowerPointOnlineSessionStartRequest
+            {
+                DeckUrl = "https://example.sharepoint.com/deck.pptx?web=1",
+                SessionId = "ppt with/slash?#",
+                Capture = true,
+            },
+            CancellationToken.None);
+        Assert.Equal(HttpMethod.Post, handler.Method);
+        Assert.Equal("/v1/powerpoint/online/sessions", handler.PathAndQuery);
+        Assert.Contains("\"deckUrl\":\"https://example.sharepoint.com/deck.pptx?web=1\"", handler.Body);
+        Assert.Contains("\"sessionId\":\"ppt with/slash?#\"", handler.Body);
+
+        await client.GetOnlineSessionAsync("ppt with/slash?#", CancellationToken.None);
+        Assert.Equal(HttpMethod.Get, handler.Method);
+        Assert.Equal("/v1/powerpoint/online/sessions/ppt%20with%2Fslash%3F%23", handler.PathAndQuery);
+
+        await client.SelectOnlineSlideAsync(
+            "ppt with/slash?#",
+            new PowerPointOnlineSlideSelectRequest { SlideNumber = 4, Capture = false, WaitSeconds = 0 },
+            CancellationToken.None);
+        Assert.Equal(HttpMethod.Post, handler.Method);
+        Assert.Equal("/v1/powerpoint/online/sessions/ppt%20with%2Fslash%3F%23/slides/select", handler.PathAndQuery);
+        Assert.Contains("\"slideNumber\":4", handler.Body);
+
+        await client.ProbeOnlineAddInAsync(
+            "ppt with/slash?#",
+            new PowerPointOnlineAddInProbeRequest
+            {
+                AddInBaseUrl = "https://localhost:3003",
+                Capture = true,
+                ActivateIfNeeded = true,
+                ActivationTimeoutSeconds = 11,
+                HostTimeoutSeconds = 7,
+            },
+            CancellationToken.None);
+        Assert.Equal(HttpMethod.Post, handler.Method);
+        Assert.Equal("/v1/powerpoint/online/sessions/ppt%20with%2Fslash%3F%23/addin/probe", handler.PathAndQuery);
+        Assert.Contains("\"addInBaseUrl\":\"https://localhost:3003\"", handler.Body);
+        Assert.Contains("\"activateIfNeeded\":true", handler.Body);
+        Assert.Contains("\"activationTimeoutSeconds\":11", handler.Body);
+        Assert.Contains("\"hostTimeoutSeconds\":7", handler.Body);
+
+        await client.WaitForOnlineSaveAsync(
+            "ppt with/slash?#",
+            new PowerPointOnlineSaveWaitRequest { TimeoutSeconds = 9, PollSeconds = 2, Capture = true, Label = "save-wait" },
+            CancellationToken.None);
+        Assert.Equal(HttpMethod.Post, handler.Method);
+        Assert.Equal("/v1/powerpoint/online/sessions/ppt%20with%2Fslash%3F%23/save/wait", handler.PathAndQuery);
+        Assert.Contains("\"timeoutSeconds\":9", handler.Body);
+        Assert.Contains("\"pollSeconds\":2", handler.Body);
+        Assert.Contains("\"label\":\"save-wait\"", handler.Body);
+
+        await client.PrepareOnlineTemplateAsync(
+            "ppt with/slash?#",
+            new PowerPointOnlineTemplateRequest { Capture = true, WaitSeconds = 3, AllowDeckMutation = true, Label = "template-prepare" },
+            CancellationToken.None);
+        Assert.Equal(HttpMethod.Post, handler.Method);
+        Assert.Equal("/v1/powerpoint/online/sessions/ppt%20with%2Fslash%3F%23/template/prepare", handler.PathAndQuery);
+        Assert.Contains("\"capture\":true", handler.Body);
+        Assert.Contains("\"waitSeconds\":3", handler.Body);
+        Assert.Contains("\"allowDeckMutation\":true", handler.Body);
+        Assert.Contains("\"label\":\"template-prepare\"", handler.Body);
+
+        await client.CleanupOnlineTemplateAsync(
+            "ppt with/slash?#",
+            new PowerPointOnlineTemplateRequest { Capture = false, WaitSeconds = 4, AllowDeckMutation = true, Label = "template-cleanup" },
+            CancellationToken.None);
+        Assert.Equal(HttpMethod.Post, handler.Method);
+        Assert.Equal("/v1/powerpoint/online/sessions/ppt%20with%2Fslash%3F%23/template/cleanup", handler.PathAndQuery);
+        Assert.Contains("\"capture\":false", handler.Body);
+        Assert.Contains("\"waitSeconds\":4", handler.Body);
+        Assert.Contains("\"allowDeckMutation\":true", handler.Body);
+        Assert.Contains("\"label\":\"template-cleanup\"", handler.Body);
+
+        await client.RunOnlinePendingJobAsync(
+            "ppt with/slash?#",
+            new PowerPointOnlineAddInCommandRequest { Capture = true, WaitSeconds = 5, Label = "run-pending-job" },
+            CancellationToken.None);
+        Assert.Equal(HttpMethod.Post, handler.Method);
+        Assert.Equal("/v1/powerpoint/online/sessions/ppt%20with%2Fslash%3F%23/addin/run-pending-job", handler.PathAndQuery);
+        Assert.Contains("\"capture\":true", handler.Body);
+        Assert.Contains("\"waitSeconds\":5", handler.Body);
+        Assert.Contains("\"label\":\"run-pending-job\"", handler.Body);
+
+        await client.CaptureOnlineSessionScreenshotAsync(
+            "ppt with/slash?#",
+            new PowerPointOnlineSessionScreenshotRequest { Label = "ppt-online-shot" },
+            CancellationToken.None);
+        Assert.Equal(HttpMethod.Post, handler.Method);
+        Assert.Equal("/v1/powerpoint/online/sessions/ppt%20with%2Fslash%3F%23/screenshot", handler.PathAndQuery);
+        Assert.Contains("\"label\":\"ppt-online-shot\"", handler.Body);
+
+        await client.CleanupOnlineSessionAsync("ppt with/slash?#", CancellationToken.None);
+        Assert.Equal(HttpMethod.Post, handler.Method);
+        Assert.Equal("/v1/powerpoint/online/sessions/ppt%20with%2Fslash%3F%23/cleanup", handler.PathAndQuery);
+        Assert.Null(handler.Body);
+    }
+
+    [Fact]
+    public async Task DevAutomationEndpoints_EscapeSessionId_AndPostExpectedPayloads()
+    {
+        var handler = new RecordingResponseHandler(() => JsonResponse(CreateDevScriptResult()));
+        var client = CreateClient(handler);
+
+        await client.RunPowerPointOnlineScriptAsync(
+            "ppt with/slash?#",
+            new PowerPointDevScriptRequest
+            {
+                ScriptId = "ppt.dom.snapshot",
+                TimeoutSeconds = 7,
+                CaptureScreenshot = true,
+            },
+            CancellationToken.None);
+
+        Assert.Equal(HttpMethod.Post, handler.Method);
+        Assert.Equal("/v1/dev/powerpoint/online/sessions/ppt%20with%2Fslash%3F%23/script", handler.PathAndQuery);
+        Assert.Contains("\"scriptId\":\"ppt.dom.snapshot\"", handler.Body);
+        Assert.Contains("\"timeoutSeconds\":7", handler.Body);
+        Assert.Contains("\"captureScreenshot\":true", handler.Body);
+
+        await client.EvaluateEdgeBrowserSessionAsync(
+            "ppt with/slash?#",
+            new BrowserEdgeDevEvalRequest
+            {
+                Source = "document.title",
+                AllowUnsafeRawJs = true,
+                TimeoutSeconds = 3,
+            },
+            CancellationToken.None);
+
+        Assert.Equal(HttpMethod.Post, handler.Method);
+        Assert.Equal("/v1/dev/browser/edge/sessions/ppt%20with%2Fslash%3F%23/eval", handler.PathAndQuery);
+        Assert.Contains("\"source\":\"document.title\"", handler.Body);
+        Assert.Contains("\"allowUnsafeRawJs\":true", handler.Body);
+        Assert.Contains("\"timeoutSeconds\":3", handler.Body);
+    }
+
     private static DesktopAgentClient CreateClient(HttpResponseMessage response) =>
         new(
             new HttpClient(new StaticResponseHandler(response)),
@@ -251,6 +398,72 @@ public sealed class DesktopAgentClientTests
             [],
             DateTimeOffset.UnixEpoch);
 
+    private static PowerPointOnlineSessionResult CreatePowerPointOnlineSessionResult() =>
+        new()
+        {
+            Success = true,
+            SessionId = "ppt-session",
+            Status = PowerPointOnlineSessionStatus.Ready,
+            DeckUrl = "https://example.sharepoint.com/deck.pptx?web=1",
+            CanonicalUrl = "https://example.sharepoint.com/deck.pptx?web=1",
+            CurrentUrl = "https://example.sharepoint.com/deck.pptx?web=1",
+            CurrentTitle = "Deck - PowerPoint",
+            BrowserSessionId = "ppt-session",
+            Hwnd = 888,
+            ArtifactRoot = new WorkbenchRunRef(
+                "run",
+                @"Z:\operator-exchange\runs\run",
+                "runs/run",
+                "/var/lib/windows-server/shared/operator-exchange/runs/run"),
+            Evidence = Array.Empty<DesktopScreenshotResult>(),
+            Actions = new[] { "session_started" },
+            Warnings = Array.Empty<string>(),
+            Errors = Array.Empty<OperatorError>(),
+            ObservedAtUtc = DateTimeOffset.UnixEpoch,
+        };
+
+    private static PowerPointOnlineAddInProbeResult CreatePowerPointOnlineAddInProbeResult() =>
+        new()
+        {
+            Success = true,
+            Status = PowerPointOnlineAddInProbeStatus.Ready,
+            Session = CreatePowerPointOnlineSessionResult(),
+            AddInBaseUrl = "https://localhost:3003",
+            HostReachable = true,
+            TaskPaneUrl = "https://localhost:3003/taskpane.html",
+            TaskPaneReachable = true,
+            ManifestUrl = "https://localhost:3003/manifest.xml",
+            ManifestReachable = true,
+            ManifestId = "6f40d8a9-9f7b-4f32-9e3c-7a1d1d11a0a7",
+            ManifestVersion = "1.0.0.0",
+            ManifestDisplayName = "Windows Operator PowerPoint",
+            ManifestSourceLocation = "https://localhost:3003/taskpane.html",
+            TaskPaneVisible = true,
+            CommandVisible = true,
+            MatchedElements = Array.Empty<UiElementRef>(),
+            Evidence = Array.Empty<DesktopScreenshotResult>(),
+            Actions = new[] { "addin_taskpane_probe_ok", "addin_manifest_probe_ok", "addin_host_probe_ok" },
+            Warnings = Array.Empty<string>(),
+            Errors = Array.Empty<OperatorError>(),
+            ObservedAtUtc = DateTimeOffset.UnixEpoch,
+        };
+
+    private static DevScriptResult CreateDevScriptResult() =>
+        new()
+        {
+            Success = true,
+            Status = DevScriptStatus.Succeeded,
+            SessionId = "ppt-session",
+            ScriptId = "ppt.dom.snapshot",
+            Target = "powerpoint-page",
+            ResultJson = "{\"ok\":true}",
+            Actions = new[] { "dev_script_evaluated" },
+            Warnings = Array.Empty<string>(),
+            Errors = Array.Empty<string>(),
+            ObservedAtUtc = DateTimeOffset.UnixEpoch,
+            EvidencePath = "/host/runs/dev/result.json",
+        };
+
     private sealed class StaticResponseHandler : HttpMessageHandler
     {
         private readonly HttpResponseMessage _response;
@@ -268,9 +481,14 @@ public sealed class DesktopAgentClientTests
 
     private sealed class RecordingResponseHandler : HttpMessageHandler
     {
-        private readonly Func<HttpResponseMessage> _responseFactory;
+        private readonly Func<HttpRequestMessage, HttpResponseMessage> _responseFactory;
 
         public RecordingResponseHandler(Func<HttpResponseMessage> responseFactory)
+            : this(_ => responseFactory())
+        {
+        }
+
+        public RecordingResponseHandler(Func<HttpRequestMessage, HttpResponseMessage> responseFactory)
         {
             _responseFactory = responseFactory;
         }
@@ -291,7 +509,7 @@ public sealed class DesktopAgentClientTests
                 ? null
                 : await request.Content.ReadAsStringAsync(cancellationToken);
 
-            return _responseFactory();
+            return _responseFactory(request);
         }
     }
 }

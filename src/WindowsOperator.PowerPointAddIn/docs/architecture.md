@@ -41,10 +41,13 @@ External caller owns:
 3. User opens the add-in in PowerPoint.
 4. Add-in posts `PowerPointClaimJobRequest` with active document URL.
 5. Host returns first matching queued job or `204`.
-6. Add-in resolves staged artifacts and prevalidates targets.
-7. Add-in applies operations through `PowerPoint.run` and batches syncs.
-8. Add-in posts result to `/complete` or `/fail`.
-9. Caller reads `GET /v1/powerpoint/jobs/{jobId}`.
+6. If `bindNamedTargets=true`, add-in repairs operation target names
+   `TARGET_<TARGET_ID>` into bindings and `TARGET_ID`/`TARGET_KIND` tags.
+7. Add-in inspects target bindings/editability.
+8. If `validateOnly=true`, add-in completes from inspection only. No artifact resolution. No slide mutation except requested named-target repair.
+9. Otherwise add-in resolves staged artifacts and applies operations through `PowerPoint.run`. `readTable` returns a structured table snapshot without mutation; table cell/range writes use the PowerPoint table API.
+10. Add-in posts result to `/complete` or `/fail`.
+11. Caller reads `GET /v1/powerpoint/jobs/{jobId}`.
 
 ## Deep Module Boundary
 

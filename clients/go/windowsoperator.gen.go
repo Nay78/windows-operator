@@ -23,6 +23,20 @@ const (
 	Work BrowserEdgeProfileMode = "work"
 )
 
+// Defines values for DevScriptStatus.
+const (
+	DevScriptStatusBlockedSession     DevScriptStatus = "blockedSession"
+	DevScriptStatusDisabled           DevScriptStatus = "disabled"
+	DevScriptStatusMutationNotAllowed DevScriptStatus = "mutationNotAllowed"
+	DevScriptStatusRawJsDisabled      DevScriptStatus = "rawJsDisabled"
+	DevScriptStatusResultTooLarge     DevScriptStatus = "resultTooLarge"
+	DevScriptStatusScriptFailed       DevScriptStatus = "scriptFailed"
+	DevScriptStatusScriptNotFound     DevScriptStatus = "scriptNotFound"
+	DevScriptStatusSucceeded          DevScriptStatus = "succeeded"
+	DevScriptStatusTargetNotFound     DevScriptStatus = "targetNotFound"
+	DevScriptStatusTimeout            DevScriptStatus = "timeout"
+)
+
 // Defines values for MicrosoftAuthorizeProbeStatus.
 const (
 	MicrosoftAuthorizeProbeStatusDryRun           MicrosoftAuthorizeProbeStatus = "dryRun"
@@ -44,6 +58,48 @@ const (
 	MicrosoftDeviceLoginStatusTimedOut        MicrosoftDeviceLoginStatus = "timedOut"
 )
 
+// Defines values for PowerPointOnlineAddInProbeStatus.
+const (
+	PowerPointOnlineAddInProbeStatusBlockedActivation PowerPointOnlineAddInProbeStatus = "blockedActivation"
+	PowerPointOnlineAddInProbeStatusBlockedSession    PowerPointOnlineAddInProbeStatus = "blockedSession"
+	PowerPointOnlineAddInProbeStatusFailed            PowerPointOnlineAddInProbeStatus = "failed"
+	PowerPointOnlineAddInProbeStatusHostUnavailable   PowerPointOnlineAddInProbeStatus = "hostUnavailable"
+	PowerPointOnlineAddInProbeStatusReady             PowerPointOnlineAddInProbeStatus = "ready"
+)
+
+// Defines values for PowerPointOnlineSaveProofTier.
+const (
+	Tier0VisualOpen     PowerPointOnlineSaveProofTier = "tier0VisualOpen"
+	Tier1OfficeJsSync   PowerPointOnlineSaveProofTier = "tier1OfficeJsSync"
+	Tier2SavedIndicator PowerPointOnlineSaveProofTier = "tier2SavedIndicator"
+	Tier3ReopenVisual   PowerPointOnlineSaveProofTier = "tier3ReopenVisual"
+	Tier4CloudVersion   PowerPointOnlineSaveProofTier = "tier4CloudVersion"
+)
+
+// Defines values for PowerPointOnlineSessionStatus.
+const (
+	PowerPointOnlineSessionStatusBlockedAuth        PowerPointOnlineSessionStatus = "blockedAuth"
+	PowerPointOnlineSessionStatusBlockedOfficeError PowerPointOnlineSessionStatus = "blockedOfficeError"
+	PowerPointOnlineSessionStatusBlockedPermission  PowerPointOnlineSessionStatus = "blockedPermission"
+	PowerPointOnlineSessionStatusBlockedReadonly    PowerPointOnlineSessionStatus = "blockedReadonly"
+	PowerPointOnlineSessionStatusClosed             PowerPointOnlineSessionStatus = "closed"
+	PowerPointOnlineSessionStatusFailed             PowerPointOnlineSessionStatus = "failed"
+	PowerPointOnlineSessionStatusOpening            PowerPointOnlineSessionStatus = "opening"
+	PowerPointOnlineSessionStatusReady              PowerPointOnlineSessionStatus = "ready"
+)
+
+// Defines values for PowerPointOnlineUpdateStatus.
+const (
+	PowerPointOnlineUpdateStatusBlockedAddIn         PowerPointOnlineUpdateStatus = "blockedAddIn"
+	PowerPointOnlineUpdateStatusBlockedSession       PowerPointOnlineUpdateStatus = "blockedSession"
+	PowerPointOnlineUpdateStatusCleanupFailed        PowerPointOnlineUpdateStatus = "cleanupFailed"
+	PowerPointOnlineUpdateStatusFailed               PowerPointOnlineUpdateStatus = "failed"
+	PowerPointOnlineUpdateStatusSaveUnverified       PowerPointOnlineUpdateStatus = "saveUnverified"
+	PowerPointOnlineUpdateStatusSessionCleanupFailed PowerPointOnlineUpdateStatus = "sessionCleanupFailed"
+	PowerPointOnlineUpdateStatusSucceeded            PowerPointOnlineUpdateStatus = "succeeded"
+	PowerPointOnlineUpdateStatusVerificationFailed   PowerPointOnlineUpdateStatus = "verificationFailed"
+)
+
 // Defines values for ScreenshotFormat.
 const (
 	Jpeg ScreenshotFormat = "jpeg"
@@ -55,6 +111,16 @@ type ActionResult struct {
 	Message  string             `json:"message"`
 	Metadata *map[string]string `json:"metadata"`
 	Success  bool               `json:"success"`
+}
+
+// BrowserEdgeDevEvalRequest defines model for BrowserEdgeDevEvalRequest.
+type BrowserEdgeDevEvalRequest struct {
+	AllowUnsafeRawJs  *bool   `json:"allowUnsafeRawJs,omitempty"`
+	CaptureScreenshot *bool   `json:"captureScreenshot,omitempty"`
+	Label             *string `json:"label"`
+	RunId             *string `json:"runId"`
+	Source            *string `json:"source,omitempty"`
+	TimeoutSeconds    *int32  `json:"timeoutSeconds,omitempty"`
 }
 
 // BrowserEdgeOpenUrlRequest defines model for BrowserEdgeOpenUrlRequest.
@@ -201,6 +267,28 @@ type DesktopScreenshotResult struct {
 	Warnings      []string             `json:"warnings"`
 	Window        WindowRef            `json:"window"`
 }
+
+// DevScriptResult defines model for DevScriptResult.
+type DevScriptResult struct {
+	Actions       []string        `json:"actions"`
+	Errors        []string        `json:"errors"`
+	EvidencePath  *string         `json:"evidencePath"`
+	ObservedAtUtc time.Time       `json:"observedAtUtc"`
+	ResultJson    *string         `json:"resultJson"`
+	ResultText    *string         `json:"resultText"`
+	ScriptId      string          `json:"scriptId"`
+	SessionId     string          `json:"sessionId"`
+	SourceSha256  *string         `json:"sourceSha256"`
+	Status        DevScriptStatus `json:"status"`
+	Success       bool            `json:"success"`
+	Target        *string         `json:"target"`
+	TargetTitle   *string         `json:"targetTitle"`
+	TargetUrl     *string         `json:"targetUrl"`
+	Warnings      []string        `json:"warnings"`
+}
+
+// DevScriptStatus defines model for DevScriptStatus.
+type DevScriptStatus string
 
 // HealthResult defines model for HealthResult.
 type HealthResult struct {
@@ -468,6 +556,29 @@ type PowerPointClaimJobRequest struct {
 	WorkerId    *string `json:"workerId"`
 }
 
+// PowerPointDevScriptRequest defines model for PowerPointDevScriptRequest.
+type PowerPointDevScriptRequest struct {
+	AllowDeckMutation *bool              `json:"allowDeckMutation,omitempty"`
+	Args              *map[string]string `json:"args"`
+	CaptureScreenshot *bool              `json:"captureScreenshot,omitempty"`
+	Label             *string            `json:"label"`
+	RunId             *string            `json:"runId"`
+	ScriptId          *string            `json:"scriptId,omitempty"`
+	TimeoutSeconds    *int32             `json:"timeoutSeconds,omitempty"`
+}
+
+// PowerPointDiscoveredTarget defines model for PowerPointDiscoveredTarget.
+type PowerPointDiscoveredTarget struct {
+	Bound     *bool   `json:"bound"`
+	Editable  bool    `json:"editable"`
+	Message   *string `json:"message"`
+	ShapeName *string `json:"shapeName"`
+	Source    *string `json:"source"`
+	Tagged    *bool   `json:"tagged"`
+	TargetId  string  `json:"targetId"`
+	Type      string  `json:"type"`
+}
+
 // PowerPointJobRecord defines model for PowerPointJobRecord.
 type PowerPointJobRecord struct {
 	ClaimedAtUtc       *time.Time              `json:"claimedAtUtc"`
@@ -483,12 +594,202 @@ type PowerPointJobRecord struct {
 	UpdatedAtUtc       time.Time               `json:"updatedAtUtc"`
 }
 
+// PowerPointOnlineAddInCommandRequest defines model for PowerPointOnlineAddInCommandRequest.
+type PowerPointOnlineAddInCommandRequest struct {
+	Capture     *bool   `json:"capture,omitempty"`
+	Label       *string `json:"label"`
+	WaitSeconds *int32  `json:"waitSeconds,omitempty"`
+}
+
+// PowerPointOnlineAddInProbeRequest defines model for PowerPointOnlineAddInProbeRequest.
+type PowerPointOnlineAddInProbeRequest struct {
+	ActivateIfNeeded         *bool   `json:"activateIfNeeded,omitempty"`
+	ActivationTimeoutSeconds *int32  `json:"activationTimeoutSeconds,omitempty"`
+	AddInBaseUrl             *string `json:"addInBaseUrl,omitempty"`
+	Capture                  *bool   `json:"capture,omitempty"`
+	HostTimeoutSeconds       *int32  `json:"hostTimeoutSeconds,omitempty"`
+	Label                    *string `json:"label"`
+}
+
+// PowerPointOnlineAddInProbeResult defines model for PowerPointOnlineAddInProbeResult.
+type PowerPointOnlineAddInProbeResult struct {
+	Actions                []string                         `json:"actions"`
+	AddInBaseUrl           string                           `json:"addInBaseUrl"`
+	CommandVisible         bool                             `json:"commandVisible"`
+	Errors                 []OperatorError                  `json:"errors"`
+	Evidence               []DesktopScreenshotResult        `json:"evidence"`
+	HostReachable          bool                             `json:"hostReachable"`
+	ManifestDisplayName    *string                          `json:"manifestDisplayName"`
+	ManifestId             *string                          `json:"manifestId"`
+	ManifestReachable      bool                             `json:"manifestReachable"`
+	ManifestSourceLocation *string                          `json:"manifestSourceLocation"`
+	ManifestUrl            *string                          `json:"manifestUrl"`
+	ManifestVersion        *string                          `json:"manifestVersion"`
+	MatchedElements        []UiElementRef                   `json:"matchedElements"`
+	ObservedAtUtc          time.Time                        `json:"observedAtUtc"`
+	Session                PowerPointOnlineSessionResult    `json:"session"`
+	Status                 PowerPointOnlineAddInProbeStatus `json:"status"`
+	Success                bool                             `json:"success"`
+	TaskPaneReachable      bool                             `json:"taskPaneReachable"`
+	TaskPaneUrl            *string                          `json:"taskPaneUrl"`
+	TaskPaneVisible        bool                             `json:"taskPaneVisible"`
+	Warnings               []string                         `json:"warnings"`
+}
+
+// PowerPointOnlineAddInProbeStatus defines model for PowerPointOnlineAddInProbeStatus.
+type PowerPointOnlineAddInProbeStatus string
+
+// PowerPointOnlineSaveProofTier defines model for PowerPointOnlineSaveProofTier.
+type PowerPointOnlineSaveProofTier string
+
+// PowerPointOnlineSaveWaitRequest defines model for PowerPointOnlineSaveWaitRequest.
+type PowerPointOnlineSaveWaitRequest struct {
+	Capture        *bool   `json:"capture,omitempty"`
+	Label          *string `json:"label"`
+	PollSeconds    *int32  `json:"pollSeconds,omitempty"`
+	TimeoutSeconds *int32  `json:"timeoutSeconds,omitempty"`
+}
+
+// PowerPointOnlineSessionResult defines model for PowerPointOnlineSessionResult.
+type PowerPointOnlineSessionResult struct {
+	Actions          []string                      `json:"actions"`
+	ArtifactRoot     *WorkbenchRunRef              `json:"artifactRoot"`
+	BrowserSessionId *string                       `json:"browserSessionId"`
+	CanonicalUrl     *string                       `json:"canonicalUrl"`
+	CurrentSlide     *int32                        `json:"currentSlide"`
+	CurrentTitle     *string                       `json:"currentTitle"`
+	CurrentUrl       *string                       `json:"currentUrl"`
+	DeckUrl          string                        `json:"deckUrl"`
+	EditMode         *string                       `json:"editMode"`
+	Errors           []OperatorError               `json:"errors"`
+	Evidence         []DesktopScreenshotResult     `json:"evidence"`
+	Hwnd             *int64                        `json:"hwnd"`
+	ObservedAtUtc    time.Time                     `json:"observedAtUtc"`
+	SaveState        *string                       `json:"saveState"`
+	SessionId        string                        `json:"sessionId"`
+	SlideCount       *int32                        `json:"slideCount"`
+	Status           PowerPointOnlineSessionStatus `json:"status"`
+	Success          bool                          `json:"success"`
+	Warnings         []string                      `json:"warnings"`
+}
+
+// PowerPointOnlineSessionScreenshotRequest defines model for PowerPointOnlineSessionScreenshotRequest.
+type PowerPointOnlineSessionScreenshotRequest struct {
+	Format *ScreenshotFormat `json:"format,omitempty"`
+	Label  *string           `json:"label"`
+}
+
+// PowerPointOnlineSessionStartRequest defines model for PowerPointOnlineSessionStartRequest.
+type PowerPointOnlineSessionStartRequest struct {
+	Capture     *bool                   `json:"capture,omitempty"`
+	DeckUrl     *string                 `json:"deckUrl,omitempty"`
+	Label       *string                 `json:"label"`
+	ProfileMode *BrowserEdgeProfileMode `json:"profileMode,omitempty"`
+	RunId       *string                 `json:"runId"`
+	SessionId   *string                 `json:"sessionId"`
+	WaitSeconds *int32                  `json:"waitSeconds,omitempty"`
+}
+
+// PowerPointOnlineSessionStatus defines model for PowerPointOnlineSessionStatus.
+type PowerPointOnlineSessionStatus string
+
+// PowerPointOnlineSlideSelectRequest defines model for PowerPointOnlineSlideSelectRequest.
+type PowerPointOnlineSlideSelectRequest struct {
+	Capture     *bool   `json:"capture,omitempty"`
+	Label       *string `json:"label"`
+	SlideNumber *int32  `json:"slideNumber,omitempty"`
+	WaitSeconds *int32  `json:"waitSeconds,omitempty"`
+}
+
+// PowerPointOnlineTemplateRequest defines model for PowerPointOnlineTemplateRequest.
+type PowerPointOnlineTemplateRequest struct {
+	AllowDeckMutation *bool   `json:"allowDeckMutation,omitempty"`
+	Capture           *bool   `json:"capture,omitempty"`
+	Label             *string `json:"label"`
+	NamedOnly         *bool   `json:"namedOnly,omitempty"`
+	WaitSeconds       *int32  `json:"waitSeconds,omitempty"`
+}
+
+// PowerPointOnlineUpdatePhaseTimings defines model for PowerPointOnlineUpdatePhaseTimings.
+type PowerPointOnlineUpdatePhaseTimings struct {
+	AddInProbeMs          *int64 `json:"addInProbeMs"`
+	EvidenceMs            *int64 `json:"evidenceMs"`
+	JobMs                 *int64 `json:"jobMs"`
+	OpenSessionMs         *int64 `json:"openSessionMs"`
+	SaveMs                *int64 `json:"saveMs"`
+	SessionCleanupMs      *int64 `json:"sessionCleanupMs"`
+	TemplateCleanupMs     *int64 `json:"templateCleanupMs"`
+	TemplatePreparationMs *int64 `json:"templatePreparationMs"`
+	TotalMs               *int64 `json:"totalMs"`
+	VerificationReopenMs  *int64 `json:"verificationReopenMs"`
+}
+
+// PowerPointOnlineUpdateRequest defines model for PowerPointOnlineUpdateRequest.
+type PowerPointOnlineUpdateRequest struct {
+	AllowDeckMutation        *bool                `json:"allowDeckMutation,omitempty"`
+	Capture                  *bool                `json:"capture,omitempty"`
+	CleanupSession           *bool                `json:"cleanupSession,omitempty"`
+	CleanupTemplate          *bool                `json:"cleanupTemplate,omitempty"`
+	CleanupTemplateOnFailure *bool                `json:"cleanupTemplateOnFailure,omitempty"`
+	DeckUrl                  *string              `json:"deckUrl"`
+	EvidenceSlideNumber      *int32               `json:"evidenceSlideNumber"`
+	Job                      *PowerPointUpdateJob `json:"job,omitempty"`
+	JobTimeoutSeconds        *int32               `json:"jobTimeoutSeconds,omitempty"`
+	OpenWaitSeconds          *int32               `json:"openWaitSeconds,omitempty"`
+	PollSeconds              *int32               `json:"pollSeconds,omitempty"`
+	PrepareTemplate          *bool                `json:"prepareTemplate,omitempty"`
+	ReopenWaitSeconds        *int32               `json:"reopenWaitSeconds,omitempty"`
+	SavePollSeconds          *int32               `json:"savePollSeconds,omitempty"`
+	SaveTimeoutSeconds       *int32               `json:"saveTimeoutSeconds,omitempty"`
+	SessionId                *string              `json:"sessionId"`
+	TemplateWaitSeconds      *int32               `json:"templateWaitSeconds,omitempty"`
+	VerifyReopen             *bool                `json:"verifyReopen,omitempty"`
+}
+
+// PowerPointOnlineUpdateResult defines model for PowerPointOnlineUpdateResult.
+type PowerPointOnlineUpdateResult struct {
+	Actions                    []string                            `json:"actions"`
+	Errors                     []OperatorError                     `json:"errors"`
+	Evidence                   []DesktopScreenshotResult           `json:"evidence"`
+	JobRecord                  PowerPointJobRecord                 `json:"jobRecord"`
+	ObservedAtUtc              time.Time                           `json:"observedAtUtc"`
+	PhaseTimings               *PowerPointOnlineUpdatePhaseTimings `json:"phaseTimings"`
+	SaveProofTier              PowerPointOnlineSaveProofTier       `json:"saveProofTier"`
+	Session                    PowerPointOnlineSessionResult       `json:"session"`
+	SessionCleanupSession      *PowerPointOnlineSessionResult      `json:"sessionCleanupSession"`
+	Status                     PowerPointOnlineUpdateStatus        `json:"status"`
+	Success                    bool                                `json:"success"`
+	TemplateCleanupSession     *PowerPointOnlineSessionResult      `json:"templateCleanupSession"`
+	TemplatePreparationSession *PowerPointOnlineSessionResult      `json:"templatePreparationSession"`
+	VerificationSession        *PowerPointOnlineSessionResult      `json:"verificationSession"`
+	Warnings                   []string                            `json:"warnings"`
+}
+
+// PowerPointOnlineUpdateStatus defines model for PowerPointOnlineUpdateStatus.
+type PowerPointOnlineUpdateStatus string
+
+// PowerPointTableSnapshot defines model for PowerPointTableSnapshot.
+type PowerPointTableSnapshot struct {
+	ColumnCount int32      `json:"columnCount"`
+	RowCount    int32      `json:"rowCount"`
+	Values      [][]string `json:"values"`
+}
+
 // PowerPointTargetResult defines model for PowerPointTargetResult.
 type PowerPointTargetResult struct {
-	Error         *PowerPointUpdateError `json:"error"`
-	OperationKind string                 `json:"operationKind"`
-	Status        string                 `json:"status"`
-	TargetId      string                 `json:"targetId"`
+	Bound         *bool                    `json:"bound"`
+	Editable      *bool                    `json:"editable"`
+	Error         *PowerPointUpdateError   `json:"error"`
+	Found         *bool                    `json:"found"`
+	Message       *string                  `json:"message"`
+	OperationKind string                   `json:"operationKind"`
+	ShapeName     *string                  `json:"shapeName"`
+	Source        *string                  `json:"source"`
+	Status        string                   `json:"status"`
+	Table         *PowerPointTableSnapshot `json:"table"`
+	Tagged        *bool                    `json:"tagged"`
+	TargetId      string                   `json:"targetId"`
+	Type          *string                  `json:"type"`
 }
 
 // PowerPointUpdateError defines model for PowerPointUpdateError.
@@ -501,32 +802,41 @@ type PowerPointUpdateError struct {
 
 // PowerPointUpdateJob defines model for PowerPointUpdateJob.
 type PowerPointUpdateJob struct {
+	BindNamedTargets    bool                        `json:"bindNamedTargets"`
 	CreatedAt           time.Time                   `json:"createdAt"`
+	DiscoverTargets     bool                        `json:"discoverTargets"`
 	ExpectedDocumentUrl *string                     `json:"expectedDocumentUrl"`
 	JobId               string                      `json:"jobId"`
 	Operations          []PowerPointUpdateOperation `json:"operations"`
 	RequestedBy         string                      `json:"requestedBy"`
+	ValidateOnly        bool                        `json:"validateOnly"`
 }
 
 // PowerPointUpdateOperation defines model for PowerPointUpdateOperation.
 type PowerPointUpdateOperation struct {
-	AllowEmpty *bool                  `json:"allowEmpty"`
-	AltText    *string                `json:"altText"`
-	Artifact   *PowerPointArtifactRef `json:"artifact"`
-	Fit        *string                `json:"fit"`
-	Kind       string                 `json:"kind"`
-	Mode       *string                `json:"mode"`
-	TargetId   string                 `json:"targetId"`
-	Text       *string                `json:"text"`
+	AllowEmpty       *bool                  `json:"allowEmpty"`
+	AltText          *string                `json:"altText"`
+	Artifact         *PowerPointArtifactRef `json:"artifact"`
+	ColumnIndex      *int32                 `json:"columnIndex"`
+	Fit              *string                `json:"fit"`
+	Kind             string                 `json:"kind"`
+	Mode             *string                `json:"mode"`
+	RowIndex         *int32                 `json:"rowIndex"`
+	StartColumnIndex *int32                 `json:"startColumnIndex"`
+	StartRowIndex    *int32                 `json:"startRowIndex"`
+	TargetId         string                 `json:"targetId"`
+	Text             *string                `json:"text"`
+	Values           *[][]string            `json:"values"`
 }
 
 // PowerPointUpdateResult defines model for PowerPointUpdateResult.
 type PowerPointUpdateResult struct {
-	FinishedAt time.Time                `json:"finishedAt"`
-	JobId      string                   `json:"jobId"`
-	StartedAt  time.Time                `json:"startedAt"`
-	Status     string                   `json:"status"`
-	Targets    []PowerPointTargetResult `json:"targets"`
+	DiscoveredTargets *[]PowerPointDiscoveredTarget `json:"discoveredTargets"`
+	FinishedAt        time.Time                     `json:"finishedAt"`
+	JobId             string                        `json:"jobId"`
+	StartedAt         time.Time                     `json:"startedAt"`
+	Status            string                        `json:"status"`
+	Targets           []PowerPointTargetResult      `json:"targets"`
 }
 
 // ScreenClickRequest defines model for ScreenClickRequest.
@@ -705,6 +1015,12 @@ type CaptureEdgeBrowserSessionScreenshotJSONRequestBody = DesktopScreenshotReque
 // CaptureDesktopScreenshotJSONRequestBody defines body for CaptureDesktopScreenshot for application/json ContentType.
 type CaptureDesktopScreenshotJSONRequestBody = DesktopScreenshotRequest
 
+// EvaluateEdgeBrowserDevScriptJSONRequestBody defines body for EvaluateEdgeBrowserDevScript for application/json ContentType.
+type EvaluateEdgeBrowserDevScriptJSONRequestBody = BrowserEdgeDevEvalRequest
+
+// RunPowerPointOnlineDevScriptJSONRequestBody defines body for RunPowerPointOnlineDevScript for application/json ContentType.
+type RunPowerPointOnlineDevScriptJSONRequestBody = PowerPointDevScriptRequest
+
 // ClickScreenJSONRequestBody defines body for ClickScreen for application/json ContentType.
 type ClickScreenJSONRequestBody = ScreenClickRequest
 
@@ -731,6 +1047,33 @@ type CompletePowerPointJobJSONRequestBody = PowerPointUpdateResult
 
 // FailPowerPointJobJSONRequestBody defines body for FailPowerPointJob for application/json ContentType.
 type FailPowerPointJobJSONRequestBody = PowerPointUpdateError
+
+// StartPowerPointOnlineSessionJSONRequestBody defines body for StartPowerPointOnlineSession for application/json ContentType.
+type StartPowerPointOnlineSessionJSONRequestBody = PowerPointOnlineSessionStartRequest
+
+// ProbePowerPointOnlineAddInJSONRequestBody defines body for ProbePowerPointOnlineAddIn for application/json ContentType.
+type ProbePowerPointOnlineAddInJSONRequestBody = PowerPointOnlineAddInProbeRequest
+
+// RunPowerPointOnlinePendingJobJSONRequestBody defines body for RunPowerPointOnlinePendingJob for application/json ContentType.
+type RunPowerPointOnlinePendingJobJSONRequestBody = PowerPointOnlineAddInCommandRequest
+
+// WaitPowerPointOnlineSaveJSONRequestBody defines body for WaitPowerPointOnlineSave for application/json ContentType.
+type WaitPowerPointOnlineSaveJSONRequestBody = PowerPointOnlineSaveWaitRequest
+
+// CapturePowerPointOnlineSessionScreenshotJSONRequestBody defines body for CapturePowerPointOnlineSessionScreenshot for application/json ContentType.
+type CapturePowerPointOnlineSessionScreenshotJSONRequestBody = PowerPointOnlineSessionScreenshotRequest
+
+// SelectPowerPointOnlineSlideJSONRequestBody defines body for SelectPowerPointOnlineSlide for application/json ContentType.
+type SelectPowerPointOnlineSlideJSONRequestBody = PowerPointOnlineSlideSelectRequest
+
+// CleanupPowerPointOnlineTemplateJSONRequestBody defines body for CleanupPowerPointOnlineTemplate for application/json ContentType.
+type CleanupPowerPointOnlineTemplateJSONRequestBody = PowerPointOnlineTemplateRequest
+
+// PreparePowerPointOnlineTemplateJSONRequestBody defines body for PreparePowerPointOnlineTemplate for application/json ContentType.
+type PreparePowerPointOnlineTemplateJSONRequestBody = PowerPointOnlineTemplateRequest
+
+// UpdatePowerPointOnlinePresentationJSONRequestBody defines body for UpdatePowerPointOnlinePresentation for application/json ContentType.
+type UpdatePowerPointOnlinePresentationJSONRequestBody = PowerPointOnlineUpdateRequest
 
 // CaptureWorkbenchSessionScreenshotJSONRequestBody defines body for CaptureWorkbenchSessionScreenshot for application/json ContentType.
 type CaptureWorkbenchSessionScreenshotJSONRequestBody = DesktopScreenshotRequest
@@ -896,6 +1239,16 @@ type ClientInterface interface {
 
 	CaptureDesktopScreenshot(ctx context.Context, body CaptureDesktopScreenshotJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// EvaluateEdgeBrowserDevScriptWithBody request with any body
+	EvaluateEdgeBrowserDevScriptWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	EvaluateEdgeBrowserDevScript(ctx context.Context, sessionId string, body EvaluateEdgeBrowserDevScriptJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RunPowerPointOnlineDevScriptWithBody request with any body
+	RunPowerPointOnlineDevScriptWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	RunPowerPointOnlineDevScript(ctx context.Context, sessionId string, body RunPowerPointOnlineDevScriptJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetHealth request
 	GetHealth(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -955,6 +1308,57 @@ type ClientInterface interface {
 	FailPowerPointJobWithBody(ctx context.Context, jobId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	FailPowerPointJob(ctx context.Context, jobId string, body FailPowerPointJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StartPowerPointOnlineSessionWithBody request with any body
+	StartPowerPointOnlineSessionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	StartPowerPointOnlineSession(ctx context.Context, body StartPowerPointOnlineSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetPowerPointOnlineSession request
+	GetPowerPointOnlineSession(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ProbePowerPointOnlineAddInWithBody request with any body
+	ProbePowerPointOnlineAddInWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	ProbePowerPointOnlineAddIn(ctx context.Context, sessionId string, body ProbePowerPointOnlineAddInJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RunPowerPointOnlinePendingJobWithBody request with any body
+	RunPowerPointOnlinePendingJobWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	RunPowerPointOnlinePendingJob(ctx context.Context, sessionId string, body RunPowerPointOnlinePendingJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CleanupPowerPointOnlineSession request
+	CleanupPowerPointOnlineSession(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// WaitPowerPointOnlineSaveWithBody request with any body
+	WaitPowerPointOnlineSaveWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	WaitPowerPointOnlineSave(ctx context.Context, sessionId string, body WaitPowerPointOnlineSaveJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CapturePowerPointOnlineSessionScreenshotWithBody request with any body
+	CapturePowerPointOnlineSessionScreenshotWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CapturePowerPointOnlineSessionScreenshot(ctx context.Context, sessionId string, body CapturePowerPointOnlineSessionScreenshotJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SelectPowerPointOnlineSlideWithBody request with any body
+	SelectPowerPointOnlineSlideWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SelectPowerPointOnlineSlide(ctx context.Context, sessionId string, body SelectPowerPointOnlineSlideJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CleanupPowerPointOnlineTemplateWithBody request with any body
+	CleanupPowerPointOnlineTemplateWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CleanupPowerPointOnlineTemplate(ctx context.Context, sessionId string, body CleanupPowerPointOnlineTemplateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PreparePowerPointOnlineTemplateWithBody request with any body
+	PreparePowerPointOnlineTemplateWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PreparePowerPointOnlineTemplate(ctx context.Context, sessionId string, body PreparePowerPointOnlineTemplateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdatePowerPointOnlinePresentationWithBody request with any body
+	UpdatePowerPointOnlinePresentationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdatePowerPointOnlinePresentation(ctx context.Context, body UpdatePowerPointOnlinePresentationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetWorkbenchSession request
 	GetWorkbenchSession(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1352,6 +1756,54 @@ func (c *Client) CaptureDesktopScreenshot(ctx context.Context, body CaptureDeskt
 	return c.Client.Do(req)
 }
 
+func (c *Client) EvaluateEdgeBrowserDevScriptWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEvaluateEdgeBrowserDevScriptRequestWithBody(c.Server, sessionId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) EvaluateEdgeBrowserDevScript(ctx context.Context, sessionId string, body EvaluateEdgeBrowserDevScriptJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEvaluateEdgeBrowserDevScriptRequest(c.Server, sessionId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RunPowerPointOnlineDevScriptWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRunPowerPointOnlineDevScriptRequestWithBody(c.Server, sessionId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RunPowerPointOnlineDevScript(ctx context.Context, sessionId string, body RunPowerPointOnlineDevScriptJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRunPowerPointOnlineDevScriptRequest(c.Server, sessionId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetHealth(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetHealthRequest(c.Server)
 	if err != nil {
@@ -1618,6 +2070,246 @@ func (c *Client) FailPowerPointJobWithBody(ctx context.Context, jobId string, co
 
 func (c *Client) FailPowerPointJob(ctx context.Context, jobId string, body FailPowerPointJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewFailPowerPointJobRequest(c.Server, jobId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StartPowerPointOnlineSessionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartPowerPointOnlineSessionRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StartPowerPointOnlineSession(ctx context.Context, body StartPowerPointOnlineSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartPowerPointOnlineSessionRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetPowerPointOnlineSession(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetPowerPointOnlineSessionRequest(c.Server, sessionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ProbePowerPointOnlineAddInWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewProbePowerPointOnlineAddInRequestWithBody(c.Server, sessionId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ProbePowerPointOnlineAddIn(ctx context.Context, sessionId string, body ProbePowerPointOnlineAddInJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewProbePowerPointOnlineAddInRequest(c.Server, sessionId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RunPowerPointOnlinePendingJobWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRunPowerPointOnlinePendingJobRequestWithBody(c.Server, sessionId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RunPowerPointOnlinePendingJob(ctx context.Context, sessionId string, body RunPowerPointOnlinePendingJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRunPowerPointOnlinePendingJobRequest(c.Server, sessionId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CleanupPowerPointOnlineSession(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCleanupPowerPointOnlineSessionRequest(c.Server, sessionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) WaitPowerPointOnlineSaveWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewWaitPowerPointOnlineSaveRequestWithBody(c.Server, sessionId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) WaitPowerPointOnlineSave(ctx context.Context, sessionId string, body WaitPowerPointOnlineSaveJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewWaitPowerPointOnlineSaveRequest(c.Server, sessionId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CapturePowerPointOnlineSessionScreenshotWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCapturePowerPointOnlineSessionScreenshotRequestWithBody(c.Server, sessionId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CapturePowerPointOnlineSessionScreenshot(ctx context.Context, sessionId string, body CapturePowerPointOnlineSessionScreenshotJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCapturePowerPointOnlineSessionScreenshotRequest(c.Server, sessionId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SelectPowerPointOnlineSlideWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSelectPowerPointOnlineSlideRequestWithBody(c.Server, sessionId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SelectPowerPointOnlineSlide(ctx context.Context, sessionId string, body SelectPowerPointOnlineSlideJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSelectPowerPointOnlineSlideRequest(c.Server, sessionId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CleanupPowerPointOnlineTemplateWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCleanupPowerPointOnlineTemplateRequestWithBody(c.Server, sessionId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CleanupPowerPointOnlineTemplate(ctx context.Context, sessionId string, body CleanupPowerPointOnlineTemplateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCleanupPowerPointOnlineTemplateRequest(c.Server, sessionId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PreparePowerPointOnlineTemplateWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreparePowerPointOnlineTemplateRequestWithBody(c.Server, sessionId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PreparePowerPointOnlineTemplate(ctx context.Context, sessionId string, body PreparePowerPointOnlineTemplateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreparePowerPointOnlineTemplateRequest(c.Server, sessionId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdatePowerPointOnlinePresentationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdatePowerPointOnlinePresentationRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdatePowerPointOnlinePresentation(ctx context.Context, body UpdatePowerPointOnlinePresentationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdatePowerPointOnlinePresentationRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2503,6 +3195,100 @@ func NewCaptureDesktopScreenshotRequestWithBody(server string, contentType strin
 	return req, nil
 }
 
+// NewEvaluateEdgeBrowserDevScriptRequest calls the generic EvaluateEdgeBrowserDevScript builder with application/json body
+func NewEvaluateEdgeBrowserDevScriptRequest(server string, sessionId string, body EvaluateEdgeBrowserDevScriptJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewEvaluateEdgeBrowserDevScriptRequestWithBody(server, sessionId, "application/json", bodyReader)
+}
+
+// NewEvaluateEdgeBrowserDevScriptRequestWithBody generates requests for EvaluateEdgeBrowserDevScript with any type of body
+func NewEvaluateEdgeBrowserDevScriptRequestWithBody(server string, sessionId string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sessionId", runtime.ParamLocationPath, sessionId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/dev/browser/edge/sessions/%s/eval", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewRunPowerPointOnlineDevScriptRequest calls the generic RunPowerPointOnlineDevScript builder with application/json body
+func NewRunPowerPointOnlineDevScriptRequest(server string, sessionId string, body RunPowerPointOnlineDevScriptJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRunPowerPointOnlineDevScriptRequestWithBody(server, sessionId, "application/json", bodyReader)
+}
+
+// NewRunPowerPointOnlineDevScriptRequestWithBody generates requests for RunPowerPointOnlineDevScript with any type of body
+func NewRunPowerPointOnlineDevScriptRequestWithBody(server string, sessionId string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sessionId", runtime.ParamLocationPath, sessionId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/dev/powerpoint/online/sessions/%s/script", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetHealthRequest generates requests for GetHealth
 func NewGetHealthRequest(server string) (*http.Request, error) {
 	var err error
@@ -3040,6 +3826,483 @@ func NewFailPowerPointJobRequestWithBody(server string, jobId string, contentTyp
 	return req, nil
 }
 
+// NewStartPowerPointOnlineSessionRequest calls the generic StartPowerPointOnlineSession builder with application/json body
+func NewStartPowerPointOnlineSessionRequest(server string, body StartPowerPointOnlineSessionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewStartPowerPointOnlineSessionRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewStartPowerPointOnlineSessionRequestWithBody generates requests for StartPowerPointOnlineSession with any type of body
+func NewStartPowerPointOnlineSessionRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/powerpoint/online/sessions")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetPowerPointOnlineSessionRequest generates requests for GetPowerPointOnlineSession
+func NewGetPowerPointOnlineSessionRequest(server string, sessionId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sessionId", runtime.ParamLocationPath, sessionId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/powerpoint/online/sessions/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewProbePowerPointOnlineAddInRequest calls the generic ProbePowerPointOnlineAddIn builder with application/json body
+func NewProbePowerPointOnlineAddInRequest(server string, sessionId string, body ProbePowerPointOnlineAddInJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewProbePowerPointOnlineAddInRequestWithBody(server, sessionId, "application/json", bodyReader)
+}
+
+// NewProbePowerPointOnlineAddInRequestWithBody generates requests for ProbePowerPointOnlineAddIn with any type of body
+func NewProbePowerPointOnlineAddInRequestWithBody(server string, sessionId string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sessionId", runtime.ParamLocationPath, sessionId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/powerpoint/online/sessions/%s/addin/probe", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewRunPowerPointOnlinePendingJobRequest calls the generic RunPowerPointOnlinePendingJob builder with application/json body
+func NewRunPowerPointOnlinePendingJobRequest(server string, sessionId string, body RunPowerPointOnlinePendingJobJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRunPowerPointOnlinePendingJobRequestWithBody(server, sessionId, "application/json", bodyReader)
+}
+
+// NewRunPowerPointOnlinePendingJobRequestWithBody generates requests for RunPowerPointOnlinePendingJob with any type of body
+func NewRunPowerPointOnlinePendingJobRequestWithBody(server string, sessionId string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sessionId", runtime.ParamLocationPath, sessionId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/powerpoint/online/sessions/%s/addin/run-pending-job", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewCleanupPowerPointOnlineSessionRequest generates requests for CleanupPowerPointOnlineSession
+func NewCleanupPowerPointOnlineSessionRequest(server string, sessionId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sessionId", runtime.ParamLocationPath, sessionId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/powerpoint/online/sessions/%s/cleanup", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewWaitPowerPointOnlineSaveRequest calls the generic WaitPowerPointOnlineSave builder with application/json body
+func NewWaitPowerPointOnlineSaveRequest(server string, sessionId string, body WaitPowerPointOnlineSaveJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewWaitPowerPointOnlineSaveRequestWithBody(server, sessionId, "application/json", bodyReader)
+}
+
+// NewWaitPowerPointOnlineSaveRequestWithBody generates requests for WaitPowerPointOnlineSave with any type of body
+func NewWaitPowerPointOnlineSaveRequestWithBody(server string, sessionId string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sessionId", runtime.ParamLocationPath, sessionId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/powerpoint/online/sessions/%s/save/wait", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewCapturePowerPointOnlineSessionScreenshotRequest calls the generic CapturePowerPointOnlineSessionScreenshot builder with application/json body
+func NewCapturePowerPointOnlineSessionScreenshotRequest(server string, sessionId string, body CapturePowerPointOnlineSessionScreenshotJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCapturePowerPointOnlineSessionScreenshotRequestWithBody(server, sessionId, "application/json", bodyReader)
+}
+
+// NewCapturePowerPointOnlineSessionScreenshotRequestWithBody generates requests for CapturePowerPointOnlineSessionScreenshot with any type of body
+func NewCapturePowerPointOnlineSessionScreenshotRequestWithBody(server string, sessionId string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sessionId", runtime.ParamLocationPath, sessionId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/powerpoint/online/sessions/%s/screenshot", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewSelectPowerPointOnlineSlideRequest calls the generic SelectPowerPointOnlineSlide builder with application/json body
+func NewSelectPowerPointOnlineSlideRequest(server string, sessionId string, body SelectPowerPointOnlineSlideJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSelectPowerPointOnlineSlideRequestWithBody(server, sessionId, "application/json", bodyReader)
+}
+
+// NewSelectPowerPointOnlineSlideRequestWithBody generates requests for SelectPowerPointOnlineSlide with any type of body
+func NewSelectPowerPointOnlineSlideRequestWithBody(server string, sessionId string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sessionId", runtime.ParamLocationPath, sessionId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/powerpoint/online/sessions/%s/slides/select", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewCleanupPowerPointOnlineTemplateRequest calls the generic CleanupPowerPointOnlineTemplate builder with application/json body
+func NewCleanupPowerPointOnlineTemplateRequest(server string, sessionId string, body CleanupPowerPointOnlineTemplateJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCleanupPowerPointOnlineTemplateRequestWithBody(server, sessionId, "application/json", bodyReader)
+}
+
+// NewCleanupPowerPointOnlineTemplateRequestWithBody generates requests for CleanupPowerPointOnlineTemplate with any type of body
+func NewCleanupPowerPointOnlineTemplateRequestWithBody(server string, sessionId string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sessionId", runtime.ParamLocationPath, sessionId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/powerpoint/online/sessions/%s/template/cleanup", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPreparePowerPointOnlineTemplateRequest calls the generic PreparePowerPointOnlineTemplate builder with application/json body
+func NewPreparePowerPointOnlineTemplateRequest(server string, sessionId string, body PreparePowerPointOnlineTemplateJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPreparePowerPointOnlineTemplateRequestWithBody(server, sessionId, "application/json", bodyReader)
+}
+
+// NewPreparePowerPointOnlineTemplateRequestWithBody generates requests for PreparePowerPointOnlineTemplate with any type of body
+func NewPreparePowerPointOnlineTemplateRequestWithBody(server string, sessionId string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sessionId", runtime.ParamLocationPath, sessionId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/powerpoint/online/sessions/%s/template/prepare", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewUpdatePowerPointOnlinePresentationRequest calls the generic UpdatePowerPointOnlinePresentation builder with application/json body
+func NewUpdatePowerPointOnlinePresentationRequest(server string, body UpdatePowerPointOnlinePresentationJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdatePowerPointOnlinePresentationRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewUpdatePowerPointOnlinePresentationRequestWithBody generates requests for UpdatePowerPointOnlinePresentation with any type of body
+func NewUpdatePowerPointOnlinePresentationRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/powerpoint/online/updates")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetWorkbenchSessionRequest generates requests for GetWorkbenchSession
 func NewGetWorkbenchSessionRequest(server string, sessionId string) (*http.Request, error) {
 	var err error
@@ -3514,6 +4777,16 @@ type ClientWithResponsesInterface interface {
 
 	CaptureDesktopScreenshotWithResponse(ctx context.Context, body CaptureDesktopScreenshotJSONRequestBody, reqEditors ...RequestEditorFn) (*CaptureDesktopScreenshotResponse, error)
 
+	// EvaluateEdgeBrowserDevScriptWithBodyWithResponse request with any body
+	EvaluateEdgeBrowserDevScriptWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EvaluateEdgeBrowserDevScriptResponse, error)
+
+	EvaluateEdgeBrowserDevScriptWithResponse(ctx context.Context, sessionId string, body EvaluateEdgeBrowserDevScriptJSONRequestBody, reqEditors ...RequestEditorFn) (*EvaluateEdgeBrowserDevScriptResponse, error)
+
+	// RunPowerPointOnlineDevScriptWithBodyWithResponse request with any body
+	RunPowerPointOnlineDevScriptWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RunPowerPointOnlineDevScriptResponse, error)
+
+	RunPowerPointOnlineDevScriptWithResponse(ctx context.Context, sessionId string, body RunPowerPointOnlineDevScriptJSONRequestBody, reqEditors ...RequestEditorFn) (*RunPowerPointOnlineDevScriptResponse, error)
+
 	// GetHealthWithResponse request
 	GetHealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetHealthResponse, error)
 
@@ -3573,6 +4846,57 @@ type ClientWithResponsesInterface interface {
 	FailPowerPointJobWithBodyWithResponse(ctx context.Context, jobId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*FailPowerPointJobResponse, error)
 
 	FailPowerPointJobWithResponse(ctx context.Context, jobId string, body FailPowerPointJobJSONRequestBody, reqEditors ...RequestEditorFn) (*FailPowerPointJobResponse, error)
+
+	// StartPowerPointOnlineSessionWithBodyWithResponse request with any body
+	StartPowerPointOnlineSessionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartPowerPointOnlineSessionResponse, error)
+
+	StartPowerPointOnlineSessionWithResponse(ctx context.Context, body StartPowerPointOnlineSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*StartPowerPointOnlineSessionResponse, error)
+
+	// GetPowerPointOnlineSessionWithResponse request
+	GetPowerPointOnlineSessionWithResponse(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*GetPowerPointOnlineSessionResponse, error)
+
+	// ProbePowerPointOnlineAddInWithBodyWithResponse request with any body
+	ProbePowerPointOnlineAddInWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ProbePowerPointOnlineAddInResponse, error)
+
+	ProbePowerPointOnlineAddInWithResponse(ctx context.Context, sessionId string, body ProbePowerPointOnlineAddInJSONRequestBody, reqEditors ...RequestEditorFn) (*ProbePowerPointOnlineAddInResponse, error)
+
+	// RunPowerPointOnlinePendingJobWithBodyWithResponse request with any body
+	RunPowerPointOnlinePendingJobWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RunPowerPointOnlinePendingJobResponse, error)
+
+	RunPowerPointOnlinePendingJobWithResponse(ctx context.Context, sessionId string, body RunPowerPointOnlinePendingJobJSONRequestBody, reqEditors ...RequestEditorFn) (*RunPowerPointOnlinePendingJobResponse, error)
+
+	// CleanupPowerPointOnlineSessionWithResponse request
+	CleanupPowerPointOnlineSessionWithResponse(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*CleanupPowerPointOnlineSessionResponse, error)
+
+	// WaitPowerPointOnlineSaveWithBodyWithResponse request with any body
+	WaitPowerPointOnlineSaveWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*WaitPowerPointOnlineSaveResponse, error)
+
+	WaitPowerPointOnlineSaveWithResponse(ctx context.Context, sessionId string, body WaitPowerPointOnlineSaveJSONRequestBody, reqEditors ...RequestEditorFn) (*WaitPowerPointOnlineSaveResponse, error)
+
+	// CapturePowerPointOnlineSessionScreenshotWithBodyWithResponse request with any body
+	CapturePowerPointOnlineSessionScreenshotWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CapturePowerPointOnlineSessionScreenshotResponse, error)
+
+	CapturePowerPointOnlineSessionScreenshotWithResponse(ctx context.Context, sessionId string, body CapturePowerPointOnlineSessionScreenshotJSONRequestBody, reqEditors ...RequestEditorFn) (*CapturePowerPointOnlineSessionScreenshotResponse, error)
+
+	// SelectPowerPointOnlineSlideWithBodyWithResponse request with any body
+	SelectPowerPointOnlineSlideWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SelectPowerPointOnlineSlideResponse, error)
+
+	SelectPowerPointOnlineSlideWithResponse(ctx context.Context, sessionId string, body SelectPowerPointOnlineSlideJSONRequestBody, reqEditors ...RequestEditorFn) (*SelectPowerPointOnlineSlideResponse, error)
+
+	// CleanupPowerPointOnlineTemplateWithBodyWithResponse request with any body
+	CleanupPowerPointOnlineTemplateWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CleanupPowerPointOnlineTemplateResponse, error)
+
+	CleanupPowerPointOnlineTemplateWithResponse(ctx context.Context, sessionId string, body CleanupPowerPointOnlineTemplateJSONRequestBody, reqEditors ...RequestEditorFn) (*CleanupPowerPointOnlineTemplateResponse, error)
+
+	// PreparePowerPointOnlineTemplateWithBodyWithResponse request with any body
+	PreparePowerPointOnlineTemplateWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreparePowerPointOnlineTemplateResponse, error)
+
+	PreparePowerPointOnlineTemplateWithResponse(ctx context.Context, sessionId string, body PreparePowerPointOnlineTemplateJSONRequestBody, reqEditors ...RequestEditorFn) (*PreparePowerPointOnlineTemplateResponse, error)
+
+	// UpdatePowerPointOnlinePresentationWithBodyWithResponse request with any body
+	UpdatePowerPointOnlinePresentationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdatePowerPointOnlinePresentationResponse, error)
+
+	UpdatePowerPointOnlinePresentationWithResponse(ctx context.Context, body UpdatePowerPointOnlinePresentationJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdatePowerPointOnlinePresentationResponse, error)
 
 	// GetWorkbenchSessionWithResponse request
 	GetWorkbenchSessionWithResponse(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*GetWorkbenchSessionResponse, error)
@@ -4066,6 +5390,54 @@ func (r CaptureDesktopScreenshotResponse) StatusCode() int {
 	return 0
 }
 
+type EvaluateEdgeBrowserDevScriptResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DevScriptResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r EvaluateEdgeBrowserDevScriptResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r EvaluateEdgeBrowserDevScriptResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type RunPowerPointOnlineDevScriptResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DevScriptResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r RunPowerPointOnlineDevScriptResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RunPowerPointOnlineDevScriptResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetHealthResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -4395,6 +5767,270 @@ func (r FailPowerPointJobResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r FailPowerPointJobResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type StartPowerPointOnlineSessionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *PowerPointOnlineSessionResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r StartPowerPointOnlineSessionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StartPowerPointOnlineSessionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetPowerPointOnlineSessionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *PowerPointOnlineSessionResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetPowerPointOnlineSessionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetPowerPointOnlineSessionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ProbePowerPointOnlineAddInResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *PowerPointOnlineAddInProbeResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r ProbePowerPointOnlineAddInResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ProbePowerPointOnlineAddInResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type RunPowerPointOnlinePendingJobResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *PowerPointOnlineSessionResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r RunPowerPointOnlinePendingJobResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RunPowerPointOnlinePendingJobResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CleanupPowerPointOnlineSessionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *PowerPointOnlineSessionResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r CleanupPowerPointOnlineSessionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CleanupPowerPointOnlineSessionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type WaitPowerPointOnlineSaveResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *PowerPointOnlineSessionResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r WaitPowerPointOnlineSaveResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r WaitPowerPointOnlineSaveResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CapturePowerPointOnlineSessionScreenshotResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *PowerPointOnlineSessionResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r CapturePowerPointOnlineSessionScreenshotResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CapturePowerPointOnlineSessionScreenshotResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type SelectPowerPointOnlineSlideResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *PowerPointOnlineSessionResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r SelectPowerPointOnlineSlideResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SelectPowerPointOnlineSlideResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CleanupPowerPointOnlineTemplateResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *PowerPointOnlineSessionResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r CleanupPowerPointOnlineTemplateResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CleanupPowerPointOnlineTemplateResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PreparePowerPointOnlineTemplateResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *PowerPointOnlineSessionResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r PreparePowerPointOnlineTemplateResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PreparePowerPointOnlineTemplateResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdatePowerPointOnlinePresentationResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *PowerPointOnlineUpdateResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdatePowerPointOnlinePresentationResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdatePowerPointOnlinePresentationResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -4876,6 +6512,40 @@ func (c *ClientWithResponses) CaptureDesktopScreenshotWithResponse(ctx context.C
 	return ParseCaptureDesktopScreenshotResponse(rsp)
 }
 
+// EvaluateEdgeBrowserDevScriptWithBodyWithResponse request with arbitrary body returning *EvaluateEdgeBrowserDevScriptResponse
+func (c *ClientWithResponses) EvaluateEdgeBrowserDevScriptWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EvaluateEdgeBrowserDevScriptResponse, error) {
+	rsp, err := c.EvaluateEdgeBrowserDevScriptWithBody(ctx, sessionId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEvaluateEdgeBrowserDevScriptResponse(rsp)
+}
+
+func (c *ClientWithResponses) EvaluateEdgeBrowserDevScriptWithResponse(ctx context.Context, sessionId string, body EvaluateEdgeBrowserDevScriptJSONRequestBody, reqEditors ...RequestEditorFn) (*EvaluateEdgeBrowserDevScriptResponse, error) {
+	rsp, err := c.EvaluateEdgeBrowserDevScript(ctx, sessionId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEvaluateEdgeBrowserDevScriptResponse(rsp)
+}
+
+// RunPowerPointOnlineDevScriptWithBodyWithResponse request with arbitrary body returning *RunPowerPointOnlineDevScriptResponse
+func (c *ClientWithResponses) RunPowerPointOnlineDevScriptWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RunPowerPointOnlineDevScriptResponse, error) {
+	rsp, err := c.RunPowerPointOnlineDevScriptWithBody(ctx, sessionId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRunPowerPointOnlineDevScriptResponse(rsp)
+}
+
+func (c *ClientWithResponses) RunPowerPointOnlineDevScriptWithResponse(ctx context.Context, sessionId string, body RunPowerPointOnlineDevScriptJSONRequestBody, reqEditors ...RequestEditorFn) (*RunPowerPointOnlineDevScriptResponse, error) {
+	rsp, err := c.RunPowerPointOnlineDevScript(ctx, sessionId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRunPowerPointOnlineDevScriptResponse(rsp)
+}
+
 // GetHealthWithResponse request returning *GetHealthResponse
 func (c *ClientWithResponses) GetHealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetHealthResponse, error) {
 	rsp, err := c.GetHealth(ctx, reqEditors...)
@@ -5072,6 +6742,177 @@ func (c *ClientWithResponses) FailPowerPointJobWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParseFailPowerPointJobResponse(rsp)
+}
+
+// StartPowerPointOnlineSessionWithBodyWithResponse request with arbitrary body returning *StartPowerPointOnlineSessionResponse
+func (c *ClientWithResponses) StartPowerPointOnlineSessionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartPowerPointOnlineSessionResponse, error) {
+	rsp, err := c.StartPowerPointOnlineSessionWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartPowerPointOnlineSessionResponse(rsp)
+}
+
+func (c *ClientWithResponses) StartPowerPointOnlineSessionWithResponse(ctx context.Context, body StartPowerPointOnlineSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*StartPowerPointOnlineSessionResponse, error) {
+	rsp, err := c.StartPowerPointOnlineSession(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartPowerPointOnlineSessionResponse(rsp)
+}
+
+// GetPowerPointOnlineSessionWithResponse request returning *GetPowerPointOnlineSessionResponse
+func (c *ClientWithResponses) GetPowerPointOnlineSessionWithResponse(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*GetPowerPointOnlineSessionResponse, error) {
+	rsp, err := c.GetPowerPointOnlineSession(ctx, sessionId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetPowerPointOnlineSessionResponse(rsp)
+}
+
+// ProbePowerPointOnlineAddInWithBodyWithResponse request with arbitrary body returning *ProbePowerPointOnlineAddInResponse
+func (c *ClientWithResponses) ProbePowerPointOnlineAddInWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ProbePowerPointOnlineAddInResponse, error) {
+	rsp, err := c.ProbePowerPointOnlineAddInWithBody(ctx, sessionId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseProbePowerPointOnlineAddInResponse(rsp)
+}
+
+func (c *ClientWithResponses) ProbePowerPointOnlineAddInWithResponse(ctx context.Context, sessionId string, body ProbePowerPointOnlineAddInJSONRequestBody, reqEditors ...RequestEditorFn) (*ProbePowerPointOnlineAddInResponse, error) {
+	rsp, err := c.ProbePowerPointOnlineAddIn(ctx, sessionId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseProbePowerPointOnlineAddInResponse(rsp)
+}
+
+// RunPowerPointOnlinePendingJobWithBodyWithResponse request with arbitrary body returning *RunPowerPointOnlinePendingJobResponse
+func (c *ClientWithResponses) RunPowerPointOnlinePendingJobWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RunPowerPointOnlinePendingJobResponse, error) {
+	rsp, err := c.RunPowerPointOnlinePendingJobWithBody(ctx, sessionId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRunPowerPointOnlinePendingJobResponse(rsp)
+}
+
+func (c *ClientWithResponses) RunPowerPointOnlinePendingJobWithResponse(ctx context.Context, sessionId string, body RunPowerPointOnlinePendingJobJSONRequestBody, reqEditors ...RequestEditorFn) (*RunPowerPointOnlinePendingJobResponse, error) {
+	rsp, err := c.RunPowerPointOnlinePendingJob(ctx, sessionId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRunPowerPointOnlinePendingJobResponse(rsp)
+}
+
+// CleanupPowerPointOnlineSessionWithResponse request returning *CleanupPowerPointOnlineSessionResponse
+func (c *ClientWithResponses) CleanupPowerPointOnlineSessionWithResponse(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*CleanupPowerPointOnlineSessionResponse, error) {
+	rsp, err := c.CleanupPowerPointOnlineSession(ctx, sessionId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCleanupPowerPointOnlineSessionResponse(rsp)
+}
+
+// WaitPowerPointOnlineSaveWithBodyWithResponse request with arbitrary body returning *WaitPowerPointOnlineSaveResponse
+func (c *ClientWithResponses) WaitPowerPointOnlineSaveWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*WaitPowerPointOnlineSaveResponse, error) {
+	rsp, err := c.WaitPowerPointOnlineSaveWithBody(ctx, sessionId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseWaitPowerPointOnlineSaveResponse(rsp)
+}
+
+func (c *ClientWithResponses) WaitPowerPointOnlineSaveWithResponse(ctx context.Context, sessionId string, body WaitPowerPointOnlineSaveJSONRequestBody, reqEditors ...RequestEditorFn) (*WaitPowerPointOnlineSaveResponse, error) {
+	rsp, err := c.WaitPowerPointOnlineSave(ctx, sessionId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseWaitPowerPointOnlineSaveResponse(rsp)
+}
+
+// CapturePowerPointOnlineSessionScreenshotWithBodyWithResponse request with arbitrary body returning *CapturePowerPointOnlineSessionScreenshotResponse
+func (c *ClientWithResponses) CapturePowerPointOnlineSessionScreenshotWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CapturePowerPointOnlineSessionScreenshotResponse, error) {
+	rsp, err := c.CapturePowerPointOnlineSessionScreenshotWithBody(ctx, sessionId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCapturePowerPointOnlineSessionScreenshotResponse(rsp)
+}
+
+func (c *ClientWithResponses) CapturePowerPointOnlineSessionScreenshotWithResponse(ctx context.Context, sessionId string, body CapturePowerPointOnlineSessionScreenshotJSONRequestBody, reqEditors ...RequestEditorFn) (*CapturePowerPointOnlineSessionScreenshotResponse, error) {
+	rsp, err := c.CapturePowerPointOnlineSessionScreenshot(ctx, sessionId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCapturePowerPointOnlineSessionScreenshotResponse(rsp)
+}
+
+// SelectPowerPointOnlineSlideWithBodyWithResponse request with arbitrary body returning *SelectPowerPointOnlineSlideResponse
+func (c *ClientWithResponses) SelectPowerPointOnlineSlideWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SelectPowerPointOnlineSlideResponse, error) {
+	rsp, err := c.SelectPowerPointOnlineSlideWithBody(ctx, sessionId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSelectPowerPointOnlineSlideResponse(rsp)
+}
+
+func (c *ClientWithResponses) SelectPowerPointOnlineSlideWithResponse(ctx context.Context, sessionId string, body SelectPowerPointOnlineSlideJSONRequestBody, reqEditors ...RequestEditorFn) (*SelectPowerPointOnlineSlideResponse, error) {
+	rsp, err := c.SelectPowerPointOnlineSlide(ctx, sessionId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSelectPowerPointOnlineSlideResponse(rsp)
+}
+
+// CleanupPowerPointOnlineTemplateWithBodyWithResponse request with arbitrary body returning *CleanupPowerPointOnlineTemplateResponse
+func (c *ClientWithResponses) CleanupPowerPointOnlineTemplateWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CleanupPowerPointOnlineTemplateResponse, error) {
+	rsp, err := c.CleanupPowerPointOnlineTemplateWithBody(ctx, sessionId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCleanupPowerPointOnlineTemplateResponse(rsp)
+}
+
+func (c *ClientWithResponses) CleanupPowerPointOnlineTemplateWithResponse(ctx context.Context, sessionId string, body CleanupPowerPointOnlineTemplateJSONRequestBody, reqEditors ...RequestEditorFn) (*CleanupPowerPointOnlineTemplateResponse, error) {
+	rsp, err := c.CleanupPowerPointOnlineTemplate(ctx, sessionId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCleanupPowerPointOnlineTemplateResponse(rsp)
+}
+
+// PreparePowerPointOnlineTemplateWithBodyWithResponse request with arbitrary body returning *PreparePowerPointOnlineTemplateResponse
+func (c *ClientWithResponses) PreparePowerPointOnlineTemplateWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreparePowerPointOnlineTemplateResponse, error) {
+	rsp, err := c.PreparePowerPointOnlineTemplateWithBody(ctx, sessionId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreparePowerPointOnlineTemplateResponse(rsp)
+}
+
+func (c *ClientWithResponses) PreparePowerPointOnlineTemplateWithResponse(ctx context.Context, sessionId string, body PreparePowerPointOnlineTemplateJSONRequestBody, reqEditors ...RequestEditorFn) (*PreparePowerPointOnlineTemplateResponse, error) {
+	rsp, err := c.PreparePowerPointOnlineTemplate(ctx, sessionId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreparePowerPointOnlineTemplateResponse(rsp)
+}
+
+// UpdatePowerPointOnlinePresentationWithBodyWithResponse request with arbitrary body returning *UpdatePowerPointOnlinePresentationResponse
+func (c *ClientWithResponses) UpdatePowerPointOnlinePresentationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdatePowerPointOnlinePresentationResponse, error) {
+	rsp, err := c.UpdatePowerPointOnlinePresentationWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdatePowerPointOnlinePresentationResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdatePowerPointOnlinePresentationWithResponse(ctx context.Context, body UpdatePowerPointOnlinePresentationJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdatePowerPointOnlinePresentationResponse, error) {
+	rsp, err := c.UpdatePowerPointOnlinePresentation(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdatePowerPointOnlinePresentationResponse(rsp)
 }
 
 // GetWorkbenchSessionWithResponse request returning *GetWorkbenchSessionResponse
@@ -5947,6 +7788,86 @@ func ParseCaptureDesktopScreenshotResponse(rsp *http.Response) (*CaptureDesktopS
 	return response, nil
 }
 
+// ParseEvaluateEdgeBrowserDevScriptResponse parses an HTTP response from a EvaluateEdgeBrowserDevScriptWithResponse call
+func ParseEvaluateEdgeBrowserDevScriptResponse(rsp *http.Response) (*EvaluateEdgeBrowserDevScriptResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &EvaluateEdgeBrowserDevScriptResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DevScriptResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRunPowerPointOnlineDevScriptResponse parses an HTTP response from a RunPowerPointOnlineDevScriptWithResponse call
+func ParseRunPowerPointOnlineDevScriptResponse(rsp *http.Response) (*RunPowerPointOnlineDevScriptResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RunPowerPointOnlineDevScriptResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DevScriptResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetHealthResponse parses an HTTP response from a GetHealthWithResponse call
 func ParseGetHealthResponse(rsp *http.Response) (*GetHealthResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -6476,6 +8397,446 @@ func ParseFailPowerPointJobResponse(rsp *http.Response) (*FailPowerPointJobRespo
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest PowerPointJobRecord
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseStartPowerPointOnlineSessionResponse parses an HTTP response from a StartPowerPointOnlineSessionWithResponse call
+func ParseStartPowerPointOnlineSessionResponse(rsp *http.Response) (*StartPowerPointOnlineSessionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StartPowerPointOnlineSessionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PowerPointOnlineSessionResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetPowerPointOnlineSessionResponse parses an HTTP response from a GetPowerPointOnlineSessionWithResponse call
+func ParseGetPowerPointOnlineSessionResponse(rsp *http.Response) (*GetPowerPointOnlineSessionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetPowerPointOnlineSessionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PowerPointOnlineSessionResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseProbePowerPointOnlineAddInResponse parses an HTTP response from a ProbePowerPointOnlineAddInWithResponse call
+func ParseProbePowerPointOnlineAddInResponse(rsp *http.Response) (*ProbePowerPointOnlineAddInResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ProbePowerPointOnlineAddInResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PowerPointOnlineAddInProbeResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRunPowerPointOnlinePendingJobResponse parses an HTTP response from a RunPowerPointOnlinePendingJobWithResponse call
+func ParseRunPowerPointOnlinePendingJobResponse(rsp *http.Response) (*RunPowerPointOnlinePendingJobResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RunPowerPointOnlinePendingJobResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PowerPointOnlineSessionResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCleanupPowerPointOnlineSessionResponse parses an HTTP response from a CleanupPowerPointOnlineSessionWithResponse call
+func ParseCleanupPowerPointOnlineSessionResponse(rsp *http.Response) (*CleanupPowerPointOnlineSessionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CleanupPowerPointOnlineSessionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PowerPointOnlineSessionResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseWaitPowerPointOnlineSaveResponse parses an HTTP response from a WaitPowerPointOnlineSaveWithResponse call
+func ParseWaitPowerPointOnlineSaveResponse(rsp *http.Response) (*WaitPowerPointOnlineSaveResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &WaitPowerPointOnlineSaveResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PowerPointOnlineSessionResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCapturePowerPointOnlineSessionScreenshotResponse parses an HTTP response from a CapturePowerPointOnlineSessionScreenshotWithResponse call
+func ParseCapturePowerPointOnlineSessionScreenshotResponse(rsp *http.Response) (*CapturePowerPointOnlineSessionScreenshotResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CapturePowerPointOnlineSessionScreenshotResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PowerPointOnlineSessionResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSelectPowerPointOnlineSlideResponse parses an HTTP response from a SelectPowerPointOnlineSlideWithResponse call
+func ParseSelectPowerPointOnlineSlideResponse(rsp *http.Response) (*SelectPowerPointOnlineSlideResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SelectPowerPointOnlineSlideResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PowerPointOnlineSessionResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCleanupPowerPointOnlineTemplateResponse parses an HTTP response from a CleanupPowerPointOnlineTemplateWithResponse call
+func ParseCleanupPowerPointOnlineTemplateResponse(rsp *http.Response) (*CleanupPowerPointOnlineTemplateResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CleanupPowerPointOnlineTemplateResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PowerPointOnlineSessionResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePreparePowerPointOnlineTemplateResponse parses an HTTP response from a PreparePowerPointOnlineTemplateWithResponse call
+func ParsePreparePowerPointOnlineTemplateResponse(rsp *http.Response) (*PreparePowerPointOnlineTemplateResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PreparePowerPointOnlineTemplateResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PowerPointOnlineSessionResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdatePowerPointOnlinePresentationResponse parses an HTTP response from a UpdatePowerPointOnlinePresentationWithResponse call
+func ParseUpdatePowerPointOnlinePresentationResponse(rsp *http.Response) (*UpdatePowerPointOnlinePresentationResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdatePowerPointOnlinePresentationResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PowerPointOnlineUpdateResult
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

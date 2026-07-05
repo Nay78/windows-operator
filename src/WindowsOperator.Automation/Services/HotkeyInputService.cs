@@ -55,6 +55,8 @@ public sealed class HotkeyInputService : IInputService
             "win" or "windows" => VirtualKeyShort.LWIN,
             "enter" => VirtualKeyShort.RETURN,
             "tab" => VirtualKeyShort.TAB,
+            "pageup" or "page_up" or "pgup" => VirtualKeyShort.PRIOR,
+            "pagedown" or "page_down" or "pgdn" => VirtualKeyShort.NEXT,
             "esc" or "escape" => VirtualKeyShort.ESCAPE,
             var single when single.Length == 1 && char.IsLetter(single[0]) =>
                 Enum.Parse<VirtualKeyShort>($"KEY_{char.ToUpperInvariant(single[0])}"),

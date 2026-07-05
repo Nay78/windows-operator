@@ -2,7 +2,7 @@
 
 Project: `WindowsOperator.PowerPointAddIn`
 
-Purpose: apply queued PowerPoint text/image updates to the active presentation through Office.js.
+Purpose: apply queued PowerPoint text, image, and table updates to the active presentation through Office.js.
 
 ## Communication
 

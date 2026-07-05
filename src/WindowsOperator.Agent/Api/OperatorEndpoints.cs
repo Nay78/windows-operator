@@ -181,6 +181,99 @@ public static class OperatorEndpoints
             await OperatorHttp.ExecuteAsync(
                 () => workbench.CleanupEdgeSessionAsync(sessionId, cancellationToken)));
 
+        group.MapPost("/dev/browser/edge/sessions/{sessionId}/eval", async Task<Results<Ok<DevScriptResult>, JsonHttpResult<OperatorError>>> (
+            string sessionId,
+            BrowserEdgeDevEvalRequest request,
+            IDevAutomationService devAutomation,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => devAutomation.EvaluateEdgeBrowserSessionAsync(sessionId, request, cancellationToken)));
+
+        group.MapPost("/powerpoint/online/sessions", async Task<Results<Ok<PowerPointOnlineSessionResult>, JsonHttpResult<OperatorError>>> (
+            PowerPointOnlineSessionStartRequest request,
+            IPowerPointOnlineService powerpointOnline,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => powerpointOnline.StartOnlineSessionAsync(request, cancellationToken)));
+
+        group.MapGet("/powerpoint/online/sessions/{sessionId}", async Task<Results<Ok<PowerPointOnlineSessionResult>, JsonHttpResult<OperatorError>>> (
+            string sessionId,
+            IPowerPointOnlineService powerpointOnline,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => powerpointOnline.GetOnlineSessionAsync(sessionId, cancellationToken)));
+
+        group.MapPost("/powerpoint/online/sessions/{sessionId}/slides/select", async Task<Results<Ok<PowerPointOnlineSessionResult>, JsonHttpResult<OperatorError>>> (
+            string sessionId,
+            PowerPointOnlineSlideSelectRequest request,
+            IPowerPointOnlineService powerpointOnline,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => powerpointOnline.SelectOnlineSlideAsync(sessionId, request, cancellationToken)));
+
+        group.MapPost("/powerpoint/online/sessions/{sessionId}/addin/probe", async Task<Results<Ok<PowerPointOnlineAddInProbeResult>, JsonHttpResult<OperatorError>>> (
+            string sessionId,
+            PowerPointOnlineAddInProbeRequest request,
+            IPowerPointOnlineService powerpointOnline,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => powerpointOnline.ProbeOnlineAddInAsync(sessionId, request, cancellationToken)));
+
+        group.MapPost("/powerpoint/online/sessions/{sessionId}/save/wait", async Task<Results<Ok<PowerPointOnlineSessionResult>, JsonHttpResult<OperatorError>>> (
+            string sessionId,
+            PowerPointOnlineSaveWaitRequest request,
+            IPowerPointOnlineService powerpointOnline,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => powerpointOnline.WaitForOnlineSaveAsync(sessionId, request, cancellationToken)));
+
+        group.MapPost("/powerpoint/online/sessions/{sessionId}/template/prepare", async Task<Results<Ok<PowerPointOnlineSessionResult>, JsonHttpResult<OperatorError>>> (
+            string sessionId,
+            PowerPointOnlineTemplateRequest request,
+            IPowerPointOnlineService powerpointOnline,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => powerpointOnline.PrepareOnlineTemplateAsync(sessionId, request, cancellationToken)));
+
+        group.MapPost("/powerpoint/online/sessions/{sessionId}/template/cleanup", async Task<Results<Ok<PowerPointOnlineSessionResult>, JsonHttpResult<OperatorError>>> (
+            string sessionId,
+            PowerPointOnlineTemplateRequest request,
+            IPowerPointOnlineService powerpointOnline,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => powerpointOnline.CleanupOnlineTemplateAsync(sessionId, request, cancellationToken)));
+
+        group.MapPost("/powerpoint/online/sessions/{sessionId}/addin/run-pending-job", async Task<Results<Ok<PowerPointOnlineSessionResult>, JsonHttpResult<OperatorError>>> (
+            string sessionId,
+            PowerPointOnlineAddInCommandRequest request,
+            IPowerPointOnlineService powerpointOnline,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => powerpointOnline.RunOnlinePendingJobAsync(sessionId, request, cancellationToken)));
+
+        group.MapPost("/powerpoint/online/sessions/{sessionId}/screenshot", async Task<Results<Ok<PowerPointOnlineSessionResult>, JsonHttpResult<OperatorError>>> (
+            string sessionId,
+            PowerPointOnlineSessionScreenshotRequest request,
+            IPowerPointOnlineService powerpointOnline,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => powerpointOnline.CaptureOnlineSessionScreenshotAsync(sessionId, request, cancellationToken)));
+
+        group.MapPost("/powerpoint/online/sessions/{sessionId}/cleanup", async Task<Results<Ok<PowerPointOnlineSessionResult>, JsonHttpResult<OperatorError>>> (
+            string sessionId,
+            IPowerPointOnlineService powerpointOnline,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => powerpointOnline.CleanupOnlineSessionAsync(sessionId, cancellationToken)));
+
+        group.MapPost("/dev/powerpoint/online/sessions/{sessionId}/script", async Task<Results<Ok<DevScriptResult>, JsonHttpResult<OperatorError>>> (
+            string sessionId,
+            PowerPointDevScriptRequest request,
+            IDevAutomationService devAutomation,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => devAutomation.RunPowerPointOnlineScriptAsync(sessionId, request, cancellationToken)));
+
         group.MapPost("/auth/microsoft/cleanup", async Task<Results<Ok<MicrosoftAuthCleanupResult>, JsonHttpResult<OperatorError>>> (
             MicrosoftAuthCleanupRequest request,
             IOperatorFacade facade,

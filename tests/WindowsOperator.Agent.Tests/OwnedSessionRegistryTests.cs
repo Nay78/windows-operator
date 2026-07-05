@@ -1,7 +1,5 @@
-using Microsoft.Extensions.Options;
 using WindowsOperator.Agent.Services;
 using WindowsOperator.Core;
-using WindowsOperator.Core.Configuration;
 using WindowsOperator.Core.Contracts;
 
 namespace WindowsOperator.Agent.Tests;
@@ -11,7 +9,7 @@ public sealed class OwnedSessionRegistryTests
     [Fact]
     public void UpsertEdgeSession_WritesSessionIndexAndRunState()
     {
-        using var env = new ExchangeRootScope();
+        using var env = new ExchangeRootScope("windows-operator-session-registry-tests");
         var runs = new WorkbenchRunStore(env.Options);
         var registry = new OwnedSessionRegistry(runs);
 
@@ -31,7 +29,7 @@ public sealed class OwnedSessionRegistryTests
     [Fact]
     public void GetSession_MissingSessionReturnsStableOperatorError()
     {
-        using var env = new ExchangeRootScope();
+        using var env = new ExchangeRootScope("windows-operator-session-registry-tests");
         var registry = new OwnedSessionRegistry(new WorkbenchRunStore(env.Options));
 
         var failure = Assert.Throws<OperatorFailureException>(() => registry.GetSession("missing"));
@@ -45,7 +43,7 @@ public sealed class OwnedSessionRegistryTests
     [Fact]
     public void GetSession_BlankSessionIdReturnsStableOperatorError()
     {
-        using var env = new ExchangeRootScope();
+        using var env = new ExchangeRootScope("windows-operator-session-registry-tests");
         var registry = new OwnedSessionRegistry(new WorkbenchRunStore(env.Options));
 
         var failure = Assert.Throws<OperatorFailureException>(() => registry.GetSession("  "));
@@ -75,30 +73,4 @@ public sealed class OwnedSessionRegistryTests
             50000,
             isAlive ? "page_ready" : "session_closed",
             @"C:\state.json");
-
-    private sealed class ExchangeRootScope : IDisposable
-    {
-        public ExchangeRootScope()
-        {
-            Root = Path.Combine(Path.GetTempPath(), "windows-operator-session-registry-tests", Guid.NewGuid().ToString("N"));
-            Options = Microsoft.Extensions.Options.Options.Create(
-                new WorkbenchOptions
-                {
-                    ExchangeRoot = Root,
-                    HostExchangeRoot = "/host-exchange",
-                });
-        }
-
-        public string Root { get; }
-
-        public IOptions<WorkbenchOptions> Options { get; }
-
-        public void Dispose()
-        {
-            if (Directory.Exists(Root))
-            {
-                Directory.Delete(Root, recursive: true);
-            }
-        }
-    }
 }

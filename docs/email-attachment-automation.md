@@ -62,7 +62,12 @@ Mail tools:
 - `mail_get_run`
 - `mail_status`
 
-Folder list, search, and download use automatic Outlook refresh and recovery by default. Callers may set `freshness` to `auto`, `cached`, or `fresh`; they do not call separate sync or recovery operations. Search and download also support folder path, subject substring, received-time bounds, attachment presence, max result/message limits, selected message IDs, selected attachment indexes, explicit run IDs, and dry runs.
+Folder list, search, and download use automatic Outlook refresh and recovery by
+default. Callers may set `freshness` to `auto`, `cached`, or `fresh`; they do
+not call separate sync or recovery operations. Search and download also support
+folder path, subject substring, received-time bounds, attachment presence, max
+result/message limits, selected message IDs, selected attachment indexes,
+explicit run IDs, and dry runs.
 
 ## Current v1 Output
 
@@ -152,7 +157,9 @@ SSH fallback:
 scripts/linux/windows-run-ps.sh scripts/windows/recover-outlook-mail.ps1 -Mode Profile
 ```
 
-Recovery escalates from soft cleanup to restart/force kill according to local Windows Operator policy. External callers receive actions/warnings in the mail result envelope instead of driving recovery directly.
+Recovery escalates from soft cleanup to restart/force kill according to local
+Windows Operator policy. External callers receive actions/warnings in the mail
+result envelope instead of driving recovery directly.
 
 ## Debugging
 
@@ -161,4 +168,6 @@ Recovery escalates from soft cleanup to restart/force kill according to local Wi
 - Keep raw stderr/stdout.
 - Keep a sample message manifest for test fixtures.
 - Use Windows Event Log only for Outlook/profile-level failures.
-- If Event Log shows `Microsoft Outlook: Rejected Safe Mode action`, open Classic Outlook interactively in RDP once, resolve the safe-mode/profile prompt, close Outlook cleanly, then retry automation.
+- If Event Log shows `Microsoft Outlook: Rejected Safe Mode action`, open
+  Classic Outlook interactively in RDP once, resolve the safe-mode/profile
+  prompt, close Outlook cleanly, then retry automation.

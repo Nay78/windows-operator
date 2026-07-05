@@ -11,4 +11,6 @@ public sealed record PowerPointUpdateResult
     public required DateTimeOffset FinishedAt { get; init; }
 
     public IReadOnlyList<PowerPointTargetResult> Targets { get; init; } = Array.Empty<PowerPointTargetResult>();
+
+    public IReadOnlyList<PowerPointDiscoveredTarget>? DiscoveredTargets { get; init; }
 }

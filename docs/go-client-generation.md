@@ -9,7 +9,9 @@ Goal: external Go consumers can regenerate Windows Operator bindings from a pinn
 - `oapi-codegen` consumes the committed OpenAPI spec and writes the Go client.
 - Generated files are committed, but never edited by hand.
 - Regeneration must be deterministic from source contracts plus pinned generator version.
-- The Go client module stays on Go 1.22 and pins `github.com/oapi-codegen/runtime` to a compatible version. Do not let local toolchain tidy silently raise it.
+- The Go client module stays on Go 1.22 and pins
+  `github.com/oapi-codegen/runtime` to a compatible version. Do not let local
+  toolchain tidy silently raise it.
 
 ## Source Of Truth
 
@@ -45,16 +47,9 @@ Use the root script:
 scripts/generate-go-client.sh
 ```
 
-This runs:
-
-```bash
-scripts/generate-openapi.sh
-go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.5.0 \
-  -config openapi/go-client.oapi-codegen.yaml \
-  openapi/windows-operator.openapi.json
-gofmt -w clients/go/windowsoperator.gen.go clients/go/generate.go
-(cd clients/go && go mod tidy -go=1.22)
-```
+The script is the source of truth for the exact generator command. It regenerates
+OpenAPI, invokes the pinned `oapi-codegen` version, formats generated files, and
+tidies the Go module at Go 1.22.
 
 From inside `clients/go`, this equivalent command is available:
 
@@ -62,7 +57,8 @@ From inside `clients/go`, this equivalent command is available:
 go generate ./...
 ```
 
-`go generate` delegates to the same root script, so both paths produce the same files.
+`go generate` delegates to the same root script, so both paths produce the same
+files.
 
 ## Files Owned By Generator
 
@@ -71,14 +67,15 @@ go generate ./...
 - `clients/go/go.mod`
 - `clients/go/go.sum`
 
-Do not manually repair generated type names or paths. Fix the C# contract, route metadata, or `openapi/go-client.oapi-codegen.yaml`, then regenerate.
+Do not manually repair generated type names or paths. Fix the C# contract,
+route metadata, or `openapi/go-client.oapi-codegen.yaml`, then regenerate.
 
 ## External Consumer Usage
 
-When this repo is pushed to GitHub and tagged, consumers can depend on:
+After the first release tag is created, consumers can depend on that tag:
 
 ```bash
-go get github.com/alejg/windows-operator/clients/go@v0.1.0
+go get github.com/alejg/windows-operator/clients/go@<tag>
 ```
 
 Import:

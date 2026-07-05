@@ -11,6 +11,8 @@ Environment:
   WINDOWS_OPERATOR_WINDOWS_REPO_ROOT               Windows repo root. Default: C:\src\windows-operator
   WINDOWS_OPERATOR_POWERSHELL_PROFILE_TARGETS      Semicolon-separated targets. Default: WindowsPowerShell;PowerShell
   WINDOWS_OPERATOR_POWERSHELL_PROFILE_SOURCE       Repo-relative profile source. Default: profiles\powershell\profile.ps1
+  WINDOWS_OPERATOR_RUN_ID                          Optional run id base.
+  WINDOWS_OPERATOR_RUN_TRANSPORT/SSH_*             Passed through to repo sync and script runner helpers.
 
 The script syncs this repo to the configured Windows computer, then installs a
 managed block in the Windows user PowerShell profile that dot-sources the

@@ -33,6 +33,13 @@ builder.Services.AddHttpClient<DesktopAgentClient>(client =>
 });
 builder.Services.AddHttpClient("powerpoint-artifacts");
 builder.Services.AddTransient<IWorkbenchService>(services => services.GetRequiredService<DesktopAgentClient>());
+builder.Services.AddTransient<IPowerPointOnlineService>(services => services.GetRequiredService<DesktopAgentClient>());
+builder.Services.AddTransient<IDevAutomationService>(services => services.GetRequiredService<DesktopAgentClient>());
+builder.Services.AddTransient<IPowerPointOnlineUpdateService>(services =>
+    new PowerPointOnlineUpdateService(
+        services.GetRequiredService<IPowerPointOnlineService>(),
+        services.GetRequiredService<IPowerPointJobService>(),
+        services.GetRequiredService<IOperatorFacade>()));
 builder.Services.AddSingleton<IPowerPointJobService>(services =>
     new PowerPointJobService(
         services.GetRequiredService<IHttpClientFactory>().CreateClient("powerpoint-artifacts"),
