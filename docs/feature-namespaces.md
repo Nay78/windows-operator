@@ -165,6 +165,25 @@ Linux-consumed outputs belong under the configured Windows exchange root, usuall
 `Z:\operator-exchange` on the shared-drive VM. Credentials and browser profiles
 must not be written there.
 
+## Path And File Name Contracts
+
+File-system names are operator-visible contracts once they appear in exchange,
+state roots, artifact URLs, run IDs, or persisted session files. Do not merge or
+change sanitizers until callers and stored paths are mapped.
+
+| Helper | Owner | Current policy | Primary consumers |
+| --- | --- | --- | --- |
+| `WorkbenchRunStore.SanitizePathSegment` | Agent workbench artifacts | Lowercase letters/digits plus `-`, `_`, `.`, replace other chars with `-`, trim `-`/`.` and fall back to `artifact` | `runs/<run-id>`, screenshots, PowerPoint session state, owned session registry |
+| `ExchangeArtifactService.SafeRunId` | Host artifact reads | Replace invalid Windows filename chars with `_`, preserve case, truncate to 180 chars | `GET /v1/runs/{runId}/artifacts`, artifact lookup under exchange |
+| `OutlookMailService.SafeFileName` and `OutlookMailComService.SafeFileName` | Outlook mail/download artifacts | Replace invalid Windows filename chars with `_`, preserve case, truncate to 180 chars | mail run results and downloaded attachment names |
+| `EdgeMicrosoftAuthService.SafeFileName` | Microsoft auth/browser run state | Trim, replace invalid Windows filename chars with `_`, preserve case, truncate to 180 chars | auth run directories, browser session files |
+| `PowerPointJobService.SanitizePathSegment` | PowerPoint job queue state | Allow lowercase letters/digits plus `-`, `_`, `.`, replace other chars with `-`, reject unsafe input at public boundary | `%LOCALAPPDATA%\WindowsOperator\run\powerpoint-officejs` job/artifact files |
+
+Cleanup rule: shared helper extraction needs an old/new behavior matrix for
+blank input, invalid filename chars, path separators, leading/trailing dots,
+case preservation, max length, reserved device names, and existing persisted
+paths. Prefer shared contract tests before shared implementation.
+
 ## External Services
 
 External services should use REST, not SSH or staged scripts, when a Host route exists.

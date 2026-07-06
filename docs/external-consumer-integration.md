@@ -125,6 +125,7 @@ Project release gates must compare generated output against source:
 
 ```bash
 scripts/check-openapi-contract.sh
+scripts/check-readme-route-inventory.sh
 scripts/generate-go-client.sh
 cd clients/go && go test ./...
 cd ../..
@@ -140,6 +141,8 @@ Target release gate additions:
   lint via `WINDOWS_OPERATOR_LINT_CMD`.
 - `scripts/check-openapi-contract.sh` includes breaking-change hook shape via
   `WINDOWS_OPERATOR_BREAKING_CMD` and `WINDOWS_OPERATOR_PREVIOUS_TAG`.
+- `scripts/check-readme-route-inventory.sh` verifies public route docs cover
+  every committed OpenAPI path.
 - Live Host `GET /openapi.json` parity check when Windows runtime is available.
 
 Release checklist:

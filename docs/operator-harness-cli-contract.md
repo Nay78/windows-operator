@@ -113,13 +113,13 @@ Rules:
 Recommended plain stdout example:
 
 ```text
-/var/lib/windows-server/shared/operator-exchange/ppt/runs/20260705T120102Z-hot-run/summary.json
+/var/lib/windows-server/shared/operator-exchange/runs/20260705T120102Z-hot-run/summary.json
 ```
 
 Recommended `--json` stdout example:
 
 ```json
-{"summaryPath":"/var/lib/windows-server/shared/operator-exchange/ppt/runs/20260705T120102Z-hot-run/summary.json"}
+{"summaryPath":"/var/lib/windows-server/shared/operator-exchange/runs/20260705T120102Z-hot-run/summary.json"}
 ```
 
 ## Summary Path Convention
@@ -192,7 +192,7 @@ so callers can reason about any harness result.
   "required": true,
   "observedAtUtc": "2026-07-05T12:01:07Z",
   "detail": "REST session reported ready",
-  "evidencePath": "/var/lib/windows-server/shared/operator-exchange/ppt/runs/example/session-status.json"
+  "evidencePath": "/var/lib/windows-server/shared/operator-exchange/runs/example/session-status.json"
 }
 ```
 

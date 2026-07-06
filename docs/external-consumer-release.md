@@ -18,6 +18,7 @@ Run from repo root:
 
 ```bash
 scripts/check-openapi-contract.sh
+scripts/check-readme-route-inventory.sh
 scripts/generate-go-client.sh
 cd clients/go && go test ./...
 cd ../..

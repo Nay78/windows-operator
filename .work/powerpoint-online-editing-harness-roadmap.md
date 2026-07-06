@@ -742,7 +742,7 @@ tests/WindowsOperator.Core.Tests/ContractSerializationTests.cs
 Live smoke:
 
 ```text
-scripts/linux/live-smoke.py
+scripts/linux/wo smoke
 ```
 
 ## Caller Impact
