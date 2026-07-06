@@ -18,6 +18,12 @@ public static class HostOperatorEndpoints
             await HostOperatorHttp.ExecuteAsync(
                 () => facade.GetHealthAsync(cancellationToken)));
 
+        group.MapGet("/capabilities", async Task<Results<Ok<CapabilitiesResult>, JsonHttpResult<OperatorError>>> (
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await HostOperatorHttp.ExecuteAsync(
+                () => facade.GetCapabilitiesAsync(cancellationToken)));
+
         group.MapGet("/windows", async Task<Results<Ok<IReadOnlyList<WindowRef>>, JsonHttpResult<OperatorError>>> (
             IOperatorFacade facade,
             CancellationToken cancellationToken) =>
@@ -394,6 +400,32 @@ public static class HostOperatorEndpoints
                 return HostOperatorHttp.Error(failure);
             }
         });
+
+        group.MapGet("/artifacts/{artifactId}", async Task<Results<FileContentHttpResult, JsonHttpResult<OperatorError>>> (
+            string artifactId,
+            IArtifactService artifacts,
+            HttpContext context,
+            CancellationToken cancellationToken) =>
+        {
+            try
+            {
+                var artifact = await artifacts.GetArtifactAsync(artifactId, cancellationToken);
+                context.Response.Headers.CacheControl = "private, max-age=60";
+                context.Response.Headers.ETag = $"\"sha256:{artifact.Sha256}\"";
+                return TypedResults.File(artifact.Bytes, artifact.MediaType, artifact.FileName);
+            }
+            catch (OperatorFailureException failure)
+            {
+                return HostOperatorHttp.Error(failure);
+            }
+        });
+
+        group.MapGet("/runs/{runId}/artifacts", async Task<Results<Ok<ArtifactListResult>, JsonHttpResult<OperatorError>>> (
+            string runId,
+            IArtifactService artifacts,
+            CancellationToken cancellationToken) =>
+            await HostOperatorHttp.ExecuteAsync(
+                () => artifacts.ListRunArtifactsAsync(runId, cancellationToken)));
 
         group.MapPost("/mail/folders", async Task<Results<Ok<MailFoldersResult>, JsonHttpResult<OperatorError>>> (
             MailListFoldersRequest request,

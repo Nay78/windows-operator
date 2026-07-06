@@ -675,7 +675,13 @@ public sealed class OutlookMailComService : IMailService, IDisposable
                 relative,
                 target,
                 bytes,
-                alreadyProcessed);
+                alreadyProcessed,
+                ArtifactRef.Create(
+                    relative,
+                    "application/octet-stream",
+                    bytes,
+                    FileSha256(target),
+                    new DateTimeOffset(File.GetCreationTimeUtc(target), TimeSpan.Zero)));
     }
 
     private static void AddFolderRows(dynamic folder, string prefix, int depth, List<MailFolderRef> rows)
@@ -1191,6 +1197,12 @@ public sealed class OutlookMailComService : IMailService, IDisposable
         }
 
         return Path.Combine(root, "run", "mail-download-state.json");
+    }
+
+    private static string FileSha256(string path)
+    {
+        using var stream = File.OpenRead(path);
+        return Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant();
     }
 
     private static void WriteRunResult(MailDownloadResult result)

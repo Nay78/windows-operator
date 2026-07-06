@@ -157,6 +157,64 @@ public sealed class ContractSerializationTests
     }
 
     [Fact]
+    public void OperatorError_Serializes_BranchableFields()
+    {
+        var error = OperatorErrors.PowerPointValidationFailed("missing title") with
+        {
+            CorrelationId = "corr-1",
+        };
+
+        var json = JsonSerializer.Serialize(error, OperatorJson.SerializerOptions);
+        var roundTrip = JsonSerializer.Deserialize<OperatorError>(json, OperatorJson.SerializerOptions);
+
+        Assert.Contains("\"code\":\"powerpoint_validation_failed\"", json);
+        Assert.Contains("\"retryable\":false", json);
+        Assert.Contains("\"category\":\"validation\"", json);
+        Assert.Contains("\"correlationId\":\"corr-1\"", json);
+        Assert.NotNull(roundTrip);
+        Assert.Equal(OperatorErrorCategory.Validation, roundTrip!.Category);
+        Assert.False(roundTrip.Retryable);
+    }
+
+    [Fact]
+    public void ArtifactRef_UsesOpaqueId_ForRelativePath()
+    {
+        var artifact = ArtifactRef.Create(
+            "runs/run-one/screenshots/final.jpg",
+            "image/jpeg",
+            123,
+            "abc123",
+            DateTimeOffset.Parse("2026-07-06T12:00:00Z"));
+
+        Assert.NotEqual("runs/run-one/screenshots/final.jpg", artifact.ArtifactId);
+        Assert.StartsWith("/v1/artifacts/", artifact.Href, StringComparison.Ordinal);
+        Assert.True(ArtifactIds.TryGetRelativePath(artifact.ArtifactId, out var relativePath));
+        Assert.Equal("runs/run-one/screenshots/final.jpg", relativePath);
+    }
+
+    [Fact]
+    public void CapabilitiesResult_Serializes_FeatureMap()
+    {
+        var result = new CapabilitiesResult(
+            "0.1.0",
+            new CapabilityHost("ok", "headless-host", "http://127.0.0.1:43117", "ok"),
+            new Dictionary<string, CapabilityFeature>(StringComparer.Ordinal)
+            {
+                ["powerpoint.online.update"] = new(true, "stable"),
+                ["mail.outlook.download"] = new(false, "stable", "Desktop Agent unavailable."),
+            },
+            DateTimeOffset.Parse("2026-07-06T12:00:00Z"));
+
+        var json = JsonSerializer.Serialize(result, OperatorJson.SerializerOptions);
+
+        Assert.Contains("\"contractVersion\":\"0.1.0\"", json);
+        Assert.Contains("\"runtimeMode\":\"headless-host\"", json);
+        Assert.Contains("\"powerpoint.online.update\"", json);
+        Assert.Contains("\"available\":true", json);
+        Assert.Contains("\"reason\":\"Desktop Agent unavailable.\"", json);
+    }
+
+    [Fact]
     public void DevScriptResult_Serializes_StatusAsCamelCase()
     {
         var result = new DevScriptResult
@@ -756,6 +814,16 @@ public sealed class ContractSerializationTests
             "source",
             "bound",
             "tagged");
+    }
+
+    [Fact]
+    public void OperatorOpenApi_Uses_ExplicitContractVersionSource()
+    {
+        using var document = JsonDocument.Parse(JsonSerializer.Serialize(OperatorOpenApi.Document, OperatorJson.SerializerOptions));
+
+        Assert.Equal(
+            OperatorContractVersion.Value,
+            document.RootElement.GetProperty("info").GetProperty("version").GetString());
     }
 
     [Fact]

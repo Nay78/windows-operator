@@ -6,6 +6,8 @@ public interface IOperatorFacade
 {
     Task<HealthResult> GetHealthAsync(CancellationToken cancellationToken);
 
+    Task<CapabilitiesResult> GetCapabilitiesAsync(CancellationToken cancellationToken);
+
     Task<IReadOnlyList<WindowRef>> ListWindowsAsync(CancellationToken cancellationToken);
 
     Task<ActionResult> ActivateWindowAsync(long hwnd, CancellationToken cancellationToken);

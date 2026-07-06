@@ -22,8 +22,23 @@ default.
 ## v1 surfaces
 
 Host REST binds `127.0.0.1:43117` by default and proxies desktop automation to the Agent when a desktop session exists.
+Host owns the public OpenAPI surface. Agent owns interactive desktop work on
+`127.0.0.1:43119`. Queue/artifact/update routes such as
+`/v1/powerpoint/jobs...` and `/v1/powerpoint/online/updates` are Host-owned
+orchestration routes. For auth status polling, prefer explicit
+`/status/{runId}` in automation; `/status/latest` is a convenience path for
+manual or single-agent follow-up.
+
+External projects should consume Host REST, `/openapi.json`, the committed
+OpenAPI spec, or generated clients. Do not use `scripts/linux/wo`, `Justfile`
+recipes, SSH runner scripts, or staged PowerShell as application dependencies.
+See [External consumer integration spec](docs/external-consumer-integration.md),
+[Go client README](clients/go/README.md), and
+[external relay guide](docs/external-consumer-relay.md) for the target contract,
+release gates, artifacts, errors, relay, and SDK rules.
 
 - `GET /v1/health`
+- `GET /v1/capabilities`
 - `GET /v1/windows`
 - `GET /v1/desktop/foreground`
 - `POST /v1/desktop/screenshot`
@@ -62,6 +77,8 @@ Host REST binds `127.0.0.1:43117` by default and proxies desktop automation to t
 - `POST /v1/powerpoint/jobs/{jobId}/fail`
 - `GET /v1/powerpoint/jobs/{jobId}`
 - `GET /v1/powerpoint/jobs/{jobId}/artifacts/{artifactId}`
+- `GET /v1/artifacts/{artifactId}`
+- `GET /v1/runs/{runId}/artifacts`
 - `POST /v1/powerpoint/online/sessions`
 - `GET /v1/powerpoint/online/sessions/{sessionId}`
 - `POST /v1/powerpoint/online/sessions/{sessionId}/addin/probe`
@@ -181,8 +198,8 @@ Agent-facing harness entrypoint:
 scripts/linux/wo --help
 ```
 
-Use `scripts/linux/wo` for operator flows. Keep direct REST calls for API
-users, service integrations, and low-level debugging.
+Use `scripts/linux/wo` for operator flows. Keep REST/OpenAPI/generated clients
+for API users, service integrations, and external project dependencies.
 
 Linux-side harness examples:
 

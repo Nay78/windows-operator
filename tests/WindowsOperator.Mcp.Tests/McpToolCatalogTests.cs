@@ -361,6 +361,13 @@ public sealed class McpToolCatalogTests
                     true,
                     DateTimeOffset.Parse("2026-04-26T00:00:00Z")));
 
+        public Task<CapabilitiesResult> GetCapabilitiesAsync(CancellationToken cancellationToken) =>
+            Task.FromResult(new CapabilitiesResult(
+                "0.1.0",
+                new CapabilityHost("ok", "interactive-user", "http://127.0.0.1:43117", "ok"),
+                new Dictionary<string, CapabilityFeature>(StringComparer.Ordinal),
+                DateTimeOffset.Parse("2026-04-26T00:00:00Z")));
+
         public Task<IReadOnlyList<WindowRef>> ListWindowsAsync(CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<WindowRef>>(Array.Empty<WindowRef>());
 

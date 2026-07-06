@@ -15,7 +15,7 @@ public static class OperatorHttp
         }
         catch (OperatorFailureException failure)
         {
-            return TypedResults.Json(failure.Error, statusCode: MapStatusCode(failure.Error.Code));
+            return TypedResults.Json(WithCorrelationId(failure.Error), statusCode: MapStatusCode(failure.Error.Code));
         }
     }
 
@@ -31,6 +31,7 @@ public static class OperatorHttp
             ErrorCodes.UnsupportedControl => StatusCodes.Status422UnprocessableEntity,
             ErrorCodes.PowerPointValidationFailed => StatusCodes.Status422UnprocessableEntity,
             ErrorCodes.PowerPointJobNotFound => StatusCodes.Status404NotFound,
+            ErrorCodes.ArtifactNotFound => StatusCodes.Status404NotFound,
             ErrorCodes.PowerPointUnavailable => StatusCodes.Status423Locked,
             ErrorCodes.DevAutomationDisabled => StatusCodes.Status422UnprocessableEntity,
             ErrorCodes.DevRawJsDisabled => StatusCodes.Status422UnprocessableEntity,
@@ -40,4 +41,9 @@ public static class OperatorHttp
             ErrorCodes.MailUnavailable => StatusCodes.Status423Locked,
             _ => StatusCodes.Status500InternalServerError,
         };
+
+    private static OperatorError WithCorrelationId(OperatorError error) =>
+        string.IsNullOrWhiteSpace(error.CorrelationId)
+            ? error with { CorrelationId = Guid.NewGuid().ToString("n") }
+            : error;
 }

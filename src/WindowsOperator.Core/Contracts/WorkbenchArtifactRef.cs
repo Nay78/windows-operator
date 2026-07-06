@@ -5,4 +5,5 @@ public sealed record WorkbenchArtifactRef(
     string RelativePath,
     string HostPath,
     string MediaType,
-    long Bytes);
+    long Bytes,
+    ArtifactRef? Artifact = null);

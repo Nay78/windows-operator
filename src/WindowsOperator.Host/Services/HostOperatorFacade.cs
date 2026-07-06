@@ -10,15 +10,18 @@ public sealed class HostOperatorFacade : IOperatorFacade
     private readonly DesktopAgentClient _desktopAgent;
     private readonly IOptions<OperatorOptions> _options;
     private readonly IOptions<DesktopAgentOptions> _desktopOptions;
+    private readonly IOptions<PowerPointAddInOptions> _powerPointAddInOptions;
 
     public HostOperatorFacade(
         DesktopAgentClient desktopAgent,
         IOptions<OperatorOptions> options,
-        IOptions<DesktopAgentOptions> desktopOptions)
+        IOptions<DesktopAgentOptions> desktopOptions,
+        IOptions<PowerPointAddInOptions> powerPointAddInOptions)
     {
         _desktopAgent = desktopAgent;
         _options = options;
         _desktopOptions = desktopOptions;
+        _powerPointAddInOptions = powerPointAddInOptions;
     }
 
     public async Task<HealthResult> GetHealthAsync(CancellationToken cancellationToken)
@@ -33,6 +36,42 @@ public sealed class HostOperatorFacade : IOperatorFacade
             desktopStatus?.UiBackend ?? $"DesktopAgentProxy:{_desktopOptions.Value.BaseUrl}",
             desktopStatus?.CaptureBackends ?? new[] { "DesktopAgentProxy" },
             options.EnableMcpStdio,
+            DateTimeOffset.UtcNow);
+    }
+
+    public async Task<CapabilitiesResult> GetCapabilitiesAsync(CancellationToken cancellationToken)
+    {
+        var health = await GetHealthAsync(cancellationToken);
+        var desktopAvailable = string.Equals(health.Status, "ok", StringComparison.Ordinal);
+        var addInEnabled = _powerPointAddInOptions.Value.Enabled;
+        var features = new Dictionary<string, CapabilityFeature>(StringComparer.Ordinal)
+        {
+            ["host.openapi"] = Available("stable"),
+            ["desktop.window"] = AgentBacked(desktopAvailable, "stable"),
+            ["desktop.screenshot"] = AgentBacked(desktopAvailable, "stable"),
+            ["browser.edge.session"] = AgentBacked(desktopAvailable, "stable"),
+            ["powerpoint.online.update"] = desktopAvailable && addInEnabled
+                ? Available("stable")
+                : Unavailable(
+                    "stable",
+                    desktopAvailable
+                        ? "PowerPoint add-in host is not enabled."
+                        : "Desktop Agent is unavailable.",
+                    new Dictionary<string, string>(StringComparer.Ordinal)
+                    {
+                        ["addInEnabled"] = addInEnabled ? "true" : "false",
+                    }),
+            ["mail.outlook.download"] = AgentBacked(desktopAvailable, "stable"),
+        };
+
+        return new CapabilitiesResult(
+            OperatorContractVersion.Value,
+            new CapabilityHost(
+                health.Status,
+                health.RuntimeMode,
+                health.RestBaseUrl,
+                desktopAvailable ? "ok" : "unavailable"),
+            features,
             DateTimeOffset.UtcNow);
     }
 
@@ -149,4 +188,18 @@ public sealed class HostOperatorFacade : IOperatorFacade
             return null;
         }
     }
+
+    private static CapabilityFeature AgentBacked(bool desktopAvailable, string surface) =>
+        desktopAvailable
+            ? Available(surface)
+            : Unavailable(surface, "Desktop Agent is unavailable.");
+
+    private static CapabilityFeature Available(string surface) =>
+        new(true, surface);
+
+    private static CapabilityFeature Unavailable(
+        string surface,
+        string reason,
+        IReadOnlyDictionary<string, string>? details = null) =>
+        new(false, surface, reason, details);
 }

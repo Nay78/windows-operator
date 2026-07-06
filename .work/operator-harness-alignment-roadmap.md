@@ -49,6 +49,9 @@ Current execution state:
 | S8 REST/API Alignment Audit | complete | main | Committed and live OpenAPI path counts both `55`; no REST mutation needed. |
 | S9 Documentation Alignment | complete | worker + main review | README and architecture/domain docs point agents to `scripts/linux/wo`. |
 | S10 Completion Proof | complete | main + workers | Hot start/status/run/cleanup passed live; lease removed and Edge-like windows returned to `0`. |
+| S11 External Project Boundary | complete | main | AGENTS, README, development notes, and architecture docs state REST/OpenAPI/generated clients are the no-drift external integration path; CLI/Just/scripts are operator tooling. |
+| S12 External Consumer Spec | complete | main | `docs/external-consumer-integration.md` defines target contract, release gates, artifact/error/status/capability/relay/SDK rules, and implementation roadmap. |
+| S13 External Consumer Roadmap | complete | main | `.work/external-consumer-integration-roadmap.md` breaks the spec into implementation slices E1-E9 with validation and live-proof requirements. |
 
 ### Handoff S1: Shared CLI Harness Contract
 

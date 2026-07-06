@@ -55,7 +55,7 @@ function Ensure-StateDirectories {
 function Test-DotnetSdk {
     param([string]$DotnetPath)
 
-    if (-not (Test-Path -LiteralPath $DotnetPath)) {
+    if (-not (Test-Path -LiteralPath $DotnetPath -PathType Leaf)) {
         return $false
     }
 
@@ -71,6 +71,17 @@ function Test-DotnetSdk {
 
     $info = & $DotnetPath --info 2>$null
     if ($LASTEXITCODE -ne 0) {
+        return $false
+    }
+
+    $runtimes = & $DotnetPath --list-runtimes 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        return $false
+    }
+
+    $hasCoreRuntime = $runtimes | Where-Object { $_ -match '^Microsoft\.NETCore\.App\s' }
+    $hasAspNetRuntime = $runtimes | Where-Object { $_ -match '^Microsoft\.AspNetCore\.App\s' }
+    if (-not $hasCoreRuntime -or -not $hasAspNetRuntime) {
         return $false
     }
 
@@ -237,7 +248,9 @@ if ($EnableAutostart) {
         -ExecutionPolicy Bypass `
         -File (Join-Path $PSScriptRoot "register-host-autostart.ps1") `
         -RepoRoot $resolvedRepoRoot `
-        -DotnetPath $dotnetPath
+        -DotnetPath $dotnetPath `
+        -ExchangeRoot $ExchangeRoot `
+        -HostExchangeRoot $HostExchangeRoot
 
     if ($LASTEXITCODE -ne 0) {
         throw "Host autostart registration failed."

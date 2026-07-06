@@ -33,7 +33,7 @@ function Ensure-StateDirectories {
 function Test-DotnetSdk {
     param([string]$DotnetPath)
 
-    if (-not (Test-Path -LiteralPath $DotnetPath)) {
+    if (-not (Test-Path -LiteralPath $DotnetPath -PathType Leaf)) {
         return $false
     }
 
@@ -49,6 +49,16 @@ function Test-DotnetSdk {
 
     $info = & $DotnetPath --info 2>$null
     if ($LASTEXITCODE -ne 0) {
+        return $false
+    }
+
+    $runtimes = & $DotnetPath --list-runtimes 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        return $false
+    }
+
+    $hasCoreRuntime = $runtimes | Where-Object { $_ -match '^Microsoft\.NETCore\.App\s' }
+    if (-not $hasCoreRuntime) {
         return $false
     }
 

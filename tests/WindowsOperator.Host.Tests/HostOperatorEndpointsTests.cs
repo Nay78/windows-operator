@@ -5,10 +5,13 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http.Json;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using WindowsOperator.Core.Configuration;
 using WindowsOperator.Core.Contracts;
 using WindowsOperator.Core.Json;
 using WindowsOperator.Core.Services;
 using WindowsOperator.Host.Api;
+using WindowsOperator.Host.Services;
 
 namespace WindowsOperator.Host.Tests;
 
@@ -174,6 +177,138 @@ public sealed class HostOperatorEndpointsTests
     }
 
     [Fact]
+    public async Task CapabilitiesRoute_ReturnsContractAndFeatures()
+    {
+        await using var app = await CreateAppAsync(new FakeUpdateService(new PowerPointOnlineUpdateResult
+        {
+            Success = true,
+            Status = PowerPointOnlineUpdateStatus.Succeeded,
+            SaveProofTier = PowerPointOnlineSaveProofTier.Tier2SavedIndicator,
+            Session = CreateSession(),
+            JobRecord = CreateJobRecord(),
+            Evidence = Array.Empty<DesktopScreenshotResult>(),
+            Actions = Array.Empty<string>(),
+            Warnings = Array.Empty<string>(),
+            Errors = Array.Empty<OperatorError>(),
+            ObservedAtUtc = DateTimeOffset.Parse("2026-07-03T12:00:05Z"),
+        }));
+        var client = app.GetTestClient();
+
+        var response = await client.GetAsync("/v1/capabilities");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var result = await response.Content.ReadFromJsonAsync<CapabilitiesResult>(OperatorJson.SerializerOptions);
+        Assert.NotNull(result);
+        Assert.Equal("0.1.0", result!.ContractVersion);
+        Assert.Equal("headless-host", result.Host.RuntimeMode);
+        Assert.True(result.Features["powerpoint.online.update"].Available);
+        Assert.True(result.Features["mail.outlook.download"].Available);
+    }
+
+    [Fact]
+    public async Task ArtifactRoutes_ListAndFetchRunArtifacts()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "windows-operator-host-artifacts", Guid.NewGuid().ToString("N"));
+        try
+        {
+            var runId = "external-smoke";
+            var artifactRoot = Path.Combine(root, "runs", runId, "screenshots");
+            Directory.CreateDirectory(artifactRoot);
+            await File.WriteAllTextAsync(Path.Combine(artifactRoot, "proof.txt"), "artifact proof");
+
+            await using var app = await CreateAppAsync(
+                new FakeUpdateService(new PowerPointOnlineUpdateResult
+                {
+                    Success = true,
+                    Status = PowerPointOnlineUpdateStatus.Succeeded,
+                    SaveProofTier = PowerPointOnlineSaveProofTier.Tier2SavedIndicator,
+                    Session = CreateSession(),
+                    JobRecord = CreateJobRecord(),
+                    Evidence = Array.Empty<DesktopScreenshotResult>(),
+                    Actions = Array.Empty<string>(),
+                    Warnings = Array.Empty<string>(),
+                    Errors = Array.Empty<OperatorError>(),
+                    ObservedAtUtc = DateTimeOffset.Parse("2026-07-03T12:00:05Z"),
+                }),
+                artifacts: new ExchangeArtifactService(Options.Create(new WorkbenchOptions
+                {
+                    ExchangeRoot = root,
+                })));
+            var client = app.GetTestClient();
+
+            var list = await client.GetFromJsonAsync<ArtifactListResult>(
+                $"/v1/runs/{runId}/artifacts",
+                OperatorJson.SerializerOptions);
+
+            Assert.NotNull(list);
+            var artifact = Assert.Single(list!.Artifacts);
+            Assert.Equal("text/plain", artifact.MediaType);
+            Assert.Equal(14, artifact.Bytes);
+            Assert.StartsWith("/v1/artifacts/", artifact.Href, StringComparison.Ordinal);
+
+            var response = await client.GetAsync(artifact.Href);
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal("text/plain", response.Content.Headers.ContentType?.MediaType);
+            Assert.Equal("artifact proof", await response.Content.ReadAsStringAsync());
+            Assert.NotNull(response.Headers.ETag);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task ArtifactRoute_NotFound_ReturnsBranchableOperatorError()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "windows-operator-host-artifacts", Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(root);
+            await using var app = await CreateAppAsync(
+                new FakeUpdateService(new PowerPointOnlineUpdateResult
+                {
+                    Success = true,
+                    Status = PowerPointOnlineUpdateStatus.Succeeded,
+                    SaveProofTier = PowerPointOnlineSaveProofTier.Tier2SavedIndicator,
+                    Session = CreateSession(),
+                    JobRecord = CreateJobRecord(),
+                    Evidence = Array.Empty<DesktopScreenshotResult>(),
+                    Actions = Array.Empty<string>(),
+                    Warnings = Array.Empty<string>(),
+                    Errors = Array.Empty<OperatorError>(),
+                    ObservedAtUtc = DateTimeOffset.Parse("2026-07-03T12:00:05Z"),
+                }),
+                artifacts: new ExchangeArtifactService(Options.Create(new WorkbenchOptions
+                {
+                    ExchangeRoot = root,
+                })));
+            var client = app.GetTestClient();
+
+            var response = await client.GetAsync("/v1/artifacts/%2A%2A%2A");
+
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+            var error = await response.Content.ReadFromJsonAsync<OperatorError>(OperatorJson.SerializerOptions);
+            Assert.NotNull(error);
+            Assert.Equal("artifact_not_found", error!.Code);
+            Assert.Equal(OperatorErrorCategory.NotFound, error.Category);
+            Assert.False(error.Retryable);
+            Assert.False(string.IsNullOrWhiteSpace(error.CorrelationId));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public void OpenApi_IncludesPowerPointOnlineUpdatesPath()
     {
         var json = JsonSerializer.Serialize(OperatorOpenApi.Document, OperatorJson.SerializerOptions);
@@ -188,12 +323,67 @@ public sealed class HostOperatorEndpointsTests
         Assert.Contains("\"runPowerPointOnlineDevScript\"", json);
         Assert.Contains("\"/v1/dev/browser/edge/sessions/{sessionId}/eval\"", json);
         Assert.Contains("\"evaluateEdgeBrowserDevScript\"", json);
+        Assert.Contains("\"/v1/capabilities\"", json);
+        Assert.Contains("\"getCapabilities\"", json);
+        Assert.Contains("\"/v1/artifacts/{artifactId}\"", json);
+        Assert.Contains("\"getArtifact\"", json);
+        Assert.Contains("\"/v1/runs/{runId}/artifacts\"", json);
+        Assert.Contains("\"listRunArtifacts\"", json);
+    }
+
+    [Fact]
+    public void OpenApi_Operations_ExposeKnownSurfaceMetadata()
+    {
+        using var document = JsonDocument.Parse(JsonSerializer.Serialize(OperatorOpenApi.Document, OperatorJson.SerializerOptions));
+        var paths = document.RootElement.GetProperty("paths");
+        var allowed = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "stable",
+            "diagnostic",
+            "development",
+        };
+
+        foreach (var path in paths.EnumerateObject())
+        {
+            foreach (var operation in path.Value.EnumerateObject())
+            {
+                var surface = operation.Value.GetProperty("x-windows-operator-surface").GetString();
+                Assert.NotNull(surface);
+                Assert.Contains(surface!, allowed);
+
+                var tags = operation.Value.GetProperty("tags");
+                Assert.Equal(JsonValueKind.Array, tags.ValueKind);
+                Assert.Equal(surface, Assert.Single(tags.EnumerateArray()).GetString());
+            }
+        }
+
+        Assert.Equal(
+            "stable",
+            paths.GetProperty("/v1/windows").GetProperty("get").GetProperty("x-windows-operator-surface").GetString());
+        Assert.Equal(
+            "stable",
+            paths.GetProperty("/v1/health").GetProperty("get").GetProperty("x-windows-operator-surface").GetString());
+        Assert.Equal(
+            "diagnostic",
+            paths
+                .GetProperty("/v1/powerpoint/online/sessions/{sessionId}/addin/run-pending-job")
+                .GetProperty("post")
+                .GetProperty("x-windows-operator-surface")
+                .GetString());
+        Assert.Equal(
+            "development",
+            paths
+                .GetProperty("/v1/dev/powerpoint/online/sessions/{sessionId}/script")
+                .GetProperty("post")
+                .GetProperty("x-windows-operator-surface")
+                .GetString());
     }
 
     private static async Task<WebApplication> CreateAppAsync(
         IPowerPointOnlineUpdateService updates,
         IPowerPointOnlineService? powerpointOnline = null,
-        IDevAutomationService? devAutomation = null)
+        IDevAutomationService? devAutomation = null,
+        IArtifactService? artifacts = null)
     {
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseTestServer();
@@ -204,6 +394,7 @@ public sealed class HostOperatorEndpointsTests
         builder.Services.AddSingleton<IPowerPointOnlineService>(powerpointOnline ?? new UnusedPowerPointOnlineService());
         builder.Services.AddSingleton<IDevAutomationService>(devAutomation ?? new UnusedDevAutomationService());
         builder.Services.AddSingleton<IPowerPointJobService, UnusedPowerPointJobService>();
+        builder.Services.AddSingleton(artifacts ?? new UnusedArtifactService());
 
         var app = builder.Build();
         app.MapHostOperatorEndpoints();
@@ -315,6 +506,16 @@ public sealed class HostOperatorEndpointsTests
         public Task<ActionResult> ClickUiAsync(UiaClickRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<BrowserEdgeSessionStateResult> CloseEdgeBrowserSessionAsync(string sessionId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<ScreenshotResult> CaptureWindowAsync(long hwnd, ScreenshotFormat? format, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<CapabilitiesResult> GetCapabilitiesAsync(CancellationToken cancellationToken) =>
+            Task.FromResult(new CapabilitiesResult(
+                "0.1.0",
+                new CapabilityHost("ok", "headless-host", "http://127.0.0.1:43117", "ok"),
+                new Dictionary<string, CapabilityFeature>(StringComparer.Ordinal)
+                {
+                    ["powerpoint.online.update"] = new(true, "stable"),
+                    ["mail.outlook.download"] = new(true, "stable"),
+                },
+                DateTimeOffset.Parse("2026-07-06T12:00:00Z")));
         public Task<MailDownloadResult> DownloadMailAttachmentsAsync(MailDownloadRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<MailDownloadResult> GetMailRunAsync(string runId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<MailStatusResult> GetMailStatusAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
@@ -377,5 +578,11 @@ public sealed class HostOperatorEndpointsTests
         public Task<PowerPointJobRecord> FailAsync(string jobId, PowerPointUpdateError error, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<PowerPointArtifactContent> GetArtifactAsync(string jobId, string artifactId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<PowerPointJobRecord> GetAsync(string jobId, CancellationToken cancellationToken) => throw new NotSupportedException();
+    }
+
+    private sealed class UnusedArtifactService : IArtifactService
+    {
+        public Task<ArtifactContent> GetArtifactAsync(string artifactId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<ArtifactListResult> ListRunArtifactsAsync(string runId, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 }

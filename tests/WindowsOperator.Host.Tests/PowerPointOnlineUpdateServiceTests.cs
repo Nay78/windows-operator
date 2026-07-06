@@ -1358,6 +1358,8 @@ namespace WindowsOperator.Host.Tests;
 
         public Task<HealthResult> GetHealthAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
 
+        public Task<CapabilitiesResult> GetCapabilitiesAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+
         public Task<IReadOnlyList<WindowRef>> ListWindowsAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<ActionResult> ActivateWindowAsync(long hwnd, CancellationToken cancellationToken) => throw new NotSupportedException();

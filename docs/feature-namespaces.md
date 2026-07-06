@@ -48,7 +48,16 @@ Rules:
 - Keep HTTP verbs meaningful. Use `GET` only for read-only status operations.
   Use `POST` for desktop actions, browser launches, refresh-aware reads,
   downloads, and anything with side effects.
-- Keep Host and Agent routes identical. Host may proxy, Agent owns desktop work.
+- Host owns the public OpenAPI surface. Agent owns interactive desktop work.
+  Host may proxy Agent routes, and Host may own headless orchestration routes
+  such as queues, artifacts, and update workflows. Document Host-only or
+  Agent-only route ownership when it differs from the proxied default.
+- Prefer plural resource collections for new stable routes: `sessions`, `jobs`,
+  `runs`. Keep existing singular route shapes for compatibility, but do not use
+  them as the pattern for new resource families.
+- Prefer explicit run IDs for automation status reads. `status/latest`
+  endpoints are convenience paths for manual inspection or single-agent
+  follow-up, not the primary concurrent-agent contract.
 
 Examples:
 

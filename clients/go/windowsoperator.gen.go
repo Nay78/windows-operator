@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 // Defines values for BrowserEdgeProfileMode.
@@ -58,6 +59,17 @@ const (
 	MicrosoftDeviceLoginStatusTimedOut        MicrosoftDeviceLoginStatus = "timedOut"
 )
 
+// Defines values for OperatorErrorCategory.
+const (
+	OperatorErrorCategoryConflict    OperatorErrorCategory = "conflict"
+	OperatorErrorCategoryInternal    OperatorErrorCategory = "internal"
+	OperatorErrorCategoryNotFound    OperatorErrorCategory = "notFound"
+	OperatorErrorCategoryPermission  OperatorErrorCategory = "permission"
+	OperatorErrorCategoryTimeout     OperatorErrorCategory = "timeout"
+	OperatorErrorCategoryUnavailable OperatorErrorCategory = "unavailable"
+	OperatorErrorCategoryValidation  OperatorErrorCategory = "validation"
+)
+
 // Defines values for PowerPointOnlineAddInProbeStatus.
 const (
 	PowerPointOnlineAddInProbeStatusBlockedActivation PowerPointOnlineAddInProbeStatus = "blockedActivation"
@@ -90,14 +102,14 @@ const (
 
 // Defines values for PowerPointOnlineUpdateStatus.
 const (
-	PowerPointOnlineUpdateStatusBlockedAddIn         PowerPointOnlineUpdateStatus = "blockedAddIn"
-	PowerPointOnlineUpdateStatusBlockedSession       PowerPointOnlineUpdateStatus = "blockedSession"
-	PowerPointOnlineUpdateStatusCleanupFailed        PowerPointOnlineUpdateStatus = "cleanupFailed"
-	PowerPointOnlineUpdateStatusFailed               PowerPointOnlineUpdateStatus = "failed"
-	PowerPointOnlineUpdateStatusSaveUnverified       PowerPointOnlineUpdateStatus = "saveUnverified"
-	PowerPointOnlineUpdateStatusSessionCleanupFailed PowerPointOnlineUpdateStatus = "sessionCleanupFailed"
-	PowerPointOnlineUpdateStatusSucceeded            PowerPointOnlineUpdateStatus = "succeeded"
-	PowerPointOnlineUpdateStatusVerificationFailed   PowerPointOnlineUpdateStatus = "verificationFailed"
+	BlockedAddIn         PowerPointOnlineUpdateStatus = "blockedAddIn"
+	BlockedSession       PowerPointOnlineUpdateStatus = "blockedSession"
+	CleanupFailed        PowerPointOnlineUpdateStatus = "cleanupFailed"
+	Failed               PowerPointOnlineUpdateStatus = "failed"
+	SaveUnverified       PowerPointOnlineUpdateStatus = "saveUnverified"
+	SessionCleanupFailed PowerPointOnlineUpdateStatus = "sessionCleanupFailed"
+	Succeeded            PowerPointOnlineUpdateStatus = "succeeded"
+	VerificationFailed   PowerPointOnlineUpdateStatus = "verificationFailed"
 )
 
 // Defines values for ScreenshotFormat.
@@ -111,6 +123,24 @@ type ActionResult struct {
 	Message  string             `json:"message"`
 	Metadata *map[string]string `json:"metadata"`
 	Success  bool               `json:"success"`
+}
+
+// ArtifactListResult defines model for ArtifactListResult.
+type ArtifactListResult struct {
+	Artifacts    []ArtifactRef `json:"artifacts"`
+	CheckedAtUtc time.Time     `json:"checkedAtUtc"`
+	RunId        string        `json:"runId"`
+}
+
+// ArtifactRef defines model for ArtifactRef.
+type ArtifactRef struct {
+	ArtifactId   string     `json:"artifactId"`
+	Bytes        *int64     `json:"bytes"`
+	CreatedAtUtc *time.Time `json:"createdAtUtc"`
+	ExpiresAtUtc *time.Time `json:"expiresAtUtc"`
+	Href         string     `json:"href"`
+	MediaType    string     `json:"mediaType"`
+	Sha256       *string    `json:"sha256"`
 }
 
 // BrowserEdgeDevEvalRequest defines model for BrowserEdgeDevEvalRequest.
@@ -243,6 +273,30 @@ type BrowserEdgeSessionStateResult struct {
 	Success       bool                            `json:"success"`
 	Title         *string                         `json:"title"`
 	Url           *string                         `json:"url"`
+}
+
+// CapabilitiesResult defines model for CapabilitiesResult.
+type CapabilitiesResult struct {
+	CheckedAtUtc    time.Time                    `json:"checkedAtUtc"`
+	ContractVersion string                       `json:"contractVersion"`
+	Features        map[string]CapabilityFeature `json:"features"`
+	Host            CapabilityHost               `json:"host"`
+}
+
+// CapabilityFeature defines model for CapabilityFeature.
+type CapabilityFeature struct {
+	Available bool               `json:"available"`
+	Details   *map[string]string `json:"details"`
+	Reason    *string            `json:"reason"`
+	Surface   string             `json:"surface"`
+}
+
+// CapabilityHost defines model for CapabilityHost.
+type CapabilityHost struct {
+	DesktopAgentStatus *string `json:"desktopAgentStatus"`
+	RestBaseUrl        string  `json:"restBaseUrl"`
+	RuntimeMode        string  `json:"runtimeMode"`
+	Status             string  `json:"status"`
 }
 
 // DesktopScreenshotRequest defines model for DesktopScreenshotRequest.
@@ -394,16 +448,17 @@ type MailRunError struct {
 
 // MailSavedAttachment defines model for MailSavedAttachment.
 type MailSavedAttachment struct {
-	AbsolutePath     string     `json:"absolutePath"`
-	AlreadyProcessed bool       `json:"alreadyProcessed"`
-	AttachmentIndex  int32      `json:"attachmentIndex"`
-	Bytes            int64      `json:"bytes"`
-	FileName         string     `json:"fileName"`
-	FolderPath       string     `json:"folderPath"`
-	MessageId        string     `json:"messageId"`
-	ReceivedTime     *time.Time `json:"receivedTime"`
-	RelativePath     string     `json:"relativePath"`
-	Subject          string     `json:"subject"`
+	AbsolutePath     string       `json:"absolutePath"`
+	AlreadyProcessed bool         `json:"alreadyProcessed"`
+	Artifact         *ArtifactRef `json:"artifact"`
+	AttachmentIndex  int32        `json:"attachmentIndex"`
+	Bytes            int64        `json:"bytes"`
+	FileName         string       `json:"fileName"`
+	FolderPath       string       `json:"folderPath"`
+	MessageId        string       `json:"messageId"`
+	ReceivedTime     *time.Time   `json:"receivedTime"`
+	RelativePath     string       `json:"relativePath"`
+	Subject          string       `json:"subject"`
 }
 
 // MailSearchRequest defines model for MailSearchRequest.
@@ -535,11 +590,17 @@ type MicrosoftDeviceLoginStatus string
 
 // OperatorError defines model for OperatorError.
 type OperatorError struct {
-	Code        *string            `json:"code,omitempty"`
-	Details     *map[string]string `json:"details"`
-	Message     *string            `json:"message,omitempty"`
-	Remediation *string            `json:"remediation,omitempty"`
+	Category      *OperatorErrorCategory `json:"category"`
+	Code          *string                `json:"code,omitempty"`
+	CorrelationId *string                `json:"correlationId"`
+	Details       *map[string]string     `json:"details"`
+	Message       *string                `json:"message,omitempty"`
+	Remediation   *string                `json:"remediation,omitempty"`
+	Retryable     *bool                  `json:"retryable"`
 }
+
+// OperatorErrorCategory defines model for OperatorErrorCategory.
+type OperatorErrorCategory string
 
 // PowerPointArtifactRef defines model for PowerPointArtifactRef.
 type PowerPointArtifactRef struct {
@@ -925,11 +986,12 @@ type WindowRef struct {
 
 // WorkbenchArtifactRef defines model for WorkbenchArtifactRef.
 type WorkbenchArtifactRef struct {
-	Bytes        int64  `json:"bytes"`
-	HostPath     string `json:"hostPath"`
-	MediaType    string `json:"mediaType"`
-	Path         string `json:"path"`
-	RelativePath string `json:"relativePath"`
+	Artifact     *ArtifactRef `json:"artifact"`
+	Bytes        int64        `json:"bytes"`
+	HostPath     string       `json:"hostPath"`
+	MediaType    string       `json:"mediaType"`
+	Path         string       `json:"path"`
+	RelativePath string       `json:"relativePath"`
 }
 
 // WorkbenchRunRef defines model for WorkbenchRunRef.
@@ -1160,6 +1222,9 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+	// GetArtifact request
+	GetArtifact(ctx context.Context, artifactId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// StartMicrosoftAuthorizeProbeWithBody request with any body
 	StartMicrosoftAuthorizeProbeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1230,6 +1295,9 @@ type ClientInterface interface {
 
 	// GetEdgeBrowserSessionState request
 	GetEdgeBrowserSessionState(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetCapabilities request
+	GetCapabilities(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetDesktopForeground request
 	GetDesktopForeground(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1360,6 +1428,9 @@ type ClientInterface interface {
 
 	UpdatePowerPointOnlinePresentation(ctx context.Context, body UpdatePowerPointOnlinePresentationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListRunArtifacts request
+	ListRunArtifacts(ctx context.Context, runId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetWorkbenchSession request
 	GetWorkbenchSession(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1394,6 +1465,18 @@ type ClientInterface interface {
 
 	// CaptureWindow request
 	CaptureWindow(ctx context.Context, id int64, params *CaptureWindowParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+func (c *Client) GetArtifact(ctx context.Context, artifactId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetArtifactRequest(c.Server, artifactId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 func (c *Client) StartMicrosoftAuthorizeProbeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -1710,6 +1793,18 @@ func (c *Client) CaptureEdgeBrowserSessionScreenshot(ctx context.Context, sessio
 
 func (c *Client) GetEdgeBrowserSessionState(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetEdgeBrowserSessionStateRequest(c.Server, sessionId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetCapabilities(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetCapabilitiesRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -2320,6 +2415,18 @@ func (c *Client) UpdatePowerPointOnlinePresentation(ctx context.Context, body Up
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListRunArtifacts(ctx context.Context, runId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListRunArtifactsRequest(c.Server, runId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetWorkbenchSession(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetWorkbenchSessionRequest(c.Server, sessionId)
 	if err != nil {
@@ -2474,6 +2581,40 @@ func (c *Client) CaptureWindow(ctx context.Context, id int64, params *CaptureWin
 		return nil, err
 	}
 	return c.Client.Do(req)
+}
+
+// NewGetArtifactRequest generates requests for GetArtifact
+func NewGetArtifactRequest(server string, artifactId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "artifactId", runtime.ParamLocationPath, artifactId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/artifacts/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
 }
 
 // NewStartMicrosoftAuthorizeProbeRequest calls the generic StartMicrosoftAuthorizeProbe builder with application/json body
@@ -3111,6 +3252,33 @@ func NewGetEdgeBrowserSessionStateRequest(server string, sessionId string) (*htt
 	}
 
 	operationPath := fmt.Sprintf("/v1/browser/edge/session/%s/state", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetCapabilitiesRequest generates requests for GetCapabilities
+func NewGetCapabilitiesRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/capabilities")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -4303,6 +4471,40 @@ func NewUpdatePowerPointOnlinePresentationRequestWithBody(server string, content
 	return req, nil
 }
 
+// NewListRunArtifactsRequest generates requests for ListRunArtifacts
+func NewListRunArtifactsRequest(server string, runId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "runId", runtime.ParamLocationPath, runId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/runs/%s/artifacts", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetWorkbenchSessionRequest generates requests for GetWorkbenchSession
 func NewGetWorkbenchSessionRequest(server string, sessionId string) (*http.Request, error) {
 	var err error
@@ -4698,6 +4900,9 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
+	// GetArtifactWithResponse request
+	GetArtifactWithResponse(ctx context.Context, artifactId string, reqEditors ...RequestEditorFn) (*GetArtifactResponse, error)
+
 	// StartMicrosoftAuthorizeProbeWithBodyWithResponse request with any body
 	StartMicrosoftAuthorizeProbeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartMicrosoftAuthorizeProbeResponse, error)
 
@@ -4768,6 +4973,9 @@ type ClientWithResponsesInterface interface {
 
 	// GetEdgeBrowserSessionStateWithResponse request
 	GetEdgeBrowserSessionStateWithResponse(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*GetEdgeBrowserSessionStateResponse, error)
+
+	// GetCapabilitiesWithResponse request
+	GetCapabilitiesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetCapabilitiesResponse, error)
 
 	// GetDesktopForegroundWithResponse request
 	GetDesktopForegroundWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetDesktopForegroundResponse, error)
@@ -4898,6 +5106,9 @@ type ClientWithResponsesInterface interface {
 
 	UpdatePowerPointOnlinePresentationWithResponse(ctx context.Context, body UpdatePowerPointOnlinePresentationJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdatePowerPointOnlinePresentationResponse, error)
 
+	// ListRunArtifactsWithResponse request
+	ListRunArtifactsWithResponse(ctx context.Context, runId string, reqEditors ...RequestEditorFn) (*ListRunArtifactsResponse, error)
+
 	// GetWorkbenchSessionWithResponse request
 	GetWorkbenchSessionWithResponse(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*GetWorkbenchSessionResponse, error)
 
@@ -4932,6 +5143,30 @@ type ClientWithResponsesInterface interface {
 
 	// CaptureWindowWithResponse request
 	CaptureWindowWithResponse(ctx context.Context, id int64, params *CaptureWindowParams, reqEditors ...RequestEditorFn) (*CaptureWindowResponse, error)
+}
+
+type GetArtifactResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *openapi_types.File
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetArtifactResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetArtifactResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
 }
 
 type StartMicrosoftAuthorizeProbeResponse struct {
@@ -5342,6 +5577,30 @@ func (r GetEdgeBrowserSessionStateResponse) StatusCode() int {
 	return 0
 }
 
+type GetCapabilitiesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *CapabilitiesResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetCapabilitiesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetCapabilitiesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetDesktopForegroundResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -5705,6 +5964,7 @@ func (r GetPowerPointJobResponse) StatusCode() int {
 type GetPowerPointJobArtifactResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	JSON200      *openapi_types.File
 	JSON4XX      *OperatorError
 	JSON5XX      *OperatorError
 }
@@ -6037,6 +6297,30 @@ func (r UpdatePowerPointOnlinePresentationResponse) StatusCode() int {
 	return 0
 }
 
+type ListRunArtifactsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ArtifactListResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r ListRunArtifactsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListRunArtifactsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetWorkbenchSessionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -6251,6 +6535,15 @@ func (r CaptureWindowResponse) StatusCode() int {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
+}
+
+// GetArtifactWithResponse request returning *GetArtifactResponse
+func (c *ClientWithResponses) GetArtifactWithResponse(ctx context.Context, artifactId string, reqEditors ...RequestEditorFn) (*GetArtifactResponse, error) {
+	rsp, err := c.GetArtifact(ctx, artifactId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetArtifactResponse(rsp)
 }
 
 // StartMicrosoftAuthorizeProbeWithBodyWithResponse request with arbitrary body returning *StartMicrosoftAuthorizeProbeResponse
@@ -6484,6 +6777,15 @@ func (c *ClientWithResponses) GetEdgeBrowserSessionStateWithResponse(ctx context
 		return nil, err
 	}
 	return ParseGetEdgeBrowserSessionStateResponse(rsp)
+}
+
+// GetCapabilitiesWithResponse request returning *GetCapabilitiesResponse
+func (c *ClientWithResponses) GetCapabilitiesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetCapabilitiesResponse, error) {
+	rsp, err := c.GetCapabilities(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetCapabilitiesResponse(rsp)
 }
 
 // GetDesktopForegroundWithResponse request returning *GetDesktopForegroundResponse
@@ -6915,6 +7217,15 @@ func (c *ClientWithResponses) UpdatePowerPointOnlinePresentationWithResponse(ctx
 	return ParseUpdatePowerPointOnlinePresentationResponse(rsp)
 }
 
+// ListRunArtifactsWithResponse request returning *ListRunArtifactsResponse
+func (c *ClientWithResponses) ListRunArtifactsWithResponse(ctx context.Context, runId string, reqEditors ...RequestEditorFn) (*ListRunArtifactsResponse, error) {
+	rsp, err := c.ListRunArtifacts(ctx, runId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListRunArtifactsResponse(rsp)
+}
+
 // GetWorkbenchSessionWithResponse request returning *GetWorkbenchSessionResponse
 func (c *ClientWithResponses) GetWorkbenchSessionWithResponse(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*GetWorkbenchSessionResponse, error) {
 	rsp, err := c.GetWorkbenchSession(ctx, sessionId, reqEditors...)
@@ -7026,6 +7337,49 @@ func (c *ClientWithResponses) CaptureWindowWithResponse(ctx context.Context, id 
 		return nil, err
 	}
 	return ParseCaptureWindowResponse(rsp)
+}
+
+// ParseGetArtifactResponse parses an HTTP response from a GetArtifactWithResponse call
+func ParseGetArtifactResponse(rsp *http.Response) (*GetArtifactResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetArtifactResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest openapi_types.File
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	case rsp.StatusCode == 200:
+		// Content-type (text/plain) unsupported
+
+	}
+
+	return response, nil
 }
 
 // ParseStartMicrosoftAuthorizeProbeResponse parses an HTTP response from a StartMicrosoftAuthorizeProbeWithResponse call
@@ -7708,6 +8062,46 @@ func ParseGetEdgeBrowserSessionStateResponse(rsp *http.Response) (*GetEdgeBrowse
 	return response, nil
 }
 
+// ParseGetCapabilitiesResponse parses an HTTP response from a GetCapabilitiesWithResponse call
+func ParseGetCapabilitiesResponse(rsp *http.Response) (*GetCapabilitiesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetCapabilitiesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CapabilitiesResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetDesktopForegroundResponse parses an HTTP response from a GetDesktopForegroundWithResponse call
 func ParseGetDesktopForegroundResponse(rsp *http.Response) (*GetDesktopForegroundResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -8322,6 +8716,13 @@ func ParseGetPowerPointJobArtifactResponse(rsp *http.Response) (*GetPowerPointJo
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest openapi_types.File
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
 		var dest OperatorError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -8335,6 +8736,9 @@ func ParseGetPowerPointJobArtifactResponse(rsp *http.Response) (*GetPowerPointJo
 			return nil, err
 		}
 		response.JSON5XX = &dest
+
+	case rsp.StatusCode == 200:
+		// Content-type (text/plain) unsupported
 
 	}
 
@@ -8837,6 +9241,46 @@ func ParseUpdatePowerPointOnlinePresentationResponse(rsp *http.Response) (*Updat
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest PowerPointOnlineUpdateResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListRunArtifactsResponse parses an HTTP response from a ListRunArtifactsWithResponse call
+func ParseListRunArtifactsResponse(rsp *http.Response) (*ListRunArtifactsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListRunArtifactsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ArtifactListResult
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

@@ -11,6 +11,10 @@ param(
 
     [string]$PowerPointAddInStaticRoot = "",
 
+    [string]$ExchangeRoot = "",
+
+    [string]$HostExchangeRoot = "",
+
     [switch]$DisablePowerPointAddIn
 )
 
@@ -35,7 +39,7 @@ function Quote-PowerShellLiteral {
 function Test-DotnetSdk {
     param([string]$DotnetPath)
 
-    if (-not (Test-Path -LiteralPath $DotnetPath)) {
+    if (-not (Test-Path -LiteralPath $DotnetPath -PathType Leaf)) {
         return $false
     }
 
@@ -44,7 +48,28 @@ function Test-DotnetSdk {
         return $false
     }
 
-    return [bool]($sdkList | Where-Object { $_ -match '^8\.' })
+    $hasSdk8 = $sdkList | Where-Object { $_ -match '^8\.' }
+    if (-not $hasSdk8) {
+        return $false
+    }
+
+    $runtimes = & $DotnetPath --list-runtimes 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        return $false
+    }
+
+    $hasCoreRuntime = $runtimes | Where-Object { $_ -match '^Microsoft\.NETCore\.App\s' }
+    $hasAspNetRuntime = $runtimes | Where-Object { $_ -match '^Microsoft\.AspNetCore\.App\s' }
+    if (-not $hasCoreRuntime -or -not $hasAspNetRuntime) {
+        return $false
+    }
+
+    $info = & $DotnetPath --info 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        return $false
+    }
+
+    return ($info -match 'Architecture:\s*x64')
 }
 
 function Resolve-Dotnet {
@@ -55,7 +80,7 @@ function Resolve-Dotnet {
 
     $candidates = @()
 
-    if (Test-Path -LiteralPath $Candidate) {
+    if (Test-Path -LiteralPath $Candidate -PathType Leaf) {
         $candidates += (Resolve-Path -LiteralPath $Candidate).Path
     }
 
@@ -171,6 +196,16 @@ New-Item -ItemType Directory -Path $certRoot -Force | Out-Null
 
 $resolvedDotnetPath = Resolve-Dotnet -Candidate $DotnetPath -StateRoot $resolvedStateRoot.FullName
 
+$resolvedExchangeRoot = $null
+if (-not [string]::IsNullOrWhiteSpace($ExchangeRoot)) {
+    $resolvedExchangeRoot = (New-Item -ItemType Directory -Path $ExchangeRoot -Force).FullName
+}
+
+$resolvedHostExchangeRoot = $HostExchangeRoot
+if ([string]::IsNullOrWhiteSpace($resolvedHostExchangeRoot)) {
+    $resolvedHostExchangeRoot = $resolvedExchangeRoot
+}
+
 Stop-ExistingHost -HostRoot $hostRoot
 
 Write-Step "Publishing WindowsOperator.Host."
@@ -230,6 +265,12 @@ $localConfig = @{
         enabled = $addInEnabled
         baseUrl = $PowerPointAddInBaseUrl
         staticRoot = $publishedAddInRoot
+    }
+}
+if ($resolvedExchangeRoot) {
+    $localConfig.Workbench = @{
+        exchangeRoot = $resolvedExchangeRoot
+        hostExchangeRoot = $resolvedHostExchangeRoot
     }
 }
 if ($addInEnabled) {

@@ -48,7 +48,13 @@ public sealed class WorkbenchRunStore
 
         var relativePath = NormalizeSeparators(Path.GetRelativePath(_options.ExchangeRoot, path));
         var hostPath = CombineHostPath(_options.HostExchangeRoot, relativePath);
-        var artifact = new WorkbenchArtifactRef(path, relativePath, hostPath, mediaType, bytes.LongLength);
+        var artifactRef = ArtifactRef.Create(
+            relativePath,
+            mediaType,
+            bytes.LongLength,
+            Sha256(bytes),
+            DateTimeOffset.UtcNow);
+        var artifact = new WorkbenchArtifactRef(path, relativePath, hostPath, mediaType, bytes.LongLength, artifactRef);
         AppendEvent(run, "artifact_written", new { artifact = relativePath, mediaType, bytes = bytes.LongLength });
         return new StoredWorkbenchArtifact(run, artifact);
     }
@@ -143,6 +149,9 @@ public sealed class WorkbenchRunStore
         string.IsNullOrWhiteSpace(hostExchangeRoot)
             ? relativePath
             : hostExchangeRoot.TrimEnd('/', '\\') + "/" + relativePath;
+
+    private static string Sha256(byte[] bytes) =>
+        Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
 
     private sealed record WorkbenchRunEvent(DateTimeOffset ObservedAtUtc, string Kind, object? Details);
 }

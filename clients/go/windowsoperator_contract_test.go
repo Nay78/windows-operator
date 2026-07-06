@@ -99,7 +99,7 @@ func TestPowerPointOnlineUpdateResultProofSessionFieldsCompile(t *testing.T) {
 	tagged := true
 	result := PowerPointOnlineUpdateResult{
 		SaveProofTier: Tier3ReopenVisual,
-		Status:        PowerPointOnlineUpdateStatusSucceeded,
+		Status:        Succeeded,
 		VerificationSession: &PowerPointOnlineSessionResult{
 			Status: PowerPointOnlineSessionStatusReady,
 		},

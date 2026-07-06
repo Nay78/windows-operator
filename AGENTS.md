@@ -35,6 +35,8 @@ Small safeguards:
 - Desktop Agent runs in logged-in Windows desktop session and owns UI automation on Windows loopback `127.0.0.1:43119`.
 - No elevation by default for desktop automation.
 - Codex app-server binds Windows loopback `127.0.0.1:43118`.
+- Host REST/OpenAPI is the stable external-project boundary. CLI, Just, SSH
+  runner scripts, and staged PowerShell are operator/developer harnesses.
 - Linux health checks use Host REST tunnel `127.0.0.1:43117`; do not treat failed Linux curls to `127.0.0.1:43119` as Desktop Agent failure. `43119` is Windows loopback for Host-to-Agent traffic unless an explicit temporary SSH debug tunnel is created.
 - Autostart uses Task Scheduler tasks:
   - `WindowsOperator.Host` (startup, SYSTEM, headless REST/proxy)
@@ -102,6 +104,11 @@ Linux host checks use the NixOS Operator REST tunnel on `127.0.0.1:43117`.
 - Prefer code-first automation over UI automation when possible.
 - For email attachment download, prefer Classic Outlook COM before Power Automate Desktop or web UI scraping.
 - Namespace new feature surfaces using [Feature namespaces](docs/feature-namespaces.md).
+- External-project axiom: external projects depend on Host REST, OpenAPI, and
+  generated clients, not `scripts/linux/wo`, `Justfile`, SSH runner scripts, or
+  staged PowerShell. If another project needs a stable workflow, expose it in
+  the REST/client contract or document it as operator-only. See
+  [Operator harness target architecture](docs/operator-harness-architecture.md#external-project-integration).
 
 ## Deep Module Principles
 
@@ -122,6 +129,10 @@ Linux host checks use the NixOS Operator REST tunnel on `127.0.0.1:43117`.
 - [Development notes](docs/development.md)
 - [Current backlog](docs/todo.md)
 - [Feature namespaces](docs/feature-namespaces.md)
+- [External consumer integration spec](docs/external-consumer-integration.md)
+- [External consumer relay guide](docs/external-consumer-relay.md)
+- [External consumer release checklist](docs/external-consumer-release.md)
+- [Operator error codes](docs/operator-error-codes.md)
 - [Operator harness target architecture](docs/operator-harness-architecture.md)
 - [Go client generation](docs/go-client-generation.md)
 - [Local machine overrides](docs/local-machine-overrides.md)

@@ -27,6 +27,12 @@ Generate it from Core contracts:
 scripts/generate-openapi.sh
 ```
 
+Contract version source:
+
+```text
+src/WindowsOperator.Core/Contracts/OperatorContractVersion.cs
+```
+
 The OpenAPI generator project is:
 
 ```text
@@ -37,6 +43,13 @@ The generated Go module lives in:
 
 ```text
 clients/go
+```
+
+Consumer docs and helpers live beside the generated file:
+
+```text
+clients/go/README.md
+clients/go/helpers.go
 ```
 
 ## Regenerate Bindings
@@ -70,6 +83,11 @@ files.
 Do not manually repair generated type names or paths. Fix the C# contract,
 route metadata, or `openapi/go-client.oapi-codegen.yaml`, then regenerate.
 
+Hand-written helpers are allowed only beside the generated client. They must
+hide repeated consumer complexity and keep raw generated route access intact.
+Current helpers cover operator error decoding, contract-version checks,
+artifact download, generic polling, and PowerPoint job polling.
+
 ## External Consumer Usage
 
 After the first release tag is created, consumers can depend on that tag:
@@ -97,6 +115,25 @@ If the repo is hosted elsewhere, update `clients/go/go.mod` to match the final m
 
 ## Local Verification
 
+Check committed OpenAPI and Go client against source contracts:
+
+```bash
+scripts/check-openapi-contract.sh
+```
+
+The check script:
+
+- verifies committed `openapi.info.version` matches `OperatorContractVersion.Value`
+- verifies `clients/go.SupportedContractVersion` matches `OperatorContractVersion.Value`
+- regenerates OpenAPI into temp files and compares with committed spec
+- regenerates the Go client into temp files and compares generated artifacts
+- exposes optional hook points:
+  - `WINDOWS_OPERATOR_LINT_CMD` for OpenAPI lint
+  - `WINDOWS_OPERATOR_BREAKING_CMD` for breaking-change checks against `WINDOWS_OPERATOR_PREVIOUS_TAG`
+
+Default check stays offline except normal local generator/toolchain use. If no
+tag or hook command exists, hook steps skip without failure.
+
 Validate generated bindings compile:
 
 ```bash
@@ -112,9 +149,17 @@ dotnet build WindowsOperator.Portable.slnf --no-restore
 
 ## Release Rule
 
+Version rule:
+
+- `OperatorContractVersion.Value` is release contract source of truth.
+- Released contracts use plain SemVer like `0.1.0`.
+- Unreleased contract work may use SemVer pre-release suffix like `0.1.1-alpha.1`.
+- Change the version only when committed OpenAPI or generated client contract changes under the SemVer rules in `docs/external-consumer-integration.md`.
+
 Before tagging a release:
 
 ```bash
+scripts/check-openapi-contract.sh
 scripts/generate-go-client.sh
 cd clients/go && go test ./...
 cd ../..

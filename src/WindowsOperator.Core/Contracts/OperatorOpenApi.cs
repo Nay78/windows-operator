@@ -2,6 +2,18 @@ namespace WindowsOperator.Core.Contracts;
 
 public static class OperatorOpenApi
 {
+    private const string SurfaceExtensionName = "x-windows-operator-surface";
+    private const string StableSurface = "stable";
+    private const string DiagnosticSurface = "diagnostic";
+    private const string DevelopmentSurface = "development";
+    private static readonly HashSet<string> DiagnosticPaths =
+    [
+        "/v1/powerpoint/online/sessions/{sessionId}/addin/probe",
+        "/v1/powerpoint/online/sessions/{sessionId}/addin/run-pending-job",
+        "/v1/auth/microsoft/authorize-probe/status/latest",
+        "/v1/auth/microsoft/device-login/status/latest",
+    ];
+
     public static object Document { get; } = BuildDocument();
 
     private static object BuildDocument()
@@ -11,6 +23,8 @@ public static class OperatorOpenApi
         {
             ["/v1/health"] = Path(
                 Get("getHealth", "Operator health.", schema.Ref<HealthResult>())),
+            ["/v1/capabilities"] = Path(
+                Get("getCapabilities", "Discover Host contract and feature availability.", schema.Ref<CapabilitiesResult>())),
             ["/v1/windows"] = Path(
                 Get("listWindows", "List visible top-level windows.", schema.ArrayOf<WindowRef>())),
             ["/v1/desktop/foreground"] = Path(
@@ -223,6 +237,17 @@ public static class OperatorOpenApi
                     "Read a staged PowerPoint job image artifact.",
                     PathParam("jobId", "string"),
                     PathParam("artifactId", "string"))),
+            ["/v1/artifacts/{artifactId}"] = Path(
+                GetBinary(
+                    "getArtifact",
+                    "Read artifact content by opaque artifact id.",
+                    PathParam("artifactId", "string"))),
+            ["/v1/runs/{runId}/artifacts"] = Path(
+                Get(
+                    "listRunArtifacts",
+                    "List artifacts written under a run id.",
+                    schema.Ref<ArtifactListResult>(),
+                    PathParam("runId", "string"))),
             ["/v1/mail/folders"] = Path(
                 Post(
                     "listMailFolders",
@@ -250,6 +275,7 @@ public static class OperatorOpenApi
                     schema.Ref<MailDownloadResult>(),
                     PathParam("runId", "string"))),
         };
+        AnnotateSurfaces(paths);
         schema.Ref<OperatorError>();
 
         return new Dictionary<string, object?>
@@ -258,7 +284,7 @@ public static class OperatorOpenApi
             ["info"] = new Dictionary<string, object?>
             {
                 ["title"] = "Windows Operator",
-                ["version"] = "0.1.0",
+                ["version"] = OperatorContractVersion.Value,
             },
             ["servers"] = new[]
             {
@@ -270,6 +296,39 @@ public static class OperatorOpenApi
                 ["schemas"] = schema.Schemas,
             },
         };
+    }
+
+    private static void AnnotateSurfaces(Dictionary<string, object> paths)
+    {
+        foreach (var (path, pathItem) in paths)
+        {
+            if (pathItem is not Dictionary<string, object?> operations)
+            {
+                continue;
+            }
+
+            var surface = ClassifySurface(path);
+            foreach (var operation in operations.Values.OfType<Dictionary<string, object?>>())
+            {
+                operation["tags"] = new[] { surface };
+                operation[SurfaceExtensionName] = surface;
+            }
+        }
+    }
+
+    private static string ClassifySurface(string path)
+    {
+        if (path.StartsWith("/v1/dev/", StringComparison.Ordinal))
+        {
+            return DevelopmentSurface;
+        }
+
+        if (DiagnosticPaths.Contains(path))
+        {
+            return DiagnosticSurface;
+        }
+
+        return StableSurface;
     }
 
     private static Dictionary<string, object?> Path(params (string Method, object Operation)[] operations) =>
@@ -351,6 +410,10 @@ public static class OperatorOpenApi
                     {
                         ["image/png"] = new Dictionary<string, object?> { ["schema"] = binarySchema },
                         ["image/jpeg"] = new Dictionary<string, object?> { ["schema"] = binarySchema },
+                        ["application/octet-stream"] = new Dictionary<string, object?> { ["schema"] = binarySchema },
+                        ["application/json"] = new Dictionary<string, object?> { ["schema"] = binarySchema },
+                        ["application/pdf"] = new Dictionary<string, object?> { ["schema"] = binarySchema },
+                        ["text/plain"] = new Dictionary<string, object?> { ["schema"] = binarySchema },
                     },
                 },
                 ["4XX"] = JsonResponse("Operator error", Ref("OperatorError")),

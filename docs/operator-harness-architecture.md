@@ -68,6 +68,65 @@ POST /v1/powerpoint/online/sessions/{sessionId}/cleanup
 REST contracts are boring and hard to misuse. Add a new REST field or route only
 when the capability should be stable for more than one caller.
 
+Route ownership:
+
+- Host owns the public REST surface and OpenAPI contract on `127.0.0.1:43117`.
+- Agent owns interactive desktop capability implementation on
+  `127.0.0.1:43119`.
+- Most desktop, browser, auth, mail, and PowerPoint session routes are
+  Host-published and Host-proxied to Agent.
+- Host may own headless orchestration routes when they manage server-side state,
+  queues, artifacts, or generated-client contracts. Current examples:
+  `/v1/powerpoint/jobs...` and `/v1/powerpoint/online/updates`.
+- If a route is Host-only or Agent-only, document that ownership explicitly.
+
+Status lookup:
+
+- Use explicit run IDs as the primary automation contract:
+  `/status/{runId}`.
+- `/status/latest` is a convenience endpoint for manual inspection or a
+  single-agent follow-up. Concurrent agents should pass explicit run IDs.
+
+PowerPoint API preference:
+
+- For normal update workflows, prefer `/v1/powerpoint/online/updates` and the
+  `/v1/powerpoint/jobs...` queue surface.
+- Use PowerPoint session routes for explicit session lifecycle, slide
+  navigation, screenshots, save observation, and template operations.
+- Use `addin/probe` and `addin/run-pending-job` for add-in diagnostics or
+  manual recovery paths. Do not make ordinary API callers depend on task pane
+  timing when the update/job surface can express the workflow.
+- Template prepare/cleanup routes remain first-class template operations; they
+  are not classified as diagnostic-only.
+
+## External Project Integration
+
+External projects consume Windows Operator through Host REST, OpenAPI, and
+generated clients. They should not shell out to `scripts/linux/wo`, `Justfile`
+recipes, SSH runner scripts, or staged PowerShell from application code.
+
+No-drift contract:
+
+- Pin the OpenAPI spec or generated client to a repo commit or release.
+- Compare the pinned contract with live `GET /openapi.json` before integration
+  tests when runtime drift matters.
+- Use explicit run IDs for concurrent automation and status reads.
+- Put reusable cross-project workflows behind REST routes or generated-client
+  helpers, not CLI-only conventions.
+
+CLI and Just are still valid in external repositories for operator tasks:
+
+- local smoke checks
+- CI diagnostics
+- runbook evidence capture
+- break-glass recovery
+
+Those uses should stay outside application runtime paths.
+
+See [External consumer integration spec](external-consumer-integration.md) for
+the target contract, release gates, artifact model, error model, relay
+boundary, and SDK rules.
+
 ## CLI Harness Layer
 
 CLI harness commands are the agent/operator workflow layer.

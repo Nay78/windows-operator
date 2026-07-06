@@ -13,6 +13,7 @@ public static class ErrorCodes
     public const string PowerPointUnavailable = "powerpoint_unavailable";
     public const string PowerPointValidationFailed = "powerpoint_validation_failed";
     public const string PowerPointJobNotFound = "powerpoint_job_not_found";
+    public const string ArtifactNotFound = "artifact_not_found";
     public const string DevAutomationDisabled = "dev_automation_disabled";
     public const string DevRawJsDisabled = "dev_raw_js_disabled";
     public const string DevAutomationValidationFailed = "dev_automation_validation_failed";

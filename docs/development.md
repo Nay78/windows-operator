@@ -13,6 +13,12 @@ REST is the most stable composition boundary. Add durable capabilities as
 typed `/v1/*` primitives or domain workflows, keep them in OpenAPI, and preserve
 their request/result contracts for external services and generated clients.
 
+External projects integrate through Host REST, OpenAPI, and generated clients.
+Do not make `scripts/linux/wo`, `Justfile` recipes, SSH runner scripts, or
+staged PowerShell a dependency surface for external application code.
+See [External consumer integration spec](external-consumer-integration.md) for
+the target consumer contract and release gates.
+
 CLI scripts own agent/operator flows: safe defaults, run IDs, lease files, TTL,
 cleanup traps, summaries, artifact paths, and evidence aggregation. They should
 compose REST rather than duplicate Windows automation behavior.
@@ -76,7 +82,11 @@ outputs, logs, and run wrappers. Agent local machine overrides belong in
 `%LOCALAPPDATA%\WindowsOperator\run\appsettings.Local.json`. Host autostart
 overrides are generated under
 `%ProgramData%\WindowsOperator\run\host.appsettings.Local.json` by
-`scripts/windows/register-host-autostart.ps1`. See
+`scripts/windows/register-host-autostart.ps1`. Pass `-ExchangeRoot` and
+`-HostExchangeRoot` when registering Host on copy-backed/Tailscale machines so
+SYSTEM reads artifacts from machine-local state such as
+`C:\ProgramData\WindowsOperator\exchange`; do not rely on per-user mapped drives
+being visible to the scheduled task. See
 [Local machine overrides](local-machine-overrides.md) for template shapes.
 
 For a non-VM Tailscale machine, sync source over SSH and use copy-backed command staging:

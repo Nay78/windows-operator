@@ -54,6 +54,29 @@ public sealed class OperatorFacade : IOperatorFacade
         return Task.FromResult(result);
     }
 
+    public async Task<CapabilitiesResult> GetCapabilitiesAsync(CancellationToken cancellationToken)
+    {
+        var health = await GetHealthAsync(cancellationToken);
+        var features = new Dictionary<string, CapabilityFeature>(StringComparer.Ordinal)
+        {
+            ["desktop.window"] = new(true, "stable"),
+            ["desktop.screenshot"] = new(true, "stable"),
+            ["browser.edge.session"] = new(true, "stable"),
+            ["powerpoint.online.session"] = new(true, "stable"),
+            ["powerpoint.online.update"] = new(
+                false,
+                "stable",
+                "PowerPoint update orchestration is owned by the Headless Host."),
+            ["mail.outlook.download"] = new(true, "stable"),
+        };
+
+        return new CapabilitiesResult(
+            OperatorContractVersion.Value,
+            new CapabilityHost(health.Status, health.RuntimeMode, health.RestBaseUrl, "ok"),
+            features,
+            DateTimeOffset.UtcNow);
+    }
+
     public Task<IReadOnlyList<WindowRef>> ListWindowsAsync(CancellationToken cancellationToken) =>
         _windowCatalogService.ListAsync(cancellationToken);
 

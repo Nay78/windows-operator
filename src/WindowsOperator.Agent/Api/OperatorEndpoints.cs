@@ -16,6 +16,12 @@ public static class OperatorEndpoints
             await OperatorHttp.ExecuteAsync(
                 () => facade.GetHealthAsync(cancellationToken)));
 
+        group.MapGet("/capabilities", async Task<Results<Ok<CapabilitiesResult>, JsonHttpResult<OperatorError>>> (
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => facade.GetCapabilitiesAsync(cancellationToken)));
+
         group.MapGet("/windows", async Task<Results<Ok<IReadOnlyList<WindowRef>>, JsonHttpResult<OperatorError>>> (
             IOperatorFacade facade,
             CancellationToken cancellationToken) =>

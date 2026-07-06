@@ -10,4 +10,5 @@ public sealed record MailSavedAttachment(
     string RelativePath,
     string AbsolutePath,
     long Bytes,
-    bool AlreadyProcessed);
+    bool AlreadyProcessed,
+    ArtifactRef? Artifact = null);

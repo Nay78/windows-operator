@@ -16,6 +16,7 @@ builder.Services.Configure<JsonOptions>(options => OperatorJson.Configure(option
 builder.Services.Configure<OperatorOptions>(builder.Configuration.GetSection(OperatorOptions.SectionName));
 builder.Services.Configure<DesktopAgentOptions>(builder.Configuration.GetSection(DesktopAgentOptions.SectionName));
 builder.Services.Configure<PowerPointAddInOptions>(builder.Configuration.GetSection(PowerPointAddInOptions.SectionName));
+builder.Services.Configure<WorkbenchOptions>(builder.Configuration.GetSection(WorkbenchOptions.SectionName));
 
 var options = builder.Configuration.GetSection(OperatorOptions.SectionName).Get<OperatorOptions>() ?? new OperatorOptions();
 var addInOptions = builder.Configuration.GetSection(PowerPointAddInOptions.SectionName).Get<PowerPointAddInOptions>() ?? new PowerPointAddInOptions();
@@ -44,6 +45,7 @@ builder.Services.AddSingleton<IPowerPointJobService>(services =>
     new PowerPointJobService(
         services.GetRequiredService<IHttpClientFactory>().CreateClient("powerpoint-artifacts"),
         services.GetRequiredService<IOptions<PowerPointAddInOptions>>()));
+builder.Services.AddSingleton<IArtifactService, ExchangeArtifactService>();
 builder.Services.AddSingleton<IOperatorFacade, HostOperatorFacade>();
 builder.Services.AddOperatorMcp(hostStdioServer: true);
 
