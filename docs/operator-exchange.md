@@ -15,6 +15,26 @@ share. SSH-copy machines use machine-local Windows exchange state and copy
 runner results back to the Linux exchange root. Windows scripts should treat
 either exchange location as output/state, not source code.
 
+## Authority And Overrides
+
+Exchange paths are cross-process contracts. Do not change one default without
+checking every producer and consumer below.
+
+| Surface | Owner | Override | Default |
+| --- | --- | --- | --- |
+| Linux CLI summaries and lease files | `scripts/linux/windows_operator_harness.py`, `scripts/linux/wo`, profile runners | `WINDOWS_OPERATOR_EXCHANGE_ROOT` | `/var/lib/windows-server/shared/operator-exchange` |
+| Linux SSH runner artifacts | `scripts/linux/windows-run-ps.sh` | `WINDOWS_OPERATOR_EXCHANGE_ROOT` | `/var/lib/windows-server/shared/operator-exchange` |
+| Windows staging path for Linux runner | `scripts/linux/windows-run-ps.sh` | `WINDOWS_OPERATOR_WINDOWS_EXCHANGE` | `Z:\operator-exchange` for `shared`; `C:\ProgramData\WindowsOperator\exchange` for `ssh-copy` |
+| Agent workbench writes | `WorkbenchOptions.ExchangeRoot` through Agent config/env | `WINDOWS_OPERATOR_EXCHANGE_ROOT`, `-ExchangeRoot` | `Z:\operator-exchange` |
+| Agent host-visible artifact paths | `WorkbenchOptions.HostExchangeRoot` through Agent config/env | `WINDOWS_OPERATOR_HOST_EXCHANGE_ROOT`, `-HostExchangeRoot` | `/var/lib/windows-server/shared/operator-exchange` |
+| Host artifact reads | `ExchangeArtifactService` through Host config/env | `WINDOWS_OPERATOR_EXCHANGE_ROOT`, `-ExchangeRoot` | `Z:\operator-exchange` or registered override |
+
+For VM shared-drive runs, Windows writes to `Z:\operator-exchange` and Host/Agent
+can publish Linux-visible paths with `HostExchangeRoot=/var/lib/windows-server/shared/operator-exchange`.
+For SSH-copy runs, pass both `-ExchangeRoot` and `-HostExchangeRoot` as
+`C:\ProgramData\WindowsOperator\exchange` when registering the Windows services;
+Linux runner copyback keeps Linux-side artifacts under `WINDOWS_OPERATOR_EXCHANGE_ROOT`.
+
 ## Current Layout
 
 ```text

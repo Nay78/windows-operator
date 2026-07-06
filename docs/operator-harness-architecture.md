@@ -286,7 +286,7 @@ Artifacts and summaries Linux tools need belong under the exchange root:
 
 ```text
 Linux:   /var/lib/windows-server/shared/operator-exchange
-Windows: Z:\operator-exchange
+Windows: configured exchange root; VM shared-drive default is Z:\operator-exchange
 ```
 
 CLI lease files that agents inspect may live under the exchange root when they

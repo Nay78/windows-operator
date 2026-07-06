@@ -188,10 +188,7 @@ Expected results:
 - README route inventory contains every committed OpenAPI path:
 
   ```bash
-  jq -r '.paths | keys[]' openapi/windows-operator.openapi.json |
-    while read -r path; do
-      rg -F -- "$path" README.md >/dev/null || printf '%s\n' "$path"
-    done
+  scripts/check-readme-route-inventory.sh
   ```
 
   `README.md` also lists `GET /openapi.json`; that serving endpoint is expected
@@ -395,26 +392,26 @@ and bounded recovery.
 General live smoke:
 
 ```bash
-scripts/linux/live-smoke.py
+scripts/linux/wo smoke
 ```
 
 Full desktop mutation smoke:
 
 ```bash
-scripts/linux/live-smoke.py --include-notepad
+scripts/linux/wo smoke -- --include-notepad
 ```
 
 Deep smoke with live auth boundary and real Outlook freshness path:
 
 ```bash
-scripts/linux/live-smoke.py --include-notepad --include-auth-live-negative --include-fresh-mail
+scripts/linux/wo smoke -- --include-notepad --include-auth-live-negative --include-fresh-mail
 ```
 
 For Host-staged PowerPoint add-in verification without local Vite or an SSH
 tunnel, add the Windows-side probe:
 
 ```bash
-scripts/linux/live-smoke.py --include-notepad --include-auth-live-negative --include-fresh-mail --powerpoint-addin-windows-probe
+scripts/linux/wo smoke -- --include-notepad --include-auth-live-negative --include-fresh-mail --powerpoint-addin-windows-probe
 ```
 
 The Notepad path launches Notepad through the Windows script runner as the
@@ -454,7 +451,7 @@ Baseline evidence:
 
 ## Manual smoke flow
 
-Use this for endpoint diagnosis when `scripts/linux/live-smoke.py` is too broad.
+Use this for endpoint diagnosis when `scripts/linux/wo smoke` is too broad.
 
 1. Start Notepad.
 2. Confirm Host health on `http://127.0.0.1:43117/v1/health`.

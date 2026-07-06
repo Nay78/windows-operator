@@ -119,9 +119,10 @@ Check committed OpenAPI and Go client against source contracts:
 
 ```bash
 scripts/check-openapi-contract.sh
+scripts/check-readme-route-inventory.sh
 ```
 
-The check script:
+The contract check script:
 
 - verifies committed `openapi.info.version` matches `OperatorContractVersion.Value`
 - verifies `clients/go.SupportedContractVersion` matches `OperatorContractVersion.Value`
@@ -133,6 +134,9 @@ The check script:
 
 Default check stays offline except normal local generator/toolchain use. If no
 tag or hook command exists, hook steps skip without failure.
+
+The README route-inventory check verifies that the public route list documents
+every committed OpenAPI path.
 
 Validate generated bindings compile:
 

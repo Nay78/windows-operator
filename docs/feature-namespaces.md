@@ -161,7 +161,9 @@ Suggested layout:
     mail-*.log
 ```
 
-Linux-consumed outputs belong under `Z:\operator-exchange`. Credentials and browser profiles must not be written there.
+Linux-consumed outputs belong under the configured Windows exchange root, usually
+`Z:\operator-exchange` on the shared-drive VM. Credentials and browser profiles
+must not be written there.
 
 ## External Services
 

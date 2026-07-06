@@ -875,7 +875,7 @@ Validation:
 
 - `curl http://127.0.0.1:43117/openapi.json | jq '.paths | length'`
 - `jq '.paths | length' openapi/windows-operator.openapi.json`
-- existing route inventory check from `docs/development.md`
+- `scripts/check-readme-route-inventory.sh`
 
 Risk:
 
