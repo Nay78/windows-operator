@@ -281,11 +281,12 @@ Graph `Mail.Read` device-code probe:
 scripts/linux/test-microsoft-graph-mail-read.sh \
   --tenant-id <tenant-id> \
   --client-id <client-id> \
-  --handoff windows-script
+  --handoff rest
 ```
 
 This helper keeps token polling outside Windows Operator, as intended by the
-auth architecture, while reusing the Windows desktop browser handoff.
+auth architecture, while reusing the Windows desktop browser handoff. Use
+`--handoff windows-script` only when REST is unavailable.
 
 Graph auth-code redirect probe:
 

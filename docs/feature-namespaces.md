@@ -141,6 +141,7 @@ Rules:
 - Name scripts by domain and action: `login-microsoft-device-code.ps1`.
 - Keep scripts idempotent when possible.
 - Scripts may schedule interactive desktop work, but REST should be preferred for external service integration.
+- Agent-facing examples should prefer `scripts/linux/wo` when a wrapper exists.
 - Script parameters should match contract names when a REST equivalent exists.
 - Never require external services to know Windows repo paths, scheduled task
   names, or exchange layout unless they are explicitly using the Linux runner.
