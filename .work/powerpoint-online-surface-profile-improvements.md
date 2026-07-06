@@ -669,7 +669,8 @@ S8 implemented 2026-07-05:
   It is not final proof and does not replace cold owned session tier3 evidence.
 - Session boundary:
   current path is hot-session capable inside one command: start once, reuse `sessionId` for multiple update iterations, then cleanup.
-  It is not yet a persistent hot lease across agent turns or separate shell commands, because success currently requires explicit final cleanup and window-count return to baseline.
+  At this point it was not yet a persistent hot lease across agent turns or separate shell commands.
+  S9 below supersedes that limitation with live-proven `ppt-hot-*` lease commands and explicit cleanup.
 
 Warm profile rerun 2026-07-05:
 
@@ -778,7 +779,8 @@ Source truth:
 - `AGENTS.md`: live Windows verification required for desktop/browser runtime behavior.
 - Profiler evidence in this file: slide selection `31.752s`, repeated `devtools_snapshot_unavailable`, fallback thumbnail click succeeds.
 
-Progress status: planned.
+Progress status: historical handoff packet. S1 implementation proof is recorded
+above in `Implementation Evidence`.
 
 Objective:
 

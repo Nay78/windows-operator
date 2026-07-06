@@ -21,13 +21,18 @@ Use this contract for shared agent/operator commands such as:
 ```text
 scripts/linux/wo health
 scripts/linux/wo windows list
+scripts/linux/wo ppt profile
+scripts/linux/wo ppt warm
 scripts/linux/wo ppt hot run
-scripts/linux/live-smoke.py
-scripts/linux/powerpoint-online-final-proof.py
+scripts/linux/wo mail search
+scripts/linux/wo auth microsoft cleanup
+scripts/linux/wo smoke
 ```
 
 Provisioning scripts, repair scripts, and break-glass scripts may stay outside
 this contract until promoted into the harness surface.
+Lower-level delegate scripts may keep specialized options, but agent-facing
+examples should prefer `scripts/linux/wo`.
 
 ## Required Flags
 

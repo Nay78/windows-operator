@@ -407,30 +407,24 @@ Already aligned:
   - live evidence paths
 - `Justfile` exposes thin agent shortcuts for PowerPoint profiling and sync.
 
-Partially aligned:
+Closed by later slices:
 
-- CLI harness is PowerPoint-specific, not a consolidated operator CLI.
-- Just recipes still call individual scripts directly. This is acceptable now,
-  but target shape is recipes calling a stable `scripts/linux/wo` entrypoint.
-- Sync/bootstrap helpers are scripts first, with Just shortcuts; no shared CLI
-  summary contract.
-- Mail/auth workflows have REST and docs, but not uniform CLI harness wrappers
-  with summary-path output.
-- Live smoke exists, but command output shape differs from PowerPoint harness.
+- Consolidated `scripts/linux/wo` taxonomy exists for PowerPoint, windows,
+  mail/auth, and smoke.
+- PowerPoint Just recipes delegate to `scripts/linux/wo`.
+- Mail/auth and smoke commands now emit summary-path output through `wo`.
+- Shared helper module `scripts/linux/windows_operator_harness.py` owns common
+  REST, JSON, summary, exchange-root, and run-id mechanics for `wo`.
 
-Not aligned yet:
+Residual alignment gaps:
 
 - No machine-readable command manifest for agent command discovery.
-- No consolidated CLI taxonomy such as `wo ppt hot run`.
-- No shared harness helper module for:
-  - Host REST calls
-  - summary writing
-  - exchange path defaults
-  - run ID generation
-  - exit code convention
-  - JSON gate errors
-- Justfile is growing as a command index; without consolidation it can become
-  noisy even if it stays thin.
+- Sync/bootstrap helpers remain scripts first, with Just shortcuts; no shared
+  CLI summary contract.
+- The PowerPoint proof runner still owns specialized proof, lease, and artifact
+  serialization beside the shared CLI helper. Keep that boundary until a
+  behavior matrix justifies extraction.
+- Justfile remains a command index, but current recipes stay thin.
 
 ## Initial Command Surface Inventory
 
@@ -438,15 +432,15 @@ Just recipes:
 
 | Command | Current layer | Target classification | Notes |
 | --- | --- | --- | --- |
-| `ppt-profile` | Just -> PowerPoint CLI | stable shortcut | Keep; later delegate to `wo ppt profile`. |
+| `ppt-profile` | Just -> PowerPoint CLI | stable shortcut | Keep; now delegates to `wo ppt profile`. |
 | `easy-profile` | Just alias | stable shortcut | Keep as low-friction alias. |
-| `ppt-profile-fast` | Just -> PowerPoint CLI | stable shortcut | Keep; later delegate to `wo ppt profile-fast`. |
+| `ppt-profile-fast` | Just -> PowerPoint CLI | stable shortcut | Keep; now delegates to `wo ppt profile-fast`. |
 | `easy-profile-fast` | Just alias | stable shortcut | Keep as low-friction alias. |
-| `ppt-profile-warm` | Just -> PowerPoint CLI | stable shortcut | Keep; later delegate to `wo ppt warm`. |
-| `ppt-hot-start` | Just -> PowerPoint CLI | stable shortcut | Keep; later delegate to `wo ppt hot start`. |
-| `ppt-hot-run` | Just -> PowerPoint CLI | stable shortcut | Keep; later delegate to `wo ppt hot run`. |
-| `ppt-hot-status` | Just -> PowerPoint CLI | stable shortcut | Keep; later delegate to `wo ppt hot status`. |
-| `ppt-hot-cleanup` | Just -> PowerPoint CLI | stable shortcut | Keep; later delegate to `wo ppt hot cleanup`. |
+| `ppt-profile-warm` | Just -> PowerPoint CLI | stable shortcut | Keep; now delegates to `wo ppt warm`. |
+| `ppt-hot-start` | Just -> PowerPoint CLI | stable shortcut | Keep; now delegates to `wo ppt hot start`. |
+| `ppt-hot-run` | Just -> PowerPoint CLI | stable shortcut | Keep; now delegates to `wo ppt hot run`. |
+| `ppt-hot-status` | Just -> PowerPoint CLI | stable shortcut | Keep; now delegates to `wo ppt hot status`. |
+| `ppt-hot-cleanup` | Just -> PowerPoint CLI | stable shortcut | Keep; now delegates to `wo ppt hot cleanup`. |
 | `ppt-final-proof-*` | Just -> PowerPoint CLI | stable shortcut | Keep for mutation/readiness proof; not hot profiling. |
 | `ppt-final-proof-test` | Just -> test script | stable dev check | Keep. |
 | `sync*` | Just -> sync scripts | stable dev tooling | Keep; later optional `wo sync ...`. |
@@ -457,12 +451,12 @@ Linux scripts:
 | --- | --- | --- | --- |
 | `powerpoint-online-final-proof.py` | CLI harness | keep, maybe delegate under `wo` | Owns mature PPT workflow logic. Do not inline into Just. |
 | `powerpoint-online-final-proof-tests.sh` | CLI test harness | keep | Extend as PPT CLI contract tests. |
-| `live-smoke.py` | CLI harness | candidate `wo smoke` wrapper | Align summary contract later. |
+| `live-smoke.py` | CLI harness | wrapped by `wo smoke` | Retain as delegate script; `wo smoke` owns summary contract. |
 | `windows-run-ps.sh` | operational transport helper | keep direct and optional `wo windows run-ps` | Contract-sensitive transport defaults. |
 | `windows-sync-available.sh` | operational helper | keep direct and Just shortcut | Sync has separate target logic. |
 | `windows-sync-repo.sh` | operational helper | keep direct | Lower-level sync primitive. |
 | `windows-sync-codex-profile.sh` | operational helper | keep direct and Just shortcut | Codex-specific. |
-| `cleanup-microsoft-auth-edge.sh` | break-glass helper | candidate `wo auth microsoft cleanup` | REST cleanup exists; prefer REST/CLI wrapper. |
+| `cleanup-microsoft-auth-edge.sh` | break-glass helper | wrapped by `wo auth microsoft cleanup` | REST/CLI cleanup is preferred for normal use. |
 | `test-microsoft-graph-mail-read.sh` | one-off/dev | keep direct or retire after mail CLI | Graph viability probe, not stable harness. |
 | `audit_entra_apps.py` | one-off/dev | keep direct | External app audit, not runtime harness. |
 
@@ -515,6 +509,10 @@ Layer ownership:
 - `.work` owns campaign ledgers and live evidence records.
 
 ## Roadmap
+
+The slice status fields below preserve the original implementation plan. Use
+the `Current execution state` table and `Evidence Log` as the authoritative
+current-state summary.
 
 ### S0 Baseline Inventory
 
@@ -962,7 +960,7 @@ rg -n "curl .*127\\.0\\.0\\.1|Invoke-RestMethod|/v1/|jq|python3|powershell|pwsh"
 
 Observed:
 
-- Committed OpenAPI has `55` paths.
+- At this audit point, committed OpenAPI had `55` paths.
 - README route inventory covers all committed OpenAPI paths.
 - README has one expected extra prose marker: `/v1/dev/...`.
 - Justfile has no direct REST calls, JSON parsing, or state machine logic.

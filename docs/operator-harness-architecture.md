@@ -223,6 +223,7 @@ just ppt-hot-status
 just ppt-hot-cleanup
 just ppt-profile
 just ppt-profile-fast
+just ppt-profile-warm
 ```
 
 Bad Just examples:

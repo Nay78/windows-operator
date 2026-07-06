@@ -19,9 +19,13 @@ Supporting:
 
 ## Progress Status
 
-Status: planned -> first implementation slice.
+Status: historical handoff. The first session harness slice is implemented and
+live-validated; see `.work/powerpoint-online-session-harness-validation.md` and
+the current PowerPoint Online route inventory in `README.md`/OpenAPI.
 
-Existing primitives can open, navigate, screenshot, and drive Edge sessions. Missing owner is a PowerPoint-domain service/API that hides those primitives and reports PowerPoint Online session state.
+At handoff time, existing primitives could open, navigate, screenshot, and
+drive Edge sessions. The missing owner was a PowerPoint-domain service/API that
+hides those primitives and reports PowerPoint Online session state.
 
 ## Objective
 
