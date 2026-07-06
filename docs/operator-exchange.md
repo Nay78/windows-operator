@@ -6,12 +6,14 @@ shared source.
 
 ## Paths
 
-- Linux: `/var/lib/windows-server/shared/operator-exchange`
-- Windows: `Z:\operator-exchange`
+- Linux default: `/var/lib/windows-server/shared/operator-exchange`
+- Windows VM shared-drive default: `Z:\operator-exchange`
+- Windows SSH-copy default: `C:\ProgramData\WindowsOperator\exchange`
 
-This directory should be declared by NixOS as part of the Windows VM virtio-fs
-share. Windows scripts should treat it as an exchange/output area, not as source
-code.
+The VM directory should be declared by NixOS as part of the Windows VM virtio-fs
+share. SSH-copy machines use machine-local Windows exchange state and copy
+runner results back to the Linux exchange root. Windows scripts should treat
+either exchange location as output/state, not source code.
 
 ## Current Layout
 
@@ -44,7 +46,9 @@ caller needs that contract.
 - Keep code in the Windows repo root: `Z:\windows-operator` on the VM share, or
   `WINDOWS_OPERATOR_WINDOWS_REPO_ROOT` on SSH-synced targets.
 - Keep Windows build/cache state in `%LOCALAPPDATA%\WindowsOperator`.
-- Put Linux-consumed output in `Z:\operator-exchange`.
+- Put Linux-consumed output in the configured Windows exchange root:
+  `Z:\operator-exchange` for VM shared-drive runs, or
+  `C:\ProgramData\WindowsOperator\exchange` for SSH-copy runs.
 - Do not write NuGet, bin, obj, or Codex credentials into exchange.
 - Use unique run IDs for automation runs.
 - Treat `runs/<run-id>/command.ps1` as a staged copy. Source of truth stays

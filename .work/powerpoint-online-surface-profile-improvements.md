@@ -549,10 +549,12 @@ Source truth:
 
 Progress status:
 
-- Warm-session target spec is documented.
-- No `ppt-profile-warm` command exists yet.
-- No script mode starts one session, reuses it for multiple update iterations, and cleans it in a final guard.
-- Current production-ready status: planned, not implemented.
+- Historical handoff status before implementation: warm-session target spec was
+  documented, but no `ppt-profile-warm` command or reusable-session script mode
+  existed yet.
+- Current status: superseded by the implementation proof below. `just
+  ppt-profile-warm` now exists, runs one-session validate-only warm iterations,
+  and has live proof recorded under `S8 implemented 2026-07-05`.
 
 Objective:
 

@@ -46,7 +46,7 @@ Current execution state:
 | S4 Shared Harness Helpers | complete | worker + main review | `scripts/linux/windows_operator_harness.py`; `wo` direct REST summaries use it. |
 | S6 Mail/Auth CLI Wrappers | complete | worker + main review | `wo mail ...` and `wo auth microsoft ...`; live safe commands passed. |
 | S7 Live Smoke Unification | complete | worker + main review | `wo smoke` writes contract summary and live-smoke artifacts; live smoke passed. |
-| S8 REST/API Alignment Audit | complete | main | Committed and live OpenAPI path counts both `55`; no REST mutation needed. |
+| S8 REST/API Alignment Audit | complete | main | Initial audit found committed/live OpenAPI path counts both `55`; later external-consumer work raised the committed contract to `58` paths with README inventory parity preserved. |
 | S9 Documentation Alignment | complete | worker + main review | README and architecture/domain docs point agents to `scripts/linux/wo`. |
 | S10 Completion Proof | complete | main + workers | Hot start/status/run/cleanup passed live; lease removed and Edge-like windows returned to `0`. |
 | S11 External Project Boundary | complete | main | AGENTS, README, development notes, and architecture docs state REST/OpenAPI/generated clients are the no-drift external integration path; CLI/Just/scripts are operator tooling. |
@@ -1124,8 +1124,8 @@ Observed:
   - Report artifact:
     `/var/lib/windows-server/shared/operator-exchange/runs/wo-smoke-harness-v2-20260706T004057Z/live-smoke-report.json`.
   - Live-smoke report: `ok=true`, `passed=32`, `failed=0`.
-- Committed OpenAPI paths: `55`.
-- Live OpenAPI paths: `55`.
+- Original S10 proof saw committed/live OpenAPI paths at `55`; after the
+  external-consumer contract work, committed OpenAPI now has `58` paths.
 
 ## Suggested Implementation Order
 
