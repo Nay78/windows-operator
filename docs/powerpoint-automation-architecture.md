@@ -130,18 +130,33 @@ Warm-session target spec:
    step. Verify final Edge/Chrome-like window count returns to the pre-loop
    baseline.
 
-Implemented one-shot warm command:
+Preferred one-shot warm command:
+
+```text
+scripts/linux/wo ppt warm
+```
+
+Just shortcut:
 
 ```text
 just ppt-profile-warm
 ```
 
-The command is a thin harness around the existing session/update APIs. It
+The `wo` command is a thin harness around the existing session/update APIs. It
 creates a unique warm `sessionId`, writes artifacts under one run root, attempts
 final cleanup, and labels output as warm-profile evidence rather than final
 proof.
 
-Implemented persistent hot lease commands:
+Preferred persistent hot lease commands:
+
+```text
+scripts/linux/wo ppt hot start
+scripts/linux/wo ppt hot status
+scripts/linux/wo ppt hot run
+scripts/linux/wo ppt hot cleanup
+```
+
+Just shortcuts:
 
 ```text
 just ppt-hot-start
@@ -150,19 +165,20 @@ just ppt-hot-run
 just ppt-hot-cleanup
 ```
 
-`ppt-hot-start` creates or reuses a named SEM27 lease and writes lease state to
-the exchange root. `ppt-hot-run` refuses missing, expired, or non-ready leases;
-it runs one safe validate-only update with `sessionId`, no `deckUrl`,
+`wo ppt hot start` creates or reuses a named SEM27 lease and writes lease state
+to the exchange root. `wo ppt hot run` refuses missing, expired, or non-ready
+leases; it runs one safe validate-only update with `sessionId`, no `deckUrl`,
 `verifyReopen=false`, and `cleanupSession=false`, then refreshes the lease TTL.
-`ppt-hot-cleanup` closes the leased session, removes the lease file on success,
-and verifies the final Edge/Chrome-like window count is no higher than the
-pre-cleanup baseline.
+`wo ppt hot cleanup` closes the leased session, removes the lease file on
+success, and verifies the final Edge/Chrome-like window count is no higher than
+the pre-cleanup baseline.
 
 Boundary: warm-session ownership belongs in the PowerPoint Online harness and
 its profile runner, not in scattered caller scripts. The harness hides session
 start/reuse, update request shaping, cleanup, window-count checks, and timing
-summary. Callers choose only cold, fast, one-shot warm, or persistent hot lease
-profile mode.
+summary. `scripts/linux/wo ppt ...` is preferred agent-facing path; Just stays
+shortcut layer. Callers choose only cold, fast, one-shot warm, or persistent
+hot lease profile mode.
 
 Live warm proof on 2026-07-05 succeeded against SEM27 without deck mutation:
 one named session opened, two update iterations reused `sessionId` with no

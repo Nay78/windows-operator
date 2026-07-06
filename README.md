@@ -175,6 +175,35 @@ on the user `PATH` and writes compatibility shims into
 
 ## Local dev
 
+Agent-facing harness entrypoint:
+
+```bash
+scripts/linux/wo --help
+```
+
+Use `scripts/linux/wo` for operator flows. Keep direct REST calls for API
+users, service integrations, and low-level debugging.
+
+Linux-side harness examples:
+
+```bash
+scripts/linux/wo health
+scripts/linux/wo smoke
+scripts/linux/wo ppt profile
+scripts/linux/wo ppt profile-fast
+scripts/linux/wo ppt warm
+scripts/linux/wo ppt hot start
+scripts/linux/wo mail status
+scripts/linux/wo mail search --subject '__windows_operator_smoke_no_match__'
+scripts/linux/wo mail download --subject 'SEM27' --folder 'mailbox/Inbox' --dry-run
+scripts/linux/wo auth microsoft cleanup --dry-run
+scripts/linux/wo auth microsoft device-login --device-code ABCD-EFGH --dry-run
+```
+
+`wo smoke` writes contract `summary.json` under
+`operator-exchange/runs/<run-id>/summary.json` and stores the delegated live
+smoke report at `operator-exchange/runs/<run-id>/live-smoke-report.json`.
+
 Regenerate OpenAPI and Go bindings:
 
 ```bash
@@ -216,7 +245,13 @@ scripts/linux/windows-run-ps.sh scripts/windows/bootstrap-vm.ps1
 The runner defaults to `administrator@127.0.0.1:22555`. Staging, SSH, and
 copy-backed target details live in [operator exchange](docs/operator-exchange.md#linux-runner).
 
-For Microsoft device-code login, hand off to Edge in the logged-in Windows desktop session:
+Preferred wrapper for Microsoft device-code login:
+
+```bash
+scripts/linux/wo auth microsoft device-login --device-code ABCD-EFGH
+```
+
+Lower-level REST example:
 
 ```bash
 curl -X POST http://127.0.0.1:43117/v1/auth/microsoft/device-login \

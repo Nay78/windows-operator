@@ -18,6 +18,30 @@ from typing import Any
 SEM27_MARKER = "sem27 - plan semanal servicios mina.pptx"
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 JPEG_SIGNATURE = b"\xff\xd8\xff"
+RESERVED_WINDOWS_DEVICE_NAMES = {
+    "con",
+    "prn",
+    "aux",
+    "nul",
+    "com1",
+    "com2",
+    "com3",
+    "com4",
+    "com5",
+    "com6",
+    "com7",
+    "com8",
+    "com9",
+    "lpt1",
+    "lpt2",
+    "lpt3",
+    "lpt4",
+    "lpt5",
+    "lpt6",
+    "lpt7",
+    "lpt8",
+    "lpt9",
+}
 
 
 def utc_stamp() -> str:
@@ -176,10 +200,11 @@ def build_warm_session_start_request(args: argparse.Namespace, session_id: str) 
 
 def build_warm_iteration_request(args: argparse.Namespace, session_id: str, job_id: str) -> dict[str, Any]:
     now = utc_now()
+    sanitized_job_id = sanitize_powerpoint_job_id(job_id)
     return {
         "sessionId": session_id,
         "job": {
-            "jobId": job_id,
+            "jobId": sanitized_job_id,
             "discoverTargets": True,
             "validateOnly": True,
             "operations": [],
@@ -200,6 +225,19 @@ def build_warm_iteration_request(args: argparse.Namespace, session_id: str, job_
         "savePollSeconds": args.save_poll_seconds,
         "reopenWaitSeconds": args.reopen_wait_seconds,
     }
+
+
+def sanitize_powerpoint_job_id(value: str, fallback: str = "powerpoint-job") -> str:
+    normalized = value.strip().lower()
+    normalized = re.sub(r"[^a-z0-9._-]+", "-", normalized)
+    normalized = re.sub(r"-{2,}", "-", normalized)
+    normalized = normalized.strip(".")
+    if not normalized:
+        normalized = fallback
+    stem = normalized.split(".", 1)[0]
+    if stem in RESERVED_WINDOWS_DEVICE_NAMES:
+        normalized = f"{normalized}-job"
+    return normalized
 
 
 def edge_like_windows(windows: Any) -> list[dict[str, Any]]:
@@ -471,6 +509,27 @@ def warm_session_started(http_status: int | str, response: Any) -> bool:
     return response.get("success") is True and response.get("status") == "ready"
 
 
+def returned_session_id(response: Any) -> str | None:
+    if not isinstance(response, dict):
+        return None
+    session_id = response.get("sessionId")
+    if not isinstance(session_id, str):
+        return None
+    session_id = session_id.strip()
+    return session_id or None
+
+
+def should_retry_hot_start(http_status: int | str, response: Any, requested_session_id: str) -> bool:
+    if http_status != 200 or not isinstance(response, dict):
+        return False
+    if response.get("success") is not True:
+        return False
+    if response.get("status") == "ready":
+        return False
+    response_session_id = returned_session_id(response)
+    return response_session_id == requested_session_id
+
+
 def parse_utc(value: Any) -> dt.datetime | None:
     if not isinstance(value, str) or not value.strip():
         return None
@@ -548,6 +607,113 @@ def cleanup_session(
         {},
         timeout_seconds,
     )
+
+
+def attempt_hot_session_start(
+    args: argparse.Namespace,
+    run_root: Path,
+    run_id: str,
+    session_id: str,
+) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    request_path = run_root / "request.json"
+    response_path = run_root / "session-start-response.json"
+    retry_request_path = run_root / "request-retry.json"
+    retry_response_path = run_root / "session-start-retry-response.json"
+
+    start_request = build_warm_session_start_request(args, session_id)
+    write_json(request_path, start_request)
+    start_started = time.time()
+    start_status, start_body, start_response = request_json(
+        args.base_url,
+        "POST",
+        "/v1/powerpoint/online/sessions",
+        start_request,
+        args.http_timeout_seconds,
+    )
+    start_elapsed_ms = round((time.time() - start_started) * 1000, 3)
+    write_json(response_path, start_response if start_response is not None else {"raw": start_body.decode("utf-8", "replace")})
+
+    session_started = warm_session_started(start_status, start_response)
+    session_start_summary: dict[str, Any] = {
+        "attempt": 1,
+        "httpStatus": start_status,
+        "requestPath": str(request_path),
+        "responsePath": str(response_path),
+        "elapsedMs": start_elapsed_ms,
+        "success": session_started,
+        "status": start_response.get("status") if isinstance(start_response, dict) else None,
+        "sessionId": returned_session_id(start_response),
+    }
+    cleanup_after_start_failure: dict[str, Any] | None = None
+
+    if session_started or not should_retry_hot_start(start_status, start_response, session_id):
+        return session_start_summary, cleanup_after_start_failure
+
+    cleanup_target_session_id = returned_session_id(start_response)
+    cleanup_status, cleanup_body, cleanup_response = cleanup_session(args.base_url, cleanup_target_session_id, args.http_timeout_seconds)
+    cleanup_response_path = run_root / "cleanup-after-start-failure-response.json"
+    write_json(
+        cleanup_response_path,
+        cleanup_response if cleanup_response is not None else {"raw": cleanup_body.decode("utf-8", "replace")},
+    )
+    cleanup_after_start_failure = {
+        "attempted": True,
+        "reason": "nonReadyReturnedSession",
+        "targetSessionId": cleanup_target_session_id,
+        "httpStatus": cleanup_status,
+        "status": status_of(cleanup_response),
+        "responsePath": str(cleanup_response_path),
+    }
+
+    retry_started = time.time()
+    write_json(retry_request_path, start_request)
+    retry_status, retry_body, retry_response = request_json(
+        args.base_url,
+        "POST",
+        "/v1/powerpoint/online/sessions",
+        start_request,
+        args.http_timeout_seconds,
+    )
+    retry_elapsed_ms = round((time.time() - retry_started) * 1000, 3)
+    write_json(
+        retry_response_path,
+        retry_response if retry_response is not None else {"raw": retry_body.decode("utf-8", "replace")},
+    )
+    retry_started_ok = warm_session_started(retry_status, retry_response)
+    session_start_summary = {
+        "attempt": 2,
+        "retried": True,
+        "httpStatus": retry_status,
+        "requestPath": str(retry_request_path),
+        "responsePath": str(retry_response_path),
+        "elapsedMs": round(start_elapsed_ms + retry_elapsed_ms, 3),
+        "attempts": [
+            {
+                "attempt": 1,
+                "httpStatus": start_status,
+                "requestPath": str(request_path),
+                "responsePath": str(response_path),
+                "elapsedMs": start_elapsed_ms,
+                "success": warm_session_started(start_status, start_response),
+                "status": start_response.get("status") if isinstance(start_response, dict) else None,
+                "sessionId": returned_session_id(start_response),
+            },
+            {
+                "attempt": 2,
+                "httpStatus": retry_status,
+                "requestPath": str(retry_request_path),
+                "responsePath": str(retry_response_path),
+                "elapsedMs": retry_elapsed_ms,
+                "success": retry_started_ok,
+                "status": retry_response.get("status") if isinstance(retry_response, dict) else None,
+                "sessionId": returned_session_id(retry_response),
+            },
+        ],
+        "success": retry_started_ok,
+        "status": retry_response.get("status") if isinstance(retry_response, dict) else None,
+        "sessionId": returned_session_id(retry_response),
+    }
+    return session_start_summary, cleanup_after_start_failure
 
 
 def parse_args() -> argparse.Namespace:
@@ -846,19 +1012,8 @@ def main() -> int:
                 remove_file(hot_lease_path)
 
             session_id = args.hot_session_id or run_id
-            start_request = build_warm_session_start_request(args, session_id)
-            write_json(run_root / "request.json", start_request)
-            start_started = time.time()
-            start_status, start_body, start_response = request_json(
-                args.base_url,
-                "POST",
-                "/v1/powerpoint/online/sessions",
-                start_request,
-                args.http_timeout_seconds,
-            )
-            start_elapsed_ms = round((time.time() - start_started) * 1000, 3)
-            write_json(run_root / "session-start-response.json", start_response if start_response is not None else {"raw": start_body.decode("utf-8", "replace")})
-            session_started = warm_session_started(start_status, start_response)
+            session_start_summary, cleanup_after_start_failure = attempt_hot_session_start(args, run_root, run_id, session_id)
+            session_started = session_start_summary.get("success") is True
             lease_payload = make_hot_lease(args, session_id, run_id) if session_started else None
             if lease_payload is not None:
                 write_json(hot_lease_path, lease_payload)
@@ -869,7 +1024,7 @@ def main() -> int:
                 "runId": run_id,
                 "success": session_started,
                 "status": "hotLeaseStarted" if session_started else "hotLeaseStartFailed",
-                "httpStatus": start_status,
+                "httpStatus": session_start_summary.get("httpStatus"),
                 "windowsHttpStatus": windows_status,
                 "windowsBeforeHttpStatus": windows_before_status,
                 "execute": False,
@@ -882,24 +1037,19 @@ def main() -> int:
                 "hotStatus": False,
                 "hotCleanup": False,
                 "sem27": sem27,
+                "requestedSessionId": session_id,
                 "leasePath": str(hot_lease_path),
                 "lease": lease_payload,
                 "cleanupBeforeStart": cleanup_before_summary,
+                "cleanupAfterStartFailure": cleanup_after_start_failure,
                 "requestPath": str(run_root / "request.json"),
-                "sessionStartResponsePath": str(run_root / "session-start-response.json"),
+                "sessionStartResponsePath": session_start_summary.get("responsePath"),
                 "windowsBeforePath": str(run_root / "windows-before.json"),
                 "windowsAfterPath": str(run_root / "windows-after.json"),
                 "edgeLikeWindowCountBefore": len(edge_matches_before),
                 "edgeLikeWindowCount": len(edge_matches),
-                "sessionStart": {
-                    "httpStatus": start_status,
-                    "requestPath": str(run_root / "request.json"),
-                    "responsePath": str(run_root / "session-start-response.json"),
-                    "elapsedMs": start_elapsed_ms,
-                    "success": session_started,
-                    "status": start_response.get("status") if isinstance(start_response, dict) else None,
-                },
-                "openSessionMs": start_elapsed_ms,
+                "sessionStart": session_start_summary,
+                "openSessionMs": session_start_summary.get("elapsedMs"),
                 "elapsedSeconds": round(time.time() - started, 3),
                 "observedAtUtc": utc_now(),
             }
@@ -989,6 +1139,7 @@ def main() -> int:
                 return 1
             job_id = f"{run_id}-hot"
             iteration_request = build_warm_iteration_request(args, lease_session_id, job_id)
+            request_job_id = iteration_request["job"]["jobId"]
             write_json(run_root / "request.json", iteration_request)
             iteration_status, iteration_body, iteration_response = request_json(
                 args.base_url,
@@ -1002,7 +1153,7 @@ def main() -> int:
             iteration_summary.update(
                 {
                     "runId": run_id,
-                    "jobId": job_id,
+                    "jobId": request_job_id,
                     "httpStatus": iteration_status,
                     "requestPath": str(run_root / "request.json"),
                     "responsePath": str(run_root / "response.json"),
@@ -1148,6 +1299,7 @@ def main() -> int:
             for iteration_index in range(1, args.warm_iterations + 1):
                 job_id = f"{run_id}-warm-{iteration_index:02d}"
                 iteration_request = build_warm_iteration_request(args, run_id, job_id)
+                request_job_id = iteration_request["job"]["jobId"]
                 iteration_request_path = run_root / "iterations" / f"iteration-{iteration_index:02d}-request.json"
                 iteration_response_path = run_root / "iterations" / f"iteration-{iteration_index:02d}-response.json"
                 write_json(iteration_request_path, iteration_request)
@@ -1163,7 +1315,7 @@ def main() -> int:
                 iteration_summary.update(
                     {
                         "iteration": iteration_index,
-                        "jobId": job_id,
+                        "jobId": request_job_id,
                         "httpStatus": iteration_status,
                         "requestPath": str(iteration_request_path),
                         "responsePath": str(iteration_response_path),

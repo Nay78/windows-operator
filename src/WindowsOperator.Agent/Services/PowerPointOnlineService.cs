@@ -84,18 +84,26 @@ public sealed class PowerPointOnlineService : IPowerPointOnlineService
             try
             {
                 state = await _edgeBrowserService.GetSessionStateAsync(metadata.BrowserSessionId, cancellationToken);
-                actions.Add("session_reused");
-                if (!UrlsMatch(deckUrl, state.Url))
+                if (ShouldRecreateSession(state))
                 {
-                    state = await _edgeBrowserService.NavigateSessionAsync(
-                        metadata.BrowserSessionId,
-                        new BrowserEdgeSessionNavigateRequest
-                        {
-                            Url = deckUrl,
-                            WaitSeconds = Math.Clamp(request.WaitSeconds, 0, 30),
-                        },
-                        cancellationToken);
-                    actions.Add("deck_navigated");
+                    state = await StartBrowserSessionAsync(sessionId, deckUrl, run.RunId, request, cancellationToken);
+                    actions.Add("session_recreated_stale_closed");
+                }
+                else
+                {
+                    actions.Add("session_reused");
+                    if (!UrlsMatch(deckUrl, state.Url))
+                    {
+                        state = await _edgeBrowserService.NavigateSessionAsync(
+                            metadata.BrowserSessionId,
+                            new BrowserEdgeSessionNavigateRequest
+                            {
+                                Url = deckUrl,
+                                WaitSeconds = Math.Clamp(request.WaitSeconds, 0, 30),
+                            },
+                            cancellationToken);
+                        actions.Add("deck_navigated");
+                    }
                 }
             }
             catch (OperatorFailureException)
@@ -1576,6 +1584,9 @@ public sealed class PowerPointOnlineService : IPowerPointOnlineService
 
         return PowerPointOnlineSessionStatus.Failed;
     }
+
+    private static bool ShouldRecreateSession(BrowserEdgeSessionStateResult state) =>
+        ClassifyState(state) == PowerPointOnlineSessionStatus.Closed;
 
     private static IReadOnlyList<OperatorError> ErrorsForStatus(
         PowerPointOnlineSessionStatus status,

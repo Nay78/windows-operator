@@ -98,6 +98,9 @@ assert warm_iteration_request["cleanupSession"] is False
 assert warm_iteration_request["job"]["jobId"] == "warm-run-warm-01"
 assert warm_iteration_request["job"]["validateOnly"] is True
 assert warm_iteration_request["job"]["operations"] == []
+assert module.sanitize_powerpoint_job_id("PPT-Hot-Run-Live-20260706T003508Z-hot") == "ppt-hot-run-live-20260706t003508z-hot"
+assert module.sanitize_powerpoint_job_id("bad job:id") == "bad-job-id"
+assert module.sanitize_powerpoint_job_id("CON") == "con-job"
 
 summary = {
     "httpStatus": 200,
@@ -244,6 +247,11 @@ assert not module.warm_iteration_passed(warm_iteration_summary)
 assert module.warm_session_started(200, {"success": True, "status": "ready"})
 assert not module.warm_session_started(200, {"success": True, "status": "succeeded"})
 assert not module.warm_session_started(500, {"success": True, "status": "ready"})
+assert module.returned_session_id({"sessionId": "ppt-hot-sem27"}) == "ppt-hot-sem27"
+assert module.returned_session_id({"sessionId": " "}) is None
+assert module.should_retry_hot_start(200, {"success": True, "status": "closed", "sessionId": "ppt-hot-sem27"}, "ppt-hot-sem27")
+assert not module.should_retry_hot_start(200, {"success": True, "status": "ready", "sessionId": "ppt-hot-sem27"}, "ppt-hot-sem27")
+assert not module.should_retry_hot_start(200, {"success": False, "status": "closed", "sessionId": "ppt-hot-sem27"}, "ppt-hot-sem27")
 assert module.default_hot_lease_path(module.Path("/exchange")) == module.Path("/exchange/state/ppt-hot-lease.json")
 hot_lease = module.make_hot_lease(args, "hot-session", "hot-run")
 assert hot_lease["kind"] == "powerpoint-online-hot-lease"
@@ -838,6 +846,89 @@ with tempfile.TemporaryDirectory() as exchange_root:
 
 with tempfile.TemporaryDirectory() as exchange_root:
     calls = []
+
+    def fake_hot_start_retry_request_json(base_url, method, path, payload, timeout_seconds):
+        calls.append((method, path, payload))
+        if method == "GET" and path == "/v1/windows":
+            return 200, b"[]", []
+        if method == "POST" and path == "/v1/powerpoint/online/sessions":
+            assert payload == {
+                "deckUrl": "https://host/Documents/SEM27%20-%20Plan%20Semanal%20Servicios%20Mina.pptx?web=1",
+                "sessionId": "ppt-hot-sem27",
+                "runId": "ppt-hot-sem27",
+                "capture": False,
+                "waitSeconds": 40,
+            }
+            if len([call for call in calls if call[1] == "/v1/powerpoint/online/sessions"]) == 1:
+                return 200, b"{}", {
+                    "success": True,
+                    "status": "closed",
+                    "sessionId": "ppt-hot-sem27",
+                }
+            return 200, b"{}", {
+                "success": True,
+                "status": "ready",
+                "sessionId": "ppt-hot-sem27",
+            }
+        if method == "POST" and path == "/v1/powerpoint/online/sessions/ppt-hot-sem27/cleanup":
+            assert payload == {}
+            return 200, b"{}", {
+                "success": True,
+                "status": "closed",
+                "sessionId": "ppt-hot-sem27",
+            }
+        raise AssertionError(f"unexpected call: {method} {path}")
+
+    module.request_json = fake_hot_start_retry_request_json
+    old_argv = sys.argv
+    try:
+        sys.argv = [
+            script,
+            "--deck-url",
+            "https://host/Documents/SEM27%20-%20Plan%20Semanal%20Servicios%20Mina.pptx?web=1",
+            "--run-id",
+            "hot-start-retry-ok",
+            "--hot-session-id",
+            "ppt-hot-sem27",
+            "--hot-start",
+            "--exchange-root",
+            exchange_root,
+        ]
+        exit_code = module.main()
+        assert exit_code == 0
+    finally:
+        sys.argv = old_argv
+
+    summary_path = module.Path(exchange_root) / "runs" / "hot-start-retry-ok" / "summary.json"
+    with summary_path.open(encoding="utf-8") as handle:
+        summary = module.json.load(handle)
+    lease_path = module.Path(exchange_root) / "state" / "ppt-hot-lease.json"
+    with lease_path.open(encoding="utf-8") as handle:
+        lease = module.json.load(handle)
+
+    assert summary["success"] is True
+    assert summary["status"] == "hotLeaseStarted"
+    assert summary["cleanupAfterStartFailure"]["attempted"] is True
+    assert summary["cleanupAfterStartFailure"]["status"] == "closed"
+    assert summary["cleanupAfterStartFailure"]["targetSessionId"] == "ppt-hot-sem27"
+    assert summary["sessionStart"]["retried"] is True
+    assert summary["sessionStart"]["attempt"] == 2
+    assert len(summary["sessionStart"]["attempts"]) == 2
+    assert summary["sessionStart"]["attempts"][0]["status"] == "closed"
+    assert summary["sessionStart"]["attempts"][1]["status"] == "ready"
+    assert summary["sessionStart"]["status"] == "ready"
+    assert lease["sessionId"] == "ppt-hot-sem27"
+    assert lease["lastRunId"] == "hot-start-retry-ok"
+    assert [call[1] for call in calls] == [
+        "/v1/windows",
+        "/v1/powerpoint/online/sessions",
+        "/v1/powerpoint/online/sessions/ppt-hot-sem27/cleanup",
+        "/v1/powerpoint/online/sessions",
+        "/v1/windows",
+    ]
+
+with tempfile.TemporaryDirectory() as exchange_root:
+    calls = []
     lease_path = module.Path(exchange_root) / "state" / "ppt-hot-lease.json"
     future = module.iso_utc(module.dt.datetime.now(module.dt.UTC) + module.dt.timedelta(minutes=10))
     module.write_json(
@@ -981,6 +1072,86 @@ with tempfile.TemporaryDirectory() as exchange_root:
     assert summary["hotRun"] is True
     assert summary["phaseTimings"]["jobMs"] == 21
     assert lease["lastRunId"] == "hot-run-ok"
+    assert [call[1] for call in calls] == [
+        "/v1/windows",
+        "/v1/powerpoint/online/sessions/ppt-hot-sem27",
+        "/v1/powerpoint/online/updates",
+        "/v1/windows",
+    ]
+
+with tempfile.TemporaryDirectory() as exchange_root:
+    calls = []
+    lease_path = module.Path(exchange_root) / "state" / "ppt-hot-lease.json"
+    future = module.iso_utc(module.dt.datetime.now(module.dt.UTC) + module.dt.timedelta(minutes=10))
+    module.write_json(
+        lease_path,
+        {
+            "kind": "powerpoint-online-hot-lease",
+            "version": 1,
+            "sessionId": "ppt-hot-sem27",
+            "deckUrl": "https://host/Documents/SEM27%20-%20Plan%20Semanal%20Servicios%20Mina.pptx?web=1",
+            "baseUrl": "http://127.0.0.1:43117",
+            "createdAtUtc": future,
+            "updatedAtUtc": future,
+            "expiresAtUtc": future,
+            "ttlSeconds": 1800,
+            "lastRunId": "hot-run-ok",
+        },
+    )
+
+    def fake_hot_run_uppercase_request_json(base_url, method, path, payload, timeout_seconds):
+        calls.append((method, path, payload))
+        if method == "GET" and path == "/v1/windows":
+            return 200, b"[]", []
+        if method == "GET" and path == "/v1/powerpoint/online/sessions/ppt-hot-sem27":
+            return 200, b"{}", {
+                "success": True,
+                "status": "ready",
+            }
+        if method == "POST" and path == "/v1/powerpoint/online/updates":
+            assert "deckUrl" not in payload
+            assert payload["sessionId"] == "ppt-hot-sem27"
+            assert payload["job"]["jobId"] == "ppt-hot-run-live-20260706t003508z-hot"
+            return 200, b"{}", {
+                "success": True,
+                "status": "succeeded",
+                "jobRecord": {
+                    "status": "succeeded",
+                    "claimedBy": "officejs-taskpane",
+                },
+                "phaseTimings": {"jobMs": 18},
+            }
+        raise AssertionError(f"unexpected call: {method} {path}")
+
+    module.request_json = fake_hot_run_uppercase_request_json
+    old_argv = sys.argv
+    try:
+        sys.argv = [
+            script,
+            "--deck-url",
+            "https://host/Documents/SEM27%20-%20Plan%20Semanal%20Servicios%20Mina.pptx?web=1",
+            "--run-id",
+            "PPT-Hot-Run-Live-20260706T003508Z",
+            "--hot-run",
+            "--exchange-root",
+            exchange_root,
+        ]
+        exit_code = module.main()
+        assert exit_code == 0
+    finally:
+        sys.argv = old_argv
+
+    summary_path = module.Path(exchange_root) / "runs" / "PPT-Hot-Run-Live-20260706T003508Z" / "summary.json"
+    with summary_path.open(encoding="utf-8") as handle:
+        summary = module.json.load(handle)
+    with lease_path.open(encoding="utf-8") as handle:
+        lease = module.json.load(handle)
+
+    assert summary["success"] is True
+    assert summary["runId"] == "PPT-Hot-Run-Live-20260706T003508Z"
+    assert summary["jobId"] == "ppt-hot-run-live-20260706t003508z-hot"
+    assert lease["lastRunId"] == "PPT-Hot-Run-Live-20260706T003508Z"
+    assert summary_path.parent.name == "PPT-Hot-Run-Live-20260706T003508Z"
     assert [call[1] for call in calls] == [
         "/v1/windows",
         "/v1/powerpoint/online/sessions/ppt-hot-sem27",

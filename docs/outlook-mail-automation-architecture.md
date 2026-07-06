@@ -17,6 +17,17 @@ Default behavior:
 - Retry once after a safe recovery when COM or cache behavior looks stale.
 - Restart or kill Outlook only inside bounded recovery policy, not on every read.
 
+Preferred agent-facing wrapper:
+
+```text
+scripts/linux/wo mail status
+scripts/linux/wo mail folders
+scripts/linux/wo mail search --subject 'SEM27'
+scripts/linux/wo mail download --subject 'SEM27' --folder 'mailbox/Inbox'
+```
+
+Keep direct REST examples for API callers and low-level debugging.
+
 ## Runtime Topology
 
 ```text
@@ -47,6 +58,13 @@ POST /v1/mail/attachments/download
 GET  /v1/mail/runs/{runId}
 GET  /v1/mail/status
 ```
+
+Preferred wrapper-to-REST mapping:
+
+- `wo mail status` -> `GET /v1/mail/status`
+- `wo mail folders` -> `POST /v1/mail/folders`
+- `wo mail search` -> `POST /v1/mail/messages/search`
+- `wo mail download` -> `POST /v1/mail/attachments/download`
 
 Target behavior:
 

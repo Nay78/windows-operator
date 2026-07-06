@@ -43,56 +43,34 @@ ppt-final-proof-readiness:
 
 # Profile the PowerPoint Online surface with safe SEM27 non-mutating readiness proof.
 ppt-profile:
-    scripts/linux/powerpoint-online-final-proof.py \
-        --deck-url 'https://aminerals-my.sharepoint.com/personal/nmartinez_drs_mineracentinela_cl/Documents/SEM27%20-%20Plan%20Semanal%20Servicios%20Mina.pptx?web=1' \
-        --run-id "ppt-surface-profile-$(date -u +%Y%m%dT%H%M%SZ | tr 'A-Z' 'a-z')" \
-        --verify-readiness
+    scripts/linux/wo ppt profile
 
 # Agent-friendly alias for the PowerPoint Online surface profile.
 easy-profile: ppt-profile
 
 # Profile PowerPoint Online with safe SEM27 readiness, skipping tier3 reopen proof.
 ppt-profile-fast:
-    scripts/linux/powerpoint-online-final-proof.py \
-        --deck-url 'https://aminerals-my.sharepoint.com/personal/nmartinez_drs_mineracentinela_cl/Documents/SEM27%20-%20Plan%20Semanal%20Servicios%20Mina.pptx?web=1' \
-        --run-id "ppt-surface-profile-fast-$(date -u +%Y%m%dT%H%M%SZ | tr 'A-Z' 'a-z')" \
-        --verify-readiness-fast
+    scripts/linux/wo ppt profile-fast
 
 # Warm one SEM27 session, run safe validate-only iterations, then cleanup.
 ppt-profile-warm:
-    scripts/linux/powerpoint-online-final-proof.py \
-        --deck-url 'https://aminerals-my.sharepoint.com/personal/nmartinez_drs_mineracentinela_cl/Documents/SEM27%20-%20Plan%20Semanal%20Servicios%20Mina.pptx?web=1' \
-        --run-id "ppt-surface-profile-warm-$(date -u +%Y%m%dT%H%M%SZ | tr 'A-Z' 'a-z')" \
-        --profile-warm
+    scripts/linux/wo ppt warm
 
 # Start or reuse a persistent SEM27 hot PowerPoint Online lease.
 ppt-hot-start:
-    scripts/linux/powerpoint-online-final-proof.py \
-        --deck-url 'https://aminerals-my.sharepoint.com/personal/nmartinez_drs_mineracentinela_cl/Documents/SEM27%20-%20Plan%20Semanal%20Servicios%20Mina.pptx?web=1' \
-        --run-id "ppt-hot-start-$(date -u +%Y%m%dT%H%M%SZ | tr 'A-Z' 'a-z')" \
-        --hot-session-id ppt-hot-sem27 \
-        --hot-start
+    scripts/linux/wo ppt hot start
 
 # Run one safe validate-only iteration against the persistent SEM27 hot lease.
 ppt-hot-run:
-    scripts/linux/powerpoint-online-final-proof.py \
-        --deck-url 'https://aminerals-my.sharepoint.com/personal/nmartinez_drs_mineracentinela_cl/Documents/SEM27%20-%20Plan%20Semanal%20Servicios%20Mina.pptx?web=1' \
-        --run-id "ppt-hot-run-$(date -u +%Y%m%dT%H%M%SZ | tr 'A-Z' 'a-z')" \
-        --hot-run
+    scripts/linux/wo ppt hot run
 
 # Show persistent SEM27 hot lease and live session status.
 ppt-hot-status:
-    scripts/linux/powerpoint-online-final-proof.py \
-        --deck-url 'https://aminerals-my.sharepoint.com/personal/nmartinez_drs_mineracentinela_cl/Documents/SEM27%20-%20Plan%20Semanal%20Servicios%20Mina.pptx?web=1' \
-        --run-id "ppt-hot-status-$(date -u +%Y%m%dT%H%M%SZ | tr 'A-Z' 'a-z')" \
-        --hot-status
+    scripts/linux/wo ppt hot status
 
 # Close the persistent SEM27 hot lease and remove the lease file.
 ppt-hot-cleanup:
-    scripts/linux/powerpoint-online-final-proof.py \
-        --deck-url 'https://aminerals-my.sharepoint.com/personal/nmartinez_drs_mineracentinela_cl/Documents/SEM27%20-%20Plan%20Semanal%20Servicios%20Mina.pptx?web=1' \
-        --run-id "ppt-hot-cleanup-$(date -u +%Y%m%dT%H%M%SZ | tr 'A-Z' 'a-z')" \
-        --hot-cleanup
+    scripts/linux/wo ppt hot cleanup
 
 # Agent-friendly alias for the fast PowerPoint Online surface profile.
 easy-profile-fast: ppt-profile-fast

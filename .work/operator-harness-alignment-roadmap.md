@@ -19,6 +19,365 @@ Target spec:
 - `docs/development.md`, section `Harness layering`
 - `docs/feature-namespaces.md`
 
+## Execution Ledger
+
+Goal:
+`019f314e-15c2-72e1-b26c-0a38a440a4e2`
+
+Branch:
+`harness-v2`
+
+Orchestrator rules:
+
+- Main keeps this roadmap, target spec map, and evidence ledger current.
+- Implementation code, tests, migrations, and generated edits go to workers.
+- REST contract changes need explicit operator approval before mutation.
+- Progress claims require `.work` evidence updates and validation commands.
+
+Current execution state:
+
+| Slice | State | Owner | Evidence |
+| --- | --- | --- | --- |
+| S0 Baseline Inventory | complete | main | Inventory seeded below. |
+| S1 Shared CLI Harness Contract | complete | worker + main review | `docs/operator-harness-cli-contract.md`; final validation passed 2026-07-06. |
+| S2 Introduce `scripts/linux/wo` | complete | worker + main review | `wo` dispatcher added; direct health/windows summaries align with contract. |
+| S3 Point Justfile At `wo` | complete | worker + main review | Just PowerPoint shortcuts route through `wo`; dry-runs passed. |
+| S5 Command Manifest | complete | worker + main review | `harness/windows-operator.commands.json` parses and includes mail/auth/smoke updates. |
+| S4 Shared Harness Helpers | complete | worker + main review | `scripts/linux/windows_operator_harness.py`; `wo` direct REST summaries use it. |
+| S6 Mail/Auth CLI Wrappers | complete | worker + main review | `wo mail ...` and `wo auth microsoft ...`; live safe commands passed. |
+| S7 Live Smoke Unification | complete | worker + main review | `wo smoke` writes contract summary and live-smoke artifacts; live smoke passed. |
+| S8 REST/API Alignment Audit | complete | main | Committed and live OpenAPI path counts both `55`; no REST mutation needed. |
+| S9 Documentation Alignment | complete | worker + main review | README and architecture/domain docs point agents to `scripts/linux/wo`. |
+| S10 Completion Proof | complete | main + workers | Hot start/status/run/cleanup passed live; lease removed and Edge-like windows returned to `0`. |
+
+### Handoff S1: Shared CLI Harness Contract
+
+Worker scope:
+
+- Edit docs only.
+- Preferred target: `docs/operator-harness-cli-contract.md`.
+- Add links from `docs/operator-harness-architecture.md` or
+  `docs/development.md` only if needed for discoverability.
+
+Acceptance:
+
+- Defines common flags: `--base-url`, `--exchange-root`, `--run-id`, `--json`.
+- Defines exit codes `0`, `1`, `2`.
+- Defines stdout summary-path convention.
+- Defines summary top-level fields and error/gate shape.
+- Defines live-proof requirements and dry-run limits.
+- No REST or implementation change.
+
+Validation:
+
+- `git diff --check`
+
+### Handoff S2: `scripts/linux/wo` Dispatcher
+
+Worker scope:
+
+- Add `scripts/linux/wo`.
+- Add focused CLI tests if needed, preferably under `scripts/linux/`.
+- Do not move PowerPoint workflow logic.
+- Do not alter REST/OpenAPI contracts.
+
+Required first-pass commands:
+
+```text
+scripts/linux/wo --help
+scripts/linux/wo health
+scripts/linux/wo windows list
+scripts/linux/wo ppt profile
+scripts/linux/wo ppt profile-fast
+scripts/linux/wo ppt warm
+scripts/linux/wo ppt hot start
+scripts/linux/wo ppt hot run
+scripts/linux/wo ppt hot status
+scripts/linux/wo ppt hot cleanup
+scripts/linux/wo smoke
+```
+
+Implementation guidance:
+
+- Prefer Python dispatcher with boring subprocess delegation.
+- Delegate existing PowerPoint behavior to
+  `scripts/linux/powerpoint-online-final-proof.py`.
+- Preserve existing safe SEM27 defaults.
+- `wo health` may call Host REST directly and print a summary path.
+- `wo smoke` may delegate to `scripts/linux/live-smoke.py` if safe.
+
+Acceptance:
+
+- `wo --help` lists domains.
+- `wo ppt hot run --help` or equivalent is discoverable.
+- Existing PowerPoint script tests still pass.
+- No REST contract changes.
+
+Validation:
+
+- `scripts/linux/wo --help`
+- `scripts/linux/wo health`
+- `scripts/linux/wo ppt hot status`
+- `scripts/linux/powerpoint-online-final-proof-tests.sh`
+
+### Handoff S5: Command Manifest
+
+Worker scope:
+
+- Add `harness/windows-operator.commands.json`.
+- Optional: add a small validation script if useful.
+- Do not edit `scripts/linux/wo`, `Justfile`, REST/OpenAPI, generated clients,
+  docs, or `.work`.
+
+Manifest must cover:
+
+- Existing Just recipes.
+- Planned `wo` commands from S2.
+- Direct low-level scripts that should remain visible to agents.
+
+Schema fields:
+
+- `name`
+- `summary`
+- `layer`
+- `command`
+- `safeDefault`
+- `mutatesExternalState`
+- `requiresDesktop`
+- `requiresCleanup`
+- `summaryPath`
+- `examples`
+- `preferredFor`
+- `replacedBy`
+
+Acceptance:
+
+- Distinguishes final proof, fast profile, warm one-shot, and persistent hot
+  lease.
+- Marks SEM27 profile/hot flows non-mutating unless explicitly final mutation
+  proof.
+- Marks break-glass/recovery scripts as not preferred default commands.
+- JSON parses cleanly.
+
+Validation:
+
+- `python3 -m json.tool harness/windows-operator.commands.json >/dev/null`
+
+### Handoff S3: Point Justfile At `wo`
+
+Worker scope:
+
+- Edit `Justfile` only.
+- Do not edit `scripts/linux/wo`, docs, `.work`, REST/OpenAPI, generated
+  clients, or workflow scripts.
+
+Expected change:
+
+- Route PowerPoint profile/hot shortcuts through `scripts/linux/wo`:
+  - `ppt-profile`
+  - `easy-profile`
+  - `ppt-profile-fast`
+  - `easy-profile-fast`
+  - `ppt-profile-warm`
+  - `ppt-hot-start`
+  - `ppt-hot-run`
+  - `ppt-hot-status`
+  - `ppt-hot-cleanup`
+- Keep final-proof prepare/host-gate/readiness recipes direct unless routing
+  through `wo` is already exact and low risk.
+- Keep `ppt-final-proof-test` direct.
+
+Acceptance:
+
+- Justfile remains a shortcut menu only.
+- Existing recipe names still exist.
+- No JSON parsing, REST calls, or state logic in Justfile.
+
+Validation:
+
+- `just --list`
+- `just --dry-run ppt-profile`
+- `just --dry-run ppt-profile-fast`
+- `just --dry-run ppt-profile-warm`
+- `just --dry-run ppt-hot-start`
+- `just --dry-run ppt-hot-run`
+- `just --dry-run ppt-hot-status`
+- `just --dry-run ppt-hot-cleanup`
+
+### Handoff S4: Shared Harness Helpers
+
+Worker scope:
+
+- Add `scripts/linux/windows_operator_harness.py`.
+- Update `scripts/linux/wo` to use the helper.
+- Optionally update `scripts/linux/powerpoint-online-final-proof.py` only for
+  low-risk helper imports that preserve exact behavior.
+- Update focused tests only as needed.
+- Do not edit Justfile, docs, `.work`, REST/OpenAPI, generated clients, or
+  command manifest.
+
+Helper should own:
+
+- UTC timestamp helpers.
+- Exchange root default.
+- JSON read/write.
+- Host REST request helper for GET/POST JSON.
+- Run root and summary path creation.
+- Contract summary emitter for direct `wo` commands.
+
+Acceptance:
+
+- Direct `wo health` and `wo windows list` behavior stays unchanged.
+- PowerPoint harness summaries and fake HTTP tests stay unchanged if the
+  PowerPoint script is touched.
+- No REST contract changes.
+
+Validation:
+
+- `scripts/linux/wo-tests.sh`
+- `scripts/linux/powerpoint-online-final-proof-tests.sh`
+- `python3 -m py_compile scripts/linux/wo scripts/linux/windows_operator_harness.py scripts/linux/powerpoint-online-final-proof.py`
+
+### Handoff S6: Mail/Auth CLI Wrappers
+
+Worker scope:
+
+- Edit `scripts/linux/wo`.
+- Edit `scripts/linux/wo-tests.sh`.
+- Optionally extend `scripts/linux/windows_operator_harness.py` only for generic
+  JSON POST/summary needs.
+- Do not edit Justfile, docs, `.work`, REST/OpenAPI, generated clients,
+  command manifest, or existing mail/auth scripts.
+
+Commands:
+
+```text
+scripts/linux/wo mail status
+scripts/linux/wo mail folders
+scripts/linux/wo mail search --subject ...
+scripts/linux/wo mail download --subject ... --folder ...
+scripts/linux/wo auth microsoft cleanup --dry-run
+scripts/linux/wo auth microsoft device-login --device-code ...
+scripts/linux/wo auth microsoft authorize-probe --authorize-url ...
+```
+
+Safe defaults:
+
+- `mail status`: GET `/v1/mail/status`.
+- `mail folders`: POST `/v1/mail/folders` with freshness option.
+- `mail search`: POST `/v1/mail/messages/search`; default synthetic no-match
+  subject if no subject is supplied.
+- `mail download`: POST `/v1/mail/attachments/download`; require explicit
+  `--subject` or `--message-id` to avoid broad downloads.
+- `auth microsoft cleanup`: POST `/v1/auth/microsoft/cleanup`; default
+  `--dry-run`.
+- `auth microsoft device-login`: require `--device-code`; allow `--dry-run`.
+- `auth microsoft authorize-probe`: require `--authorize-url`; allow
+  `--dry-run`.
+
+Acceptance:
+
+- Each command writes contract summary and prints one summary path.
+- `--json` emits `{"summaryPath": ...}`.
+- Unsafe/broad input exits `2` with a summary when run context is resolved.
+- No REST contract changes.
+
+Validation:
+
+- `scripts/linux/wo-tests.sh`
+- `python3 -m py_compile scripts/linux/wo scripts/linux/windows_operator_harness.py`
+
+### Handoff S7: Live Smoke Unification
+
+Worker scope:
+
+- Edit `scripts/linux/wo`.
+- Edit `scripts/linux/wo-tests.sh`.
+- Optionally extend `scripts/linux/windows_operator_harness.py` only for generic
+  summary helpers.
+- Do not edit `scripts/linux/live-smoke.py` unless unavoidable.
+- Do not edit Justfile, docs, `.work`, REST/OpenAPI, generated clients, or
+  command manifest.
+
+Objective:
+
+- `scripts/linux/wo smoke` must print one contract summary path instead of
+  passing through `live-smoke.py` mixed PASS/REPORT output.
+
+Implementation guidance:
+
+- Run `scripts/linux/live-smoke.py` as subprocess with `--output` pointing to
+  `<exchange-root>/runs/<run-id>/live-smoke-report.json`.
+- Capture stdout/stderr into artifacts.
+- Write contract `summary.json` with `command=wo smoke`, `status=ok` when
+  subprocess exits `0` and report JSON has `ok=true`.
+- Plain stdout: one summary path.
+- `--json`: `{"summaryPath": ...}`.
+- Delegate args after `--` still pass through to `live-smoke.py`.
+
+Acceptance:
+
+- `wo smoke -- --help` remains useful.
+- `wo smoke` summary links report/stdout/stderr artifacts.
+- Existing live-smoke report contents remain available.
+
+Validation:
+
+- `scripts/linux/wo-tests.sh`
+- `python3 -m py_compile scripts/linux/wo scripts/linux/windows_operator_harness.py`
+
+### Handoff S5B: Command Manifest Update
+
+Worker scope:
+
+- Edit `harness/windows-operator.commands.json` only.
+- Do not edit scripts, docs, `.work`, Justfile, REST/OpenAPI, or generated
+  clients.
+
+Required updates:
+
+- Add `wo mail status`, `wo mail folders`, `wo mail search`, `wo mail download`.
+- Add `wo auth microsoft cleanup`, `wo auth microsoft device-login`,
+  `wo auth microsoft authorize-probe`.
+- Update `wo-smoke` summary path to contract `summary.json`; report path should
+  be an artifact note, not the command summary path.
+- Keep direct lower-level script entries.
+
+Validation:
+
+- `python3 -m json.tool harness/windows-operator.commands.json >/dev/null`
+
+### Handoff S9: Documentation Alignment
+
+Worker scope:
+
+- Edit docs only:
+  - `README.md`
+  - `docs/development.md`
+  - `docs/operator-harness-architecture.md`
+  - `docs/powerpoint-automation-architecture.md`
+  - `docs/outlook-mail-automation-architecture.md`
+  - `docs/email-attachment-automation.md`
+- Do not edit scripts, `.work`, Justfile, command manifest, REST/OpenAPI, or
+  generated clients.
+
+Required updates:
+
+- Point agent-facing harness guidance to `scripts/linux/wo`.
+- Preserve direct REST examples for API users.
+- Update smoke guidance: `scripts/linux/wo smoke` produces `summary.json` and
+  stores `live-smoke-report.json` as an artifact.
+- Update PowerPoint hot/profile docs to show `wo ppt ...` as preferred path and
+  Just recipes as shortcuts.
+- Update mail/auth docs to show `wo mail ...` and `wo auth microsoft ...`
+  wrappers, with REST examples preserved as lower-level API examples.
+- Fix stale `wo mail download-attachments` text to `wo mail download`.
+
+Validation:
+
+- `git diff --check`
+- `rg -n "wo mail download-attachments" README.md docs` returns no matches.
+
 ## Current State
 
 Already aligned:
@@ -583,6 +942,187 @@ Close evidence:
 - Update `docs/operator-harness-architecture.md` if target changed.
 - Update `.work/powerpoint-online-surface-profile-improvements.md` if PPT
   command names changed.
+
+## Evidence Log
+
+### 2026-07-05: S8 Initial REST/API Alignment Audit
+
+Commands:
+
+```bash
+jq '.paths | length' openapi/windows-operator.openapi.json
+comm -23 <(jq -r '.paths | keys[]' openapi/windows-operator.openapi.json | sort) <(rg -o '(/v1/[A-Za-z0-9_{}./-]+)' README.md | sort -u)
+comm -13 <(jq -r '.paths | keys[]' openapi/windows-operator.openapi.json | sort) <(rg -o '(/v1/[A-Za-z0-9_{}./-]+)' README.md | sort -u)
+rg -n "hot-lease|hot lease|SEM27|deckUrl|cleanupSession|verifyReopen|profile-warm|ppt-hot" src/WindowsOperator.Host src/WindowsOperator.Agent src/WindowsOperator.Core || true
+rg -n "curl .*127\\.0\\.0\\.1|Invoke-RestMethod|/v1/|jq|python3|powershell|pwsh" Justfile
+```
+
+Observed:
+
+- Committed OpenAPI has `55` paths.
+- README route inventory covers all committed OpenAPI paths.
+- README has one expected extra prose marker: `/v1/dev/...`.
+- Justfile has no direct REST calls, JSON parsing, or state machine logic.
+- PowerPoint URL/session/cleanup fields in Host/Agent are stable runtime
+  capabilities, not CLI lease/profile semantics.
+
+Decision:
+
+- No REST contract change needed for S1-S7.
+- Keep hot lease, SEM27 safe defaults, run IDs, and summary conventions in CLI.
+
+### 2026-07-06: S10 Live Proof Failure Before Fix
+
+Command:
+
+```bash
+scripts/linux/wo ppt hot start
+```
+
+Observed:
+
+- Summary:
+  `/var/lib/windows-server/shared/operator-exchange/runs/ppt-hot-start-20260706t002258z/summary.json`.
+- Exit code: `1`.
+- Status: `hotLeaseStartFailed`.
+- No hot lease file was created at
+  `/var/lib/windows-server/shared/operator-exchange/state/ppt-hot-lease.json`.
+- Session-start response:
+  `/var/lib/windows-server/shared/operator-exchange/runs/ppt-hot-start-20260706t002258z/session-start-response.json`.
+- Host returned HTTP `200`, but response status was `closed` with actions
+  `session_state_observed`, `devtools_status:port_closed`,
+  `devtools_snapshot_unavailable`, `session_reused`.
+- Returned session id was `ppt-hot-sem27`; no Edge-like windows remained after
+  the attempt.
+
+Diagnosis:
+
+- Fixed hot session id can hit stale closed session registry state when no
+  lease exists.
+- Hot start must cleanup/retry stale returned closed session once before
+  failing.
+
+Action:
+
+- Worker handoff issued to fix `scripts/linux/powerpoint-online-final-proof.py`
+  and add fake HTTP regression coverage.
+
+Follow-up diagnosis:
+
+- CLI retry exposed the deeper runtime issue: `PowerPointOnlineService`
+  reused cached metadata even when the browser state was closed.
+- Runtime now recreates stale closed cached sessions before building the
+  PowerPoint session result.
+- Hot-run also now sanitizes REST PowerPoint job ids derived from CLI run ids
+  while preserving the original run id, run folder, summary path, and lease
+  `lastRunId`.
+
+### 2026-07-06: Final Roadmap Completion Proof
+
+Local validation:
+
+```bash
+scripts/linux/wo-tests.sh
+scripts/linux/powerpoint-online-final-proof-tests.sh
+python3 -m py_compile scripts/linux/wo scripts/linux/windows_operator_harness.py scripts/linux/powerpoint-online-final-proof.py scripts/linux/live-smoke.py scripts/linux/audit_entra_apps.py
+python3 -m json.tool harness/windows-operator.commands.json >/dev/null
+git diff --check
+just --list
+just --dry-run ppt-profile
+just --dry-run ppt-profile-fast
+just --dry-run ppt-profile-warm
+just --dry-run ppt-hot-start
+just --dry-run ppt-hot-run
+just --dry-run ppt-hot-status
+just --dry-run ppt-hot-cleanup
+dotnet test WindowsOperator.Portable.slnf
+```
+
+Observed:
+
+- All commands passed.
+- `dotnet test WindowsOperator.Portable.slnf` passed `112` tests
+  (`15` MCP, `97` Host), with pre-existing `NETSDK1188` locale warnings.
+- Windows VM Agent service test also passed using local artifact redirection:
+  `dotnet test tests\WindowsOperator.Agent.Tests\WindowsOperator.Agent.Tests.csproj --filter PowerPointOnlineServiceTests`
+  passed `39` tests.
+
+Live safe wrappers:
+
+- `scripts/linux/wo health --json`
+  - Summary:
+    `/var/lib/windows-server/shared/operator-exchange/runs/wo-health-after-vm-agent-restart-1-20260706T003454Z/summary.json`.
+  - Result: `success=true`, HTTP `200`, runtime `headless-host`.
+- `scripts/linux/wo windows list --json`
+  - Summary:
+    `/var/lib/windows-server/shared/operator-exchange/runs/wo-windows-after-agent-task-missing-20260706T003210Z/summary.json`.
+  - Result: `success=true`, HTTP `200`, `windowCount=9`.
+- `scripts/linux/wo mail status --json`
+  - Summary:
+    `/var/lib/windows-server/shared/operator-exchange/runs/wo-mail-status-20260706t002148z/summary.json`.
+  - Result: `success=true`, `workerAvailable=true`.
+- `scripts/linux/wo auth microsoft cleanup --json`
+  - Summary:
+    `/var/lib/windows-server/shared/operator-exchange/runs/wo-auth-microsoft-cleanup-20260706t002148z/summary.json`.
+  - Result: `success=true`, default dry-run.
+- `scripts/linux/wo mail search --json --run-id wo-mail-search-live-synthetic-20260706t002156z`
+  - Summary:
+    `/var/lib/windows-server/shared/operator-exchange/runs/wo-mail-search-live-synthetic-20260706t002156z/summary.json`.
+  - Result: `success=true`, HTTP `200`, `messageCount=0`, `recovered=false`.
+
+Live hot-session proof:
+
+```bash
+scripts/linux/wo ppt hot start --run-id PPT-Hot-Start-Live-20260706T003926Z
+scripts/linux/wo ppt hot status --run-id PPT-Hot-Status-Live-20260706T003926Z
+scripts/linux/wo ppt hot run --run-id PPT-Hot-Run-Live-20260706T003926Z
+scripts/linux/wo ppt hot cleanup --run-id PPT-Hot-Cleanup-Live-20260706T003926Z
+```
+
+Observed:
+
+- Start summary:
+  `/var/lib/windows-server/shared/operator-exchange/runs/PPT-Hot-Start-Live-20260706T003926Z/summary.json`.
+  - `success=true`, `status=hotLeaseStarted`, session start `status=ready`,
+    `edgeLikeWindowCountBefore=0`, `edgeLikeWindowCount=1`.
+- Status summary:
+  `/var/lib/windows-server/shared/operator-exchange/runs/PPT-Hot-Status-Live-20260706T003926Z/summary.json`.
+  - `success=true`, `status=hotLeaseReady`.
+- Run summary:
+  `/var/lib/windows-server/shared/operator-exchange/runs/PPT-Hot-Run-Live-20260706T003926Z/summary.json`.
+  - `success=true`, `status=hotRunSucceeded`,
+    `claimedBy=officejs-taskpane`, `jobStatus=succeeded`.
+  - Request used sanitized REST job id
+    `ppt-hot-run-live-20260706t003926z-hot` while preserving run id
+    `PPT-Hot-Run-Live-20260706T003926Z`.
+  - Request omitted `deckUrl`, used `sessionId=ppt-hot-sem27`,
+    `cleanupSession=false`, `validateOnly=true`.
+- Cleanup summary:
+  `/var/lib/windows-server/shared/operator-exchange/runs/PPT-Hot-Cleanup-Live-20260706T003926Z/summary.json`.
+  - `success=true`, `status=hotLeaseClosed`, cleanup HTTP `200`,
+    cleanup response `status=closed`, `edgeLikeWindowCountBefore=1`,
+    `edgeLikeWindowCount=0`.
+  - Lease file removed from
+    `/var/lib/windows-server/shared/operator-exchange/state/ppt-hot-lease.json`.
+
+Live smoke and API parity:
+
+```bash
+scripts/linux/wo smoke --json --run-id wo-smoke-harness-v2-20260706T004057Z -- --skip-powerpoint-addin
+jq '.paths | length' openapi/windows-operator.openapi.json
+curl -sS http://127.0.0.1:43117/openapi.json | jq '.paths | length'
+```
+
+Observed:
+
+- Smoke summary:
+  `/var/lib/windows-server/shared/operator-exchange/runs/wo-smoke-harness-v2-20260706T004057Z/summary.json`.
+  - `success=true`, `status=ok`, `reportOk=true`.
+  - Report artifact:
+    `/var/lib/windows-server/shared/operator-exchange/runs/wo-smoke-harness-v2-20260706T004057Z/live-smoke-report.json`.
+  - Live-smoke report: `ok=true`, `passed=32`, `failed=0`.
+- Committed OpenAPI paths: `55`.
+- Live OpenAPI paths: `55`.
 
 ## Suggested Implementation Order
 

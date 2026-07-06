@@ -98,33 +98,37 @@ CLI output contract:
 - write `summary.json` with `success`, `status`, inputs, evidence paths,
   cleanup result, and next debugging hints where useful
 
-Current CLI harness example:
+Preferred CLI harness entrypoint:
 
 ```text
-scripts/linux/powerpoint-online-final-proof.py --hot-start
-scripts/linux/powerpoint-online-final-proof.py --hot-run
-scripts/linux/powerpoint-online-final-proof.py --hot-status
-scripts/linux/powerpoint-online-final-proof.py --hot-cleanup
+scripts/linux/wo
 ```
 
-Target CLI shape as harnesses grow:
+Agent-facing command shape:
 
 ```text
 scripts/linux/wo health
 scripts/linux/wo windows list
 scripts/linux/wo ppt profile
+scripts/linux/wo ppt profile-fast
+scripts/linux/wo ppt warm
 scripts/linux/wo ppt hot start
 scripts/linux/wo ppt hot run
 scripts/linux/wo ppt hot status
 scripts/linux/wo ppt hot cleanup
 scripts/linux/wo mail search
-scripts/linux/wo mail download-attachments
+scripts/linux/wo mail download
+scripts/linux/wo auth microsoft device-login
+scripts/linux/wo auth microsoft authorize-probe
+scripts/linux/wo smoke
 ```
 
-The `wo` command is a consolidation target, not a prerequisite for adding a
-single focused harness script. Promote repeated patterns into `wo` when command
-discovery, shared flags, or common summary behavior would remove real caller
-complexity.
+Focused scripts may still exist behind `wo`, but agent-facing guidance should
+prefer `wo` when wrapper coverage exists. Keep direct REST examples for stable
+API callers.
+
+See [Operator harness CLI contract](operator-harness-cli-contract.md) for the
+shared flag, exit code, summary, gate, and live-proof rules.
 
 ## Justfile Layer
 
@@ -200,8 +204,9 @@ PowerPoint hot profiling:
 - REST owns PowerPoint Online session start/status/update/cleanup.
 - CLI owns the persistent hot lease file, TTL, run IDs, summaries, and cleanup
   verification.
-- Just owns `ppt-hot-start`, `ppt-hot-run`, `ppt-hot-status`, and
-  `ppt-hot-cleanup`.
+- Preferred CLI path is `scripts/linux/wo ppt hot ...`.
+- Just owns thin shortcuts such as `ppt-hot-start`, `ppt-hot-run`,
+  `ppt-hot-status`, and `ppt-hot-cleanup`.
 
 Outlook attachment download:
 
@@ -209,6 +214,7 @@ Outlook attachment download:
   policy.
 - CLI should own batch run IDs, output folders, summary JSON, and operator
   defaults.
+- Preferred CLI path is `scripts/linux/wo mail download`.
 - Just should expose common local smoke or development commands only.
 
 ## State Placement

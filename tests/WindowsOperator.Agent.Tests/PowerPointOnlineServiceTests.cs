@@ -109,6 +109,48 @@ public sealed class PowerPointOnlineServiceTests
     }
 
     [Fact]
+    public async Task StartOnlineSessionAsync_RecreatesClosedCachedSession_InsteadOfReusingMetadata()
+    {
+        using var env = new ExchangeRootScope();
+        var workbench = new FakeWorkbenchService();
+        var edge = new FakeEdgeBrowserService
+        {
+            SessionStateFactory = sessionId => FakeWorkbenchService.EdgeState(
+                sessionId,
+                "https://tenant.sharepoint.com/sites/team/deck.pptx?web=1",
+                "Deck - PowerPoint",
+                null,
+                false),
+        };
+        var service = new PowerPointOnlineService(edge, new FakeInputService(), new FakeAddInHostProbe(), new FakeUiAutomationService(), new WorkbenchRunStore(env.Options), workbench);
+
+        await service.StartOnlineSessionAsync(
+            new PowerPointOnlineSessionStartRequest
+            {
+                DeckUrl = "https://tenant.sharepoint.com/sites/team/deck.pptx?web=1",
+                SessionId = "ppt-session",
+                Capture = false,
+            },
+            CancellationToken.None);
+
+        var result = await service.StartOnlineSessionAsync(
+            new PowerPointOnlineSessionStartRequest
+            {
+                DeckUrl = "https://tenant.sharepoint.com/sites/team/deck.pptx?web=1",
+                SessionId = "ppt-session",
+                Capture = false,
+            },
+            CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Equal(PowerPointOnlineSessionStatus.Ready, result.Status);
+        Assert.Equal(2, workbench.OpenEdgeUrlCallCount);
+        Assert.Null(edge.LastNavigateRequest);
+        Assert.Contains("session_recreated_stale_closed", result.Actions);
+        Assert.DoesNotContain("session_reused", result.Actions);
+    }
+
+    [Fact]
     public async Task SelectOnlineSlideAsync_FallsBackToThumbnailClick_WhenDomUnavailable()
     {
         using var env = new ExchangeRootScope();
@@ -2108,6 +2150,8 @@ public sealed class PowerPointOnlineServiceTests
     {
         public BrowserEdgeOpenUrlRequest? LastOpenRequest { get; private set; }
 
+        public int OpenEdgeUrlCallCount { get; private set; }
+
         public BrowserEdgeSessionStateResult NextOpenState { get; set; } = EdgeState(
             "ppt-session",
             "https://tenant.sharepoint.com/sites/team/deck.pptx?web=1",
@@ -2136,6 +2180,7 @@ public sealed class PowerPointOnlineServiceTests
             BrowserEdgeOpenUrlRequest request,
             CancellationToken cancellationToken)
         {
+            OpenEdgeUrlCallCount++;
             LastOpenRequest = request;
             var state = NextOpenState with { SessionId = request.SessionId ?? NextOpenState.SessionId, Url = request.Url };
             return Task.FromResult(new BrowserEdgeOpenUrlResult(true, state, null, new[] { "session_started" }, Array.Empty<string>()));

@@ -17,6 +17,9 @@ CLI scripts own agent/operator flows: safe defaults, run IDs, lease files, TTL,
 cleanup traps, summaries, artifact paths, and evidence aggregation. They should
 compose REST rather than duplicate Windows automation behavior.
 
+Preferred harness entrypoint is `scripts/linux/wo`. Put agent-facing examples
+there first. Keep direct REST examples for API users and low-level debugging.
+
 `Justfile` recipes are the unstable developer and agent command menu. Keep them
 thin: discoverable names, common defaults, and shortcuts into CLI scripts.
 Do not put session ownership, proof policy, retries, or JSON state machines
@@ -24,6 +27,8 @@ inline in Just recipes.
 
 See [Operator harness target architecture](operator-harness-architecture.md)
 for the full REST/CLI/Just layering contract.
+See [Operator harness CLI contract](operator-harness-cli-contract.md) for the
+shared harness flag, exit code, summary, and live-proof rules.
 
 ## Platform target
 
@@ -134,10 +139,11 @@ runtime behavior, not only serialization.
 Run the full safe smoke:
 
 ```bash
-scripts/linux/live-smoke.py
+scripts/linux/wo smoke
 ```
 
-The script writes a JSON report to
+`wo smoke` writes contract `summary.json` to
+`operator-exchange/runs/<run-id>/summary.json`, stores delegated report
 `operator-exchange/runs/<run-id>/live-smoke-report.json`, captures desktop/Edge
 screenshots, cleans Edge sessions, and marks its synthetic PowerPoint job failed
 after claim so nothing stays queued.
@@ -208,6 +214,12 @@ Use this when a Microsoft device-code flow prints a code and needs browser
 handoff in the Windows desktop session:
 
 ```bash
+scripts/linux/wo auth microsoft device-login --device-code ABCD-EFGH
+```
+
+Lower-level REST example:
+
+```bash
 curl -X POST http://127.0.0.1:43117/v1/auth/microsoft/device-login \
   -H 'Content-Type: application/json' \
   -d '{"deviceCode":"ABCD-EFGH"}'
@@ -230,6 +242,12 @@ The helper schedules itself into the logged-in desktop session and runs the same
 Edge handoff when REST is unavailable.
 
 Device-code signed-in Edge profile reuse:
+
+```bash
+scripts/linux/wo auth microsoft device-login --device-code ABCD-EFGH -- --reuse-existing-profile
+```
+
+Lower-level REST example:
 
 ```bash
 curl -X POST http://127.0.0.1:43117/v1/auth/microsoft/device-login \
@@ -265,6 +283,12 @@ auth architecture, while reusing the Windows desktop browser handoff.
 Graph auth-code redirect probe:
 
 ```bash
+scripts/linux/wo auth microsoft authorize-probe --authorize-url 'https://login.microsoftonline.com/<tenant>/oauth2/v2.0/authorize?...'
+```
+
+Lower-level REST example:
+
+```bash
 curl -X POST http://127.0.0.1:43117/v1/auth/microsoft/authorize-probe \
   -H 'Content-Type: application/json' \
   -d '{"authorizeUrl":"https://login.microsoftonline.com/<tenant>/oauth2/v2.0/authorize?..."}'
@@ -275,6 +299,12 @@ through Edge DevTools, and returns whether a redirect/code/error was observed or
 the page stayed blocked on user action.
 
 Authorize-probe signed-in Edge profile reuse:
+
+```bash
+scripts/linux/wo auth microsoft authorize-probe --authorize-url 'https://login.microsoftonline.com/<tenant>/oauth2/v2.0/authorize?...' -- --reuse-existing-profile
+```
+
+Lower-level REST example:
 
 ```bash
 curl -X POST http://127.0.0.1:43117/v1/auth/microsoft/authorize-probe \

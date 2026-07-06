@@ -1,0 +1,993 @@
+[
+  {
+    "name": "just",
+    "summary": "List repo shortcut commands for agents and operators.",
+    "layer": "just",
+    "command": "just",
+    "safeDefault": true,
+    "mutatesExternalState": false,
+    "requiresDesktop": false,
+    "requiresCleanup": false,
+    "summaryPath": null,
+    "examples": [
+      "just",
+      "just --list"
+    ],
+    "preferredFor": [
+      "discovering repo shortcuts"
+    ],
+    "replacedBy": null
+  },
+  {
+    "name": "sync",
+    "summary": "Sync repo plus managed PowerShell and Codex profile state to reachable Windows targets.",
+    "layer": "just",
+    "command": "just sync",
+    "safeDefault": false,
+    "mutatesExternalState": true,
+    "requiresDesktop": false,
+    "requiresCleanup": false,
+    "summaryPath": null,
+    "examples": [
+      "just sync"
+    ],
+    "preferredFor": [
+      "full Windows sync to reachable targets"
+    ],
+    "replacedBy": null
+  },
+  {
+    "name": "sync-codex",
+    "summary": "Sync durable Codex config, rules, agents, and skills to configured Windows target.",
+    "layer": "just",
+    "command": "just sync-codex",
+    "safeDefault": false,
+    "mutatesExternalState": true,
+    "requiresDesktop": false,
+    "requiresCleanup": false,
+    "summaryPath": null,
+    "examples": [
+      "just sync-codex"
+    ],
+    "preferredFor": [
+      "updating Windows Codex profile without full repo sync menu"
+    ],
+    "replacedBy": null
+  },
+  {
+    "name": "sync-codex-plan",
+    "summary": "Show Codex profile sync plan without connecting or writing remote state.",
+    "layer": "just",
+    "command": "just sync-codex-plan",
+    "safeDefault": true,
+    "mutatesExternalState": false,
+    "requiresDesktop": false,
+    "requiresCleanup": false,
+    "summaryPath": null,
+    "examples": [
+      "just sync-codex-plan"
+    ],
+    "preferredFor": [
+      "previewing Codex profile sync"
+    ],
+    "replacedBy": null
+  },
+  {
+    "name": "sync-plan",
+    "summary": "Show target resolution and sync plan without connecting.",
+    "layer": "just",
+    "command": "just sync-plan",
+    "safeDefault": true,
+    "mutatesExternalState": false,
+    "requiresDesktop": false,
+    "requiresCleanup": false,
+    "summaryPath": null,
+    "examples": [
+      "just sync-plan"
+    ],
+    "preferredFor": [
+      "previewing full sync reachability"
+    ],
+    "replacedBy": null
+  },
+  {
+    "name": "ppt-final-proof-test",
+    "summary": "Run local PowerPoint harness tests without live Windows mutation.",
+    "layer": "just",
+    "command": "just ppt-final-proof-test",
+    "safeDefault": true,
+    "mutatesExternalState": false,
+    "requiresDesktop": false,
+    "requiresCleanup": false,
+    "summaryPath": null,
+    "examples": [
+      "just ppt-final-proof-test"
+    ],
+    "preferredFor": [
+      "PowerPoint harness regression checks"
+    ],
+    "replacedBy": null
+  },
+  {
+    "name": "ppt-final-proof-prepare",
+    "summary": "Prepare final-proof request artifacts for a deck URL without posting to Host.",
+    "layer": "just",
+    "command": "just ppt-final-proof-prepare <deck_url>",
+    "safeDefault": true,
+    "mutatesExternalState": false,
+    "requiresDesktop": false,
+    "requiresCleanup": false,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "just ppt-final-proof-prepare https://example.invalid/deck.pptx?web=1"
+    ],
+    "preferredFor": [
+      "dry-run request shaping for final proof"
+    ],
+    "replacedBy": null
+  },
+  {
+    "name": "ppt-final-proof-host-gate",
+    "summary": "Prove Host rejects final mutation shape before opening Edge or queueing work.",
+    "layer": "just",
+    "command": "just ppt-final-proof-host-gate",
+    "safeDefault": true,
+    "mutatesExternalState": false,
+    "requiresDesktop": false,
+    "requiresCleanup": false,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "just ppt-final-proof-host-gate"
+    ],
+    "preferredFor": [
+      "negative live gate proof before mutation approval"
+    ],
+    "replacedBy": null
+  },
+  {
+    "name": "ppt-final-proof-readiness",
+    "summary": "Run non-mutating SEM27 Office.js and reopen readiness proof.",
+    "layer": "just",
+    "command": "just ppt-final-proof-readiness",
+    "safeDefault": true,
+    "mutatesExternalState": false,
+    "requiresDesktop": true,
+    "requiresCleanup": true,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "just ppt-final-proof-readiness"
+    ],
+    "preferredFor": [
+      "full non-mutating SEM27 readiness proof"
+    ],
+    "replacedBy": null
+  },
+  {
+    "name": "ppt-profile",
+    "summary": "Shortcut to safe SEM27 readiness profile with reopen proof.",
+    "layer": "just",
+    "command": "just ppt-profile",
+    "safeDefault": true,
+    "mutatesExternalState": false,
+    "requiresDesktop": true,
+    "requiresCleanup": true,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "just ppt-profile"
+    ],
+    "preferredFor": [
+      "default PowerPoint readiness profiling"
+    ],
+    "replacedBy": "scripts/linux/wo ppt profile"
+  },
+  {
+    "name": "easy-profile",
+    "summary": "Alias for default PowerPoint readiness profile.",
+    "layer": "just",
+    "command": "just easy-profile",
+    "safeDefault": true,
+    "mutatesExternalState": false,
+    "requiresDesktop": true,
+    "requiresCleanup": true,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "just easy-profile"
+    ],
+    "preferredFor": [
+      "short alias during interactive agent work"
+    ],
+    "replacedBy": "scripts/linux/wo ppt profile"
+  },
+  {
+    "name": "ppt-profile-fast",
+    "summary": "Shortcut to safe SEM27 readiness profile without tier3 reopen proof.",
+    "layer": "just",
+    "command": "just ppt-profile-fast",
+    "safeDefault": true,
+    "mutatesExternalState": false,
+    "requiresDesktop": true,
+    "requiresCleanup": true,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "just ppt-profile-fast"
+    ],
+    "preferredFor": [
+      "fast PowerPoint surface profiling"
+    ],
+    "replacedBy": "scripts/linux/wo ppt profile-fast"
+  },
+  {
+    "name": "easy-profile-fast",
+    "summary": "Alias for fast PowerPoint readiness profile.",
+    "layer": "just",
+    "command": "just easy-profile-fast",
+    "safeDefault": true,
+    "mutatesExternalState": false,
+    "requiresDesktop": true,
+    "requiresCleanup": true,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "just easy-profile-fast"
+    ],
+    "preferredFor": [
+      "short alias for fast profile loop"
+    ],
+    "replacedBy": "scripts/linux/wo ppt profile-fast"
+  },
+  {
+    "name": "ppt-profile-warm",
+    "summary": "Warm one SEM27 session, run validate-only iterations, then cleanup.",
+    "layer": "just",
+    "command": "just ppt-profile-warm",
+    "safeDefault": true,
+    "mutatesExternalState": false,
+    "requiresDesktop": true,
+    "requiresCleanup": true,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "just ppt-profile-warm"
+    ],
+    "preferredFor": [
+      "one-shot warm profile with cleanup"
+    ],
+    "replacedBy": "scripts/linux/wo ppt warm"
+  },
+  {
+    "name": "ppt-hot-start",
+    "summary": "Start or reuse persistent non-mutating SEM27 hot lease.",
+    "layer": "just",
+    "command": "just ppt-hot-start",
+    "safeDefault": true,
+    "mutatesExternalState": false,
+    "requiresDesktop": true,
+    "requiresCleanup": true,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "just ppt-hot-start"
+    ],
+    "preferredFor": [
+      "persistent warm lease setup for repeated safe iterations"
+    ],
+    "replacedBy": "scripts/linux/wo ppt hot start"
+  },
+  {
+    "name": "ppt-hot-run",
+    "summary": "Run one validate-only iteration against persistent SEM27 hot lease.",
+    "layer": "just",
+    "command": "just ppt-hot-run",
+    "safeDefault": true,
+    "mutatesExternalState": false,
+    "requiresDesktop": true,
+    "requiresCleanup": false,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "just ppt-hot-run"
+    ],
+    "preferredFor": [
+      "repeat safe PowerPoint iteration on existing hot lease"
+    ],
+    "replacedBy": "scripts/linux/wo ppt hot run"
+  },
+  {
+    "name": "ppt-hot-status",
+    "summary": "Read persistent SEM27 hot lease and live session state.",
+    "layer": "just",
+    "command": "just ppt-hot-status",
+    "safeDefault": true,
+    "mutatesExternalState": false,
+    "requiresDesktop": true,
+    "requiresCleanup": false,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "just ppt-hot-status"
+    ],
+    "preferredFor": [
+      "lease inspection before or after hot runs"
+    ],
+    "replacedBy": "scripts/linux/wo ppt hot status"
+  },
+  {
+    "name": "ppt-hot-cleanup",
+    "summary": "Close persistent SEM27 hot lease and remove lease file.",
+    "layer": "just",
+    "command": "just ppt-hot-cleanup",
+    "safeDefault": true,
+    "mutatesExternalState": true,
+    "requiresDesktop": true,
+    "requiresCleanup": false,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "just ppt-hot-cleanup"
+    ],
+    "preferredFor": [
+      "explicit hot lease teardown"
+    ],
+    "replacedBy": "scripts/linux/wo ppt hot cleanup"
+  },
+  {
+    "name": "wo-health",
+    "summary": "Query Host REST health and write CLI summary.",
+    "layer": "cli",
+    "command": "scripts/linux/wo health",
+    "safeDefault": true,
+    "mutatesExternalState": false,
+    "requiresDesktop": false,
+    "requiresCleanup": false,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "scripts/linux/wo health",
+      "scripts/linux/wo health --json"
+    ],
+    "preferredFor": [
+      "Host availability proof"
+    ],
+    "replacedBy": null
+  },
+  {
+    "name": "wo-windows-list",
+    "summary": "List visible top-level windows through Host REST and write CLI summary.",
+    "layer": "cli",
+    "command": "scripts/linux/wo windows list",
+    "safeDefault": true,
+    "mutatesExternalState": false,
+    "requiresDesktop": false,
+    "requiresCleanup": false,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "scripts/linux/wo windows list"
+    ],
+    "preferredFor": [
+      "quick desktop inventory"
+    ],
+    "replacedBy": null
+  },
+  {
+    "name": "wo-ppt-profile",
+    "summary": "Default safe SEM27 readiness profile with reopen proof.",
+    "layer": "cli",
+    "command": "scripts/linux/wo ppt profile",
+    "safeDefault": true,
+    "mutatesExternalState": false,
+    "requiresDesktop": true,
+    "requiresCleanup": true,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "scripts/linux/wo ppt profile"
+    ],
+    "preferredFor": [
+      "default PowerPoint profiling"
+    ],
+    "replacedBy": null
+  },
+  {
+    "name": "wo-ppt-profile-fast",
+    "summary": "Fast safe SEM27 readiness profile without reopen proof.",
+    "layer": "cli",
+    "command": "scripts/linux/wo ppt profile-fast",
+    "safeDefault": true,
+    "mutatesExternalState": false,
+    "requiresDesktop": true,
+    "requiresCleanup": true,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "scripts/linux/wo ppt profile-fast"
+    ],
+    "preferredFor": [
+      "fast PowerPoint surface checks"
+    ],
+    "replacedBy": null
+  },
+  {
+    "name": "wo-ppt-warm",
+    "summary": "Warm one SEM27 session, run validate-only iterations, then cleanup.",
+    "layer": "cli",
+    "command": "scripts/linux/wo ppt warm",
+    "safeDefault": true,
+    "mutatesExternalState": false,
+    "requiresDesktop": true,
+    "requiresCleanup": true,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "scripts/linux/wo ppt warm",
+      "scripts/linux/wo ppt warm --warm-iterations 3"
+    ],
+    "preferredFor": [
+      "one-shot warm profile"
+    ],
+    "replacedBy": null
+  },
+  {
+    "name": "wo-ppt-hot-start",
+    "summary": "Start or reuse persistent non-mutating SEM27 hot lease.",
+    "layer": "cli",
+    "command": "scripts/linux/wo ppt hot start",
+    "safeDefault": true,
+    "mutatesExternalState": false,
+    "requiresDesktop": true,
+    "requiresCleanup": true,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "scripts/linux/wo ppt hot start"
+    ],
+    "preferredFor": [
+      "persistent hot lease setup"
+    ],
+    "replacedBy": null
+  },
+  {
+    "name": "wo-ppt-hot-run",
+    "summary": "Run one validate-only iteration against persistent SEM27 hot lease.",
+    "layer": "cli",
+    "command": "scripts/linux/wo ppt hot run",
+    "safeDefault": true,
+    "mutatesExternalState": false,
+    "requiresDesktop": true,
+    "requiresCleanup": false,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "scripts/linux/wo ppt hot run"
+    ],
+    "preferredFor": [
+      "repeat safe iteration on existing hot lease"
+    ],
+    "replacedBy": null
+  },
+  {
+    "name": "wo-ppt-hot-status",
+    "summary": "Show persistent SEM27 hot lease and live session state.",
+    "layer": "cli",
+    "command": "scripts/linux/wo ppt hot status",
+    "safeDefault": true,
+    "mutatesExternalState": false,
+    "requiresDesktop": true,
+    "requiresCleanup": false,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "scripts/linux/wo ppt hot status"
+    ],
+    "preferredFor": [
+      "checking hot lease health"
+    ],
+    "replacedBy": null
+  },
+  {
+    "name": "wo-ppt-hot-cleanup",
+    "summary": "Cleanup persistent SEM27 hot lease and session.",
+    "layer": "cli",
+    "command": "scripts/linux/wo ppt hot cleanup",
+    "safeDefault": true,
+    "mutatesExternalState": true,
+    "requiresDesktop": true,
+    "requiresCleanup": false,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "scripts/linux/wo ppt hot cleanup"
+    ],
+    "preferredFor": [
+      "explicit hot lease teardown"
+    ],
+    "replacedBy": null
+  },
+  {
+    "name": "wo-smoke",
+    "summary": "Run live Windows Operator smoke harness through the dispatcher and emit contract summary plus live-smoke report artifact.",
+    "layer": "cli",
+    "command": "scripts/linux/wo smoke",
+    "safeDefault": true,
+    "mutatesExternalState": false,
+    "requiresDesktop": false,
+    "requiresCleanup": false,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "scripts/linux/wo smoke",
+      "scripts/linux/wo smoke -- --include-notepad"
+    ],
+    "preferredFor": [
+      "broad live subsystem smoke with live-smoke report artifact"
+    ],
+    "replacedBy": null
+  },
+  {
+    "name": "wo-mail-status",
+    "summary": "Query Host mail subsystem status through dispatcher contract summary.",
+    "layer": "cli",
+    "command": "scripts/linux/wo mail status",
+    "safeDefault": true,
+    "mutatesExternalState": false,
+    "requiresDesktop": false,
+    "requiresCleanup": false,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "scripts/linux/wo mail status"
+    ],
+    "preferredFor": [
+      "mail subsystem readiness check"
+    ],
+    "replacedBy": null
+  },
+  {
+    "name": "wo-mail-folders",
+    "summary": "List available mail folders through dispatcher REST wrapper.",
+    "layer": "cli",
+    "command": "scripts/linux/wo mail folders",
+    "safeDefault": true,
+    "mutatesExternalState": false,
+    "requiresDesktop": false,
+    "requiresCleanup": false,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "scripts/linux/wo mail folders",
+      "scripts/linux/wo mail folders --freshness 300"
+    ],
+    "preferredFor": [
+      "mail folder discovery before search or download"
+    ],
+    "replacedBy": null
+  },
+  {
+    "name": "wo-mail-search",
+    "summary": "Search mail messages with subject and optional folder filters through dispatcher contract summary.",
+    "layer": "cli",
+    "command": "scripts/linux/wo mail search --subject <subject>",
+    "safeDefault": true,
+    "mutatesExternalState": false,
+    "requiresDesktop": false,
+    "requiresCleanup": false,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "scripts/linux/wo mail search --subject invoice",
+      "scripts/linux/wo mail search --subject invoice --folder Inbox --max-results 5"
+    ],
+    "preferredFor": [
+      "targeted mail discovery before attachment download"
+    ],
+    "replacedBy": null
+  },
+  {
+    "name": "wo-mail-download",
+    "summary": "Download mail attachments with explicit subject or message-id scope through dispatcher contract summary.",
+    "layer": "cli",
+    "command": "scripts/linux/wo mail download --subject <subject> --folder <folder>",
+    "safeDefault": false,
+    "mutatesExternalState": true,
+    "requiresDesktop": false,
+    "requiresCleanup": false,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "scripts/linux/wo mail download --subject invoice --folder Inbox",
+      "scripts/linux/wo mail download --message-id <message_id> --dry-run"
+    ],
+    "preferredFor": [
+      "targeted attachment retrieval into operator exchange artifacts"
+    ],
+    "replacedBy": null
+  },
+  {
+    "name": "wo-auth-microsoft-cleanup",
+    "summary": "Cleanup Microsoft auth browser state through dispatcher REST wrapper.",
+    "layer": "cli",
+    "command": "scripts/linux/wo auth microsoft cleanup",
+    "safeDefault": true,
+    "mutatesExternalState": true,
+    "requiresDesktop": false,
+    "requiresCleanup": false,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "scripts/linux/wo auth microsoft cleanup",
+      "scripts/linux/wo auth microsoft cleanup --no-dry-run --preserve-recent-seconds 300"
+    ],
+    "preferredFor": [
+      "auth state cleanup with contract summary"
+    ],
+    "replacedBy": null
+  },
+  {
+    "name": "wo-auth-microsoft-device-login",
+    "summary": "Submit Microsoft device-code login payload through dispatcher REST wrapper.",
+    "layer": "cli",
+    "command": "scripts/linux/wo auth microsoft device-login --device-code <code>",
+    "safeDefault": true,
+    "mutatesExternalState": true,
+    "requiresDesktop": false,
+    "requiresCleanup": false,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "scripts/linux/wo auth microsoft device-login --device-code ABCD-EFGH",
+      "scripts/linux/wo auth microsoft device-login --device-code ABCD-EFGH --no-dry-run"
+    ],
+    "preferredFor": [
+      "contract-wrapped Microsoft device-code handoff"
+    ],
+    "replacedBy": null
+  },
+  {
+    "name": "wo-auth-microsoft-authorize-probe",
+    "summary": "Run Microsoft authorize probe through dispatcher REST wrapper.",
+    "layer": "cli",
+    "command": "scripts/linux/wo auth microsoft authorize-probe --authorize-url <url>",
+    "safeDefault": true,
+    "mutatesExternalState": true,
+    "requiresDesktop": false,
+    "requiresCleanup": false,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "scripts/linux/wo auth microsoft authorize-probe --authorize-url https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+      "scripts/linux/wo auth microsoft authorize-probe --authorize-url https://login.microsoftonline.com/common/oauth2/v2.0/authorize --no-dry-run"
+    ],
+    "preferredFor": [
+      "contract-wrapped Microsoft authorize boundary probe"
+    ],
+    "replacedBy": null
+  },
+  {
+    "name": "powerpoint-final-proof-prepare",
+    "summary": "Direct PowerPoint harness dry-run artifact preparation without posting.",
+    "layer": "script",
+    "command": "scripts/linux/powerpoint-online-final-proof.py --deck-url <deck_url>",
+    "safeDefault": true,
+    "mutatesExternalState": false,
+    "requiresDesktop": false,
+    "requiresCleanup": false,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "scripts/linux/powerpoint-online-final-proof.py --deck-url https://example.invalid/deck.pptx?web=1"
+    ],
+    "preferredFor": [
+      "low-level final-proof request shaping"
+    ],
+    "replacedBy": null
+  },
+  {
+    "name": "powerpoint-final-proof-execute",
+    "summary": "Direct final mutation proof that writes proof text to deck and verifies save and reopen.",
+    "layer": "script",
+    "command": "scripts/linux/powerpoint-online-final-proof.py --deck-url <deck_url> --execute --allow-deck-mutation",
+    "safeDefault": false,
+    "mutatesExternalState": true,
+    "requiresDesktop": true,
+    "requiresCleanup": true,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "scripts/linux/powerpoint-online-final-proof.py --deck-url https://example.invalid/deck.pptx?web=1 --execute --allow-deck-mutation",
+      "scripts/linux/powerpoint-online-final-proof.py --deck-url 'https://aminerals-my.sharepoint.com/...SEM27...pptx?web=1' --execute --allow-deck-mutation --allow-sem27"
+    ],
+    "preferredFor": [
+      "explicit final mutation proof after approval"
+    ],
+    "replacedBy": null
+  },
+  {
+    "name": "powerpoint-final-proof-host-gate",
+    "summary": "Direct negative proof that Host rejects mutation shape when mutation flag stays false.",
+    "layer": "script",
+    "command": "scripts/linux/powerpoint-online-final-proof.py --deck-url <deck_url> --verify-host-gate",
+    "safeDefault": true,
+    "mutatesExternalState": false,
+    "requiresDesktop": false,
+    "requiresCleanup": false,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "scripts/linux/powerpoint-online-final-proof.py --deck-url https://example.invalid/deck.pptx?web=1 --verify-host-gate"
+    ],
+    "preferredFor": [
+      "negative live mutation gate proof"
+    ],
+    "replacedBy": null
+  },
+  {
+    "name": "powerpoint-readiness",
+    "summary": "Direct full non-mutating readiness proof with reopen validation.",
+    "layer": "script",
+    "command": "scripts/linux/powerpoint-online-final-proof.py --deck-url <deck_url> --verify-readiness",
+    "safeDefault": true,
+    "mutatesExternalState": false,
+    "requiresDesktop": true,
+    "requiresCleanup": true,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "scripts/linux/powerpoint-online-final-proof.py --deck-url https://example.invalid/deck.pptx?web=1 --verify-readiness"
+    ],
+    "preferredFor": [
+      "low-level full readiness proof"
+    ],
+    "replacedBy": "scripts/linux/wo ppt profile"
+  },
+  {
+    "name": "powerpoint-readiness-fast",
+    "summary": "Direct fast non-mutating readiness proof without reopen validation.",
+    "layer": "script",
+    "command": "scripts/linux/powerpoint-online-final-proof.py --deck-url <deck_url> --verify-readiness-fast",
+    "safeDefault": true,
+    "mutatesExternalState": false,
+    "requiresDesktop": true,
+    "requiresCleanup": true,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "scripts/linux/powerpoint-online-final-proof.py --deck-url https://example.invalid/deck.pptx?web=1 --verify-readiness-fast"
+    ],
+    "preferredFor": [
+      "low-level fast readiness proof"
+    ],
+    "replacedBy": "scripts/linux/wo ppt profile-fast"
+  },
+  {
+    "name": "powerpoint-warm",
+    "summary": "Direct one-shot warm profile with validate-only iterations and cleanup.",
+    "layer": "script",
+    "command": "scripts/linux/powerpoint-online-final-proof.py --deck-url <deck_url> --profile-warm",
+    "safeDefault": true,
+    "mutatesExternalState": false,
+    "requiresDesktop": true,
+    "requiresCleanup": true,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "scripts/linux/powerpoint-online-final-proof.py --deck-url https://example.invalid/deck.pptx?web=1 --profile-warm --warm-iterations 2"
+    ],
+    "preferredFor": [
+      "low-level warm session profiling"
+    ],
+    "replacedBy": "scripts/linux/wo ppt warm"
+  },
+  {
+    "name": "powerpoint-hot-start",
+    "summary": "Direct persistent non-mutating hot lease start or reuse.",
+    "layer": "script",
+    "command": "scripts/linux/powerpoint-online-final-proof.py --deck-url <deck_url> --hot-start",
+    "safeDefault": true,
+    "mutatesExternalState": false,
+    "requiresDesktop": true,
+    "requiresCleanup": true,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "scripts/linux/powerpoint-online-final-proof.py --deck-url https://example.invalid/deck.pptx?web=1 --hot-start --hot-session-id ppt-hot-sem27"
+    ],
+    "preferredFor": [
+      "low-level hot lease setup"
+    ],
+    "replacedBy": "scripts/linux/wo ppt hot start"
+  },
+  {
+    "name": "powerpoint-hot-run",
+    "summary": "Direct validate-only iteration against persistent hot lease.",
+    "layer": "script",
+    "command": "scripts/linux/powerpoint-online-final-proof.py --deck-url <deck_url> --hot-run",
+    "safeDefault": true,
+    "mutatesExternalState": false,
+    "requiresDesktop": true,
+    "requiresCleanup": false,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "scripts/linux/powerpoint-online-final-proof.py --deck-url https://example.invalid/deck.pptx?web=1 --hot-run"
+    ],
+    "preferredFor": [
+      "low-level hot iteration"
+    ],
+    "replacedBy": "scripts/linux/wo ppt hot run"
+  },
+  {
+    "name": "powerpoint-hot-status",
+    "summary": "Direct hot lease and session status check.",
+    "layer": "script",
+    "command": "scripts/linux/powerpoint-online-final-proof.py --deck-url <deck_url> --hot-status",
+    "safeDefault": true,
+    "mutatesExternalState": false,
+    "requiresDesktop": true,
+    "requiresCleanup": false,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "scripts/linux/powerpoint-online-final-proof.py --deck-url https://example.invalid/deck.pptx?web=1 --hot-status"
+    ],
+    "preferredFor": [
+      "low-level hot lease inspection"
+    ],
+    "replacedBy": "scripts/linux/wo ppt hot status"
+  },
+  {
+    "name": "powerpoint-hot-cleanup",
+    "summary": "Direct hot lease teardown and lease-file removal.",
+    "layer": "script",
+    "command": "scripts/linux/powerpoint-online-final-proof.py --deck-url <deck_url> --hot-cleanup",
+    "safeDefault": true,
+    "mutatesExternalState": true,
+    "requiresDesktop": true,
+    "requiresCleanup": false,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/summary.json",
+    "examples": [
+      "scripts/linux/powerpoint-online-final-proof.py --deck-url https://example.invalid/deck.pptx?web=1 --hot-cleanup"
+    ],
+    "preferredFor": [
+      "low-level hot lease teardown"
+    ],
+    "replacedBy": "scripts/linux/wo ppt hot cleanup"
+  },
+  {
+    "name": "live-smoke",
+    "summary": "Direct live smoke harness for Host, OpenAPI, auth, and optional desktop probes.",
+    "layer": "script",
+    "command": "scripts/linux/live-smoke.py",
+    "safeDefault": true,
+    "mutatesExternalState": false,
+    "requiresDesktop": false,
+    "requiresCleanup": false,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/live-smoke-report.json",
+    "examples": [
+      "scripts/linux/live-smoke.py",
+      "scripts/linux/live-smoke.py --include-notepad"
+    ],
+    "preferredFor": [
+      "low-level smoke without dispatcher"
+    ],
+    "replacedBy": "scripts/linux/wo smoke"
+  },
+  {
+    "name": "windows-run-ps",
+    "summary": "Run one repo-owned PowerShell script on Windows through shared or SSH transport.",
+    "layer": "script",
+    "command": "scripts/linux/windows-run-ps.sh scripts/windows/<script>.ps1 [args...]",
+    "safeDefault": false,
+    "mutatesExternalState": true,
+    "requiresDesktop": false,
+    "requiresCleanup": false,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/result.json",
+    "examples": [
+      "scripts/linux/windows-run-ps.sh scripts/windows/configure-powershell-profile.ps1",
+      "scripts/linux/windows-run-ps.sh --dry-run scripts/windows/register-host-autostart.ps1"
+    ],
+    "preferredFor": [
+      "direct Windows script execution when higher-level wrapper missing"
+    ],
+    "replacedBy": null
+  },
+  {
+    "name": "windows-sync-available",
+    "summary": "Probe configured SSH targets and sync repo plus optional profiles to each reachable Windows target.",
+    "layer": "script",
+    "command": "scripts/linux/windows-sync-available.sh",
+    "safeDefault": false,
+    "mutatesExternalState": true,
+    "requiresDesktop": false,
+    "requiresCleanup": false,
+    "summaryPath": null,
+    "examples": [
+      "scripts/linux/windows-sync-available.sh",
+      "scripts/linux/windows-sync-available.sh --dry-run"
+    ],
+    "preferredFor": [
+      "multi-target sync orchestration"
+    ],
+    "replacedBy": null
+  },
+  {
+    "name": "windows-sync-repo",
+    "summary": "Sync shared source tree to one Windows target over SSH.",
+    "layer": "script",
+    "command": "scripts/linux/windows-sync-repo.sh",
+    "safeDefault": false,
+    "mutatesExternalState": true,
+    "requiresDesktop": false,
+    "requiresCleanup": false,
+    "summaryPath": "/var/lib/windows-server/shared/operator-exchange/runs/<run-id>/result.json",
+    "examples": [
+      "scripts/linux/windows-sync-repo.sh",
+      "scripts/linux/windows-sync-repo.sh --dry-run"
+    ],
+    "preferredFor": [
+      "direct repo sync primitive"
+    ],
+    "replacedBy": null
+  },
+  {
+    "name": "windows-sync-powershell-profile",
+    "summary": "Sync repo then install managed repo-owned PowerShell profile block on Windows user profile.",
+    "layer": "script",
+    "command": "scripts/linux/windows-sync-powershell-profile.sh",
+    "safeDefault": false,
+    "mutatesExternalState": true,
+    "requiresDesktop": false,
+    "requiresCleanup": false,
+    "summaryPath": null,
+    "examples": [
+      "scripts/linux/windows-sync-powershell-profile.sh",
+      "scripts/linux/windows-sync-powershell-profile.sh --dry-run"
+    ],
+    "preferredFor": [
+      "PowerShell profile installation after repo sync"
+    ],
+    "replacedBy": null
+  },
+  {
+    "name": "windows-sync-codex-profile",
+    "summary": "Sync durable Codex config and verify target Codex profile state on Windows.",
+    "layer": "script",
+    "command": "scripts/linux/windows-sync-codex-profile.sh",
+    "safeDefault": false,
+    "mutatesExternalState": true,
+    "requiresDesktop": false,
+    "requiresCleanup": false,
+    "summaryPath": null,
+    "examples": [
+      "scripts/linux/windows-sync-codex-profile.sh",
+      "scripts/linux/windows-sync-codex-profile.sh --dry-run"
+    ],
+    "preferredFor": [
+      "low-level Codex profile sync and verification"
+    ],
+    "replacedBy": null
+  },
+  {
+    "name": "cleanup-microsoft-auth-edge",
+    "summary": "Break-glass cleanup for Microsoft auth Edge state through Host REST cleanup endpoint.",
+    "layer": "script",
+    "command": "scripts/linux/cleanup-microsoft-auth-edge.sh",
+    "safeDefault": false,
+    "mutatesExternalState": true,
+    "requiresDesktop": false,
+    "requiresCleanup": false,
+    "summaryPath": null,
+    "examples": [
+      "scripts/linux/cleanup-microsoft-auth-edge.sh --dry-run",
+      "scripts/linux/cleanup-microsoft-auth-edge.sh --preserve-recent-seconds 300"
+    ],
+    "preferredFor": [
+      "auth cleanup recovery"
+    ],
+    "replacedBy": null
+  },
+  {
+    "name": "test-microsoft-graph-mail-read",
+    "summary": "Direct Graph device-code and mail-read viability probe with optional Windows or REST handoff.",
+    "layer": "script",
+    "command": "scripts/linux/test-microsoft-graph-mail-read.sh --tenant-id <tenant> --client-id <client>",
+    "safeDefault": false,
+    "mutatesExternalState": true,
+    "requiresDesktop": false,
+    "requiresCleanup": false,
+    "summaryPath": null,
+    "examples": [
+      "scripts/linux/test-microsoft-graph-mail-read.sh --tenant-id <tenant> --client-id <client> --dry-run",
+      "scripts/linux/test-microsoft-graph-mail-read.sh --tenant-id <tenant> --client-id <client> --handoff rest"
+    ],
+    "preferredFor": [
+      "mail auth debugging and Graph viability checks"
+    ],
+    "replacedBy": null
+  },
+  {
+    "name": "audit-entra-apps",
+    "summary": "Audit Entra app registrations and related auth/mail evidence through live browser and Graph flows.",
+    "layer": "script",
+    "command": "scripts/linux/audit_entra_apps.py",
+    "safeDefault": false,
+    "mutatesExternalState": false,
+    "requiresDesktop": true,
+    "requiresCleanup": true,
+    "summaryPath": "<output-root>/summary.json",
+    "examples": [
+      "scripts/linux/audit_entra_apps.py --help"
+    ],
+    "preferredFor": [
+      "targeted Entra app audit work"
+    ],
+    "replacedBy": null
+  }
+]

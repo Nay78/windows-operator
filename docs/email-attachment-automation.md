@@ -37,6 +37,17 @@ Why:
 
 ## AI Runtime Surface
 
+Preferred agent-facing wrapper:
+
+```text
+scripts/linux/wo mail status
+scripts/linux/wo mail folders
+scripts/linux/wo mail search --subject 'SEM27'
+scripts/linux/wo mail download --subject 'SEM27' --folder 'mailbox/Inbox'
+```
+
+Direct REST stays available for API callers and low-level debugging.
+
 REST surface on host loopback:
 
 ```text
@@ -143,7 +154,13 @@ Classic Outlook COM shares the user's Outlook profile and OST. Treat it as an ex
 
 Windows Operator performs bounded recovery internally when Outlook has stale folder names, stuck reminders, Autodiscover prompts, or COM errors such as `0x800706BE`.
 
-REST:
+Preferred wrapper:
+
+```bash
+scripts/linux/wo mail folders --freshness fresh
+```
+
+Lower-level REST example:
 
 ```bash
 curl -X POST http://127.0.0.1:43117/v1/mail/folders \

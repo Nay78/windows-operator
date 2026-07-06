@@ -988,3 +988,41 @@ Decision gate:
 Approval needed:
 
 - Yes if public REST contract changes.
+
+## 2026-07-06 Harness Command Alignment Note
+
+Preferred agent-facing PowerPoint profile/hot commands now live under
+`scripts/linux/wo`:
+
+```bash
+scripts/linux/wo ppt profile
+scripts/linux/wo ppt profile-fast
+scripts/linux/wo ppt warm
+scripts/linux/wo ppt hot start
+scripts/linux/wo ppt hot status
+scripts/linux/wo ppt hot run
+scripts/linux/wo ppt hot cleanup
+```
+
+Existing Just recipes remain as shortcuts:
+
+```bash
+just ppt-profile
+just ppt-profile-fast
+just ppt-profile-warm
+just ppt-hot-start
+just ppt-hot-status
+just ppt-hot-run
+just ppt-hot-cleanup
+```
+
+Live harness-v2 proof:
+
+- Hot start/status/run/cleanup passed with uppercase run ids:
+  `/var/lib/windows-server/shared/operator-exchange/runs/PPT-Hot-Start-Live-20260706T003926Z/summary.json`,
+  `/var/lib/windows-server/shared/operator-exchange/runs/PPT-Hot-Status-Live-20260706T003926Z/summary.json`,
+  `/var/lib/windows-server/shared/operator-exchange/runs/PPT-Hot-Run-Live-20260706T003926Z/summary.json`,
+  `/var/lib/windows-server/shared/operator-exchange/runs/PPT-Hot-Cleanup-Live-20260706T003926Z/summary.json`.
+- Run was claimed by `officejs-taskpane`, used sanitized REST job id
+  `ppt-hot-run-live-20260706t003926z-hot`, preserved original run id, and
+  cleanup removed the lease with Edge-like window count returning to `0`.

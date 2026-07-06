@@ -1,0 +1,901 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import subprocess
+import sys
+import time
+from pathlib import Path
+from typing import Any
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from windows_operator_harness import (
+    DEFAULT_HOST_URL,
+    default_exchange_root,
+    emit_contract_summary,
+    next_run_id,
+    read_json,
+    request_json,
+    utc_now,
+    write_json,
+)
+
+
+SEM27_DECK_URL = (
+    "https://aminerals-my.sharepoint.com/personal/"
+    "nmartinez_drs_mineracentinela_cl/Documents/"
+    "SEM27%20-%20Plan%20Semanal%20Servicios%20Mina.pptx?web=1"
+)
+DEFAULT_BASE_URL = DEFAULT_HOST_URL
+DEFAULT_EXCHANGE_ROOT = default_exchange_root()
+PPT_SCRIPT = Path(os.environ.get("WO_POWERPOINT_SCRIPT", "scripts/linux/powerpoint-online-final-proof.py"))
+SMOKE_SCRIPT = Path(os.environ.get("WO_SMOKE_SCRIPT", "scripts/linux/live-smoke.py"))
+
+
+def repo_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def resolve_repo_path(path: Path) -> Path:
+    if path.is_absolute():
+        return path
+    return repo_root() / path
+
+
+def rest_retryable(status: int | str) -> bool:
+    return status == "exception" or (isinstance(status, int) and status >= 500)
+
+
+def endpoint_success(status: int | str, parsed: Any) -> bool:
+    return status == 200 and isinstance(parsed, dict) and parsed.get("success") is True
+
+
+def usage_summary(
+    *,
+    args: argparse.Namespace,
+    run_id: str,
+    command: str,
+    response_name: str,
+    status: str,
+    error_code: str,
+    message: str,
+    inputs: dict[str, Any],
+) -> int:
+    started_at_utc = utc_now()
+    response_path = args.exchange_root / "runs" / run_id / response_name
+    payload = {"code": error_code, "message": message}
+    write_json(response_path, payload)
+    summary_path = args.exchange_root / "runs" / run_id / "summary.json"
+    summary = {
+        "success": False,
+        "status": status,
+        "command": command,
+        "runId": run_id,
+        "baseUrl": args.base_url,
+        "exchangeRoot": str(args.exchange_root),
+        "summaryPath": str(summary_path),
+        "startedAtUtc": started_at_utc,
+        "observedAtUtc": started_at_utc,
+        "elapsedSeconds": 0,
+        "inputs": inputs,
+        "artifacts": {
+            "responsePath": str(response_path),
+        },
+        "gates": [
+            {
+                "name": "local-input-gate",
+                "status": "failed",
+                "required": True,
+                "observedAtUtc": started_at_utc,
+                "detail": message,
+                "evidencePath": str(response_path),
+            }
+        ],
+        "error": {
+            "code": error_code,
+            "message": message,
+            "retryable": False,
+            "stage": "argument-validation",
+            "details": None,
+        },
+        "cleanup": None,
+        "httpStatus": "local",
+    }
+    write_json(summary_path, summary)
+    if args.json:
+        print(json.dumps({"summaryPath": str(summary_path)}))
+    else:
+        print(summary_path)
+    return 2
+
+
+def run_rest_command(
+    *,
+    args: argparse.Namespace,
+    method: str,
+    path: str,
+    payload: dict[str, Any] | None,
+    command: str,
+    response_name: str,
+    run_id_prefix: str,
+    success_when,
+    success_status: str = "ok",
+    failure_status: str = "request-failed",
+    gate_name: str,
+    stage: str,
+    detail_prefix: str,
+    extra_builder=None,
+    effective_run_id: str | None = None,
+) -> int:
+    started = time.time()
+    started_at_utc = utc_now()
+    run_id = effective_run_id or args.run_id or next_run_id(run_id_prefix)
+    status, body, parsed = request_json(args.base_url, method, path, payload)
+    response_payload = parsed if parsed is not None else {"raw": body.decode("utf-8", "replace")}
+    success = success_when(status, parsed)
+    response_path = args.exchange_root / "runs" / run_id / response_name
+    gate = {
+        "name": gate_name,
+        "status": "passed" if success else "failed",
+        "required": True,
+        "observedAtUtc": utc_now(),
+        "detail": f"{detail_prefix} returned HTTP {status}",
+        "evidencePath": str(response_path),
+    }
+    error = None
+    if not success:
+        error = {
+            "code": "rest_request_failed",
+            "message": f"{detail_prefix} returned {status}",
+            "retryable": rest_retryable(status),
+            "stage": stage,
+            "details": {
+                "httpStatus": status,
+            },
+        }
+    extra = extra_builder(parsed, run_id) if callable(extra_builder) else None
+    return emit_contract_summary(
+        exchange_root=args.exchange_root,
+        run_id=run_id,
+        command=command,
+        base_url=args.base_url,
+        response_name=response_name,
+        response_payload=response_payload,
+        success=success,
+        status=success_status if success else failure_status,
+        http_status=status,
+        started_at_utc=started_at_utc,
+        elapsed_seconds=time.time() - started,
+        inputs={
+            "baseUrl": args.base_url,
+            "exchangeRoot": str(args.exchange_root),
+            "runId": run_id,
+            **({"request": payload} if payload is not None else {}),
+        },
+        gates=[gate],
+        error=error,
+        cleanup=None,
+        extra=extra,
+        json_stdout=args.json,
+    )
+
+
+def run_health(args: argparse.Namespace) -> int:
+    started = time.time()
+    started_at_utc = utc_now()
+    run_id = args.run_id or next_run_id("wo-health")
+    status, body, parsed = request_json(args.base_url, "GET", "/v1/health")
+    payload = parsed if parsed is not None else {"raw": body.decode("utf-8", "replace")}
+    success = status == 200 and isinstance(parsed, dict)
+    observed_at = utc_now()
+    gate = {
+        "name": "host-health",
+        "status": "passed" if success else "failed",
+        "required": True,
+        "observedAtUtc": observed_at,
+        "detail": f"GET /v1/health returned HTTP {status}",
+        "evidencePath": str(args.exchange_root / "runs" / run_id / "health.json"),
+    }
+    response_path = args.exchange_root / "runs" / run_id / "health.json"
+    gate["evidencePath"] = str(response_path)
+    error = None
+    if not success:
+        error = {
+            "code": "rest_request_failed",
+            "message": f"GET /v1/health returned {status}",
+            "retryable": rest_retryable(status),
+            "stage": "health",
+            "details": {
+                "httpStatus": status,
+            },
+        }
+    extra = {
+        "detail": parsed if isinstance(parsed, dict) else None,
+    }
+    return emit_contract_summary(
+        exchange_root=args.exchange_root,
+        run_id=run_id,
+        command="wo health",
+        base_url=args.base_url,
+        response_name="health.json",
+        response_payload=payload,
+        success=success,
+        status="ok" if success else "host-unreachable",
+        http_status=status,
+        started_at_utc=started_at_utc,
+        elapsed_seconds=time.time() - started,
+        inputs={
+            "baseUrl": args.base_url,
+            "exchangeRoot": str(args.exchange_root),
+            "runId": run_id,
+        },
+        gates=[gate],
+        error=error,
+        cleanup=None,
+        extra=extra,
+        json_stdout=args.json,
+    )
+
+
+def summarize_windows(parsed: Any) -> dict[str, Any]:
+    windows = parsed if isinstance(parsed, list) else []
+    top_titles: list[str] = []
+    for item in windows[:5]:
+        if not isinstance(item, dict):
+            continue
+        title = str(item.get("title", "")).strip()
+        if title:
+            top_titles.append(title)
+    return {
+        "windowCount": len(windows),
+        "sampleTitles": top_titles,
+    }
+
+
+def run_windows_list(args: argparse.Namespace) -> int:
+    started = time.time()
+    started_at_utc = utc_now()
+    status, body, parsed = request_json(args.base_url, "GET", "/v1/windows")
+    payload = parsed if parsed is not None else {"raw": body.decode("utf-8", "replace")}
+    success = status == 200 and isinstance(parsed, list)
+    run_id = args.run_id or next_run_id("wo-windows-list")
+    response_path = args.exchange_root / "runs" / run_id / "windows.json"
+    gate = {
+        "name": "windows-list",
+        "status": "passed" if success else "failed",
+        "required": True,
+        "observedAtUtc": utc_now(),
+        "detail": f"GET /v1/windows returned HTTP {status}",
+        "evidencePath": str(response_path),
+    }
+    error = None
+    if not success:
+        error = {
+            "code": "rest_request_failed",
+            "message": f"GET /v1/windows returned {status}",
+            "retryable": rest_retryable(status),
+            "stage": "windows-list",
+            "details": {
+                "httpStatus": status,
+            },
+        }
+    return emit_contract_summary(
+        exchange_root=args.exchange_root,
+        run_id=run_id,
+        command="wo windows list",
+        base_url=args.base_url,
+        response_name="windows.json",
+        response_payload=payload,
+        success=success,
+        status="ok" if success else "windows-list-failed",
+        http_status=status,
+        started_at_utc=started_at_utc,
+        elapsed_seconds=time.time() - started,
+        inputs={
+            "baseUrl": args.base_url,
+            "exchangeRoot": str(args.exchange_root),
+            "runId": run_id,
+        },
+        gates=[gate],
+        error=error,
+        cleanup=None,
+        extra=summarize_windows(parsed),
+        json_stdout=args.json,
+    )
+
+
+def summarize_mail_status(parsed: Any) -> dict[str, Any]:
+    if not isinstance(parsed, dict):
+        return {}
+    return {
+        "workerAvailable": parsed.get("workerAvailable"),
+        "outlookAvailable": parsed.get("outlookAvailable"),
+    }
+
+
+def summarize_mail_folders(parsed: Any) -> dict[str, Any]:
+    if not isinstance(parsed, dict):
+        return {}
+    folders = parsed.get("folders")
+    return {
+        "folderCount": len(folders) if isinstance(folders, list) else 0,
+        "recovered": parsed.get("recovered"),
+    }
+
+
+def summarize_mail_search(parsed: Any) -> dict[str, Any]:
+    if not isinstance(parsed, dict):
+        return {}
+    messages = parsed.get("messages")
+    return {
+        "messageCount": len(messages) if isinstance(messages, list) else 0,
+        "recovered": parsed.get("recovered"),
+    }
+
+
+def summarize_mail_download(parsed: Any, run_id: str) -> dict[str, Any]:
+    extra: dict[str, Any] = {}
+    if not isinstance(parsed, dict):
+        return extra
+    attachments_saved = parsed.get("attachmentsSaved")
+    attachments_skipped = parsed.get("attachmentsSkipped")
+    saved = parsed.get("saved")
+    skipped = parsed.get("skipped")
+    if isinstance(attachments_saved, int):
+        extra["attachmentsSaved"] = attachments_saved
+    if isinstance(attachments_skipped, int):
+        extra["attachmentsSkipped"] = attachments_skipped
+    if isinstance(saved, list):
+        extra["savedCount"] = len(saved)
+    if isinstance(skipped, list):
+        extra["skippedCount"] = len(skipped)
+    result_run_id = parsed.get("runId")
+    if isinstance(result_run_id, str) and result_run_id:
+        extra["mailRunId"] = result_run_id
+    else:
+        extra["mailRunId"] = run_id
+    return extra
+
+
+def run_mail_status(args: argparse.Namespace) -> int:
+    return run_rest_command(
+        args=args,
+        method="GET",
+        path="/v1/mail/status",
+        payload=None,
+        command="wo mail status",
+        response_name="mail-status.json",
+        run_id_prefix="wo-mail-status",
+        success_when=lambda status, parsed: status == 200 and isinstance(parsed, dict),
+        success_status="ok",
+        failure_status="mail-status-failed",
+        gate_name="mail-status",
+        stage="mail-status",
+        detail_prefix="GET /v1/mail/status",
+        extra_builder=lambda parsed, _run_id: summarize_mail_status(parsed),
+    )
+
+
+def run_mail_folders(args: argparse.Namespace) -> int:
+    payload = {"freshness": args.freshness}
+    return run_rest_command(
+        args=args,
+        method="POST",
+        path="/v1/mail/folders",
+        payload=payload,
+        command="wo mail folders",
+        response_name="mail-folders.json",
+        run_id_prefix="wo-mail-folders",
+        success_when=endpoint_success,
+        success_status="ok",
+        failure_status="mail-folders-failed",
+        gate_name="mail-folders",
+        stage="mail-folders",
+        detail_prefix="POST /v1/mail/folders",
+        extra_builder=lambda parsed, _run_id: summarize_mail_folders(parsed),
+    )
+
+
+def run_mail_search(args: argparse.Namespace) -> int:
+    run_id = args.run_id or next_run_id("wo-mail-search")
+    subject = args.subject if args.subject else f"__wo_mail_search_no_match__{run_id}"
+    payload: dict[str, Any] = {
+        "subjectContains": subject,
+        "freshness": args.freshness,
+        "maxResults": args.max_results,
+        "includeAttachmentDetails": args.include_attachment_details,
+    }
+    if args.folder:
+        payload["folderPath"] = args.folder
+    return run_rest_command(
+        args=args,
+        method="POST",
+        path="/v1/mail/messages/search",
+        payload=payload,
+        command="wo mail search",
+        response_name="mail-search.json",
+        run_id_prefix="wo-mail-search",
+        success_when=endpoint_success,
+        success_status="ok",
+        failure_status="mail-search-failed",
+        gate_name="mail-search",
+        stage="mail-search",
+        detail_prefix="POST /v1/mail/messages/search",
+        extra_builder=lambda parsed, _run_id: summarize_mail_search(parsed),
+        effective_run_id=run_id,
+    )
+
+
+def run_mail_download(args: argparse.Namespace) -> int:
+    run_id = args.run_id or next_run_id("wo-mail-download")
+    message_ids = [value for value in (args.message_id or []) if value.strip()]
+    has_subject = bool(args.subject and args.subject.strip())
+    has_message_ids = bool(message_ids)
+    if not has_subject and not has_message_ids:
+        return usage_summary(
+            args=args,
+            run_id=run_id,
+            command="wo mail download",
+            response_name="mail-download.json",
+            status="usage_error",
+            error_code="mail_download_scope_required",
+            message="mail download requires --subject or --message-id to avoid broad downloads",
+            inputs={
+                "baseUrl": args.base_url,
+                "exchangeRoot": str(args.exchange_root),
+                "runId": run_id,
+                "folder": args.folder,
+                "freshness": args.freshness,
+                "dryRun": args.dry_run,
+            },
+        )
+    payload: dict[str, Any] = {
+        "runId": run_id,
+        "freshness": args.freshness,
+        "dryRun": args.dry_run,
+    }
+    if args.folder:
+        payload["folderPath"] = args.folder
+    if has_subject:
+        payload["subjectContains"] = args.subject
+    if has_message_ids:
+        payload["messageIds"] = message_ids
+    return run_rest_command(
+        args=args,
+        method="POST",
+        path="/v1/mail/attachments/download",
+        payload=payload,
+        command="wo mail download",
+        response_name="mail-download.json",
+        run_id_prefix="wo-mail-download",
+        success_when=endpoint_success,
+        success_status="ok",
+        failure_status="mail-download-failed",
+        gate_name="mail-download",
+        stage="mail-download",
+        detail_prefix="POST /v1/mail/attachments/download",
+        extra_builder=summarize_mail_download,
+        effective_run_id=run_id,
+    )
+
+
+def run_auth_microsoft_cleanup(args: argparse.Namespace) -> int:
+    payload = {
+        "dryRun": args.dry_run,
+        "preserveRecentSeconds": args.preserve_recent_seconds,
+    }
+    return run_rest_command(
+        args=args,
+        method="POST",
+        path="/v1/auth/microsoft/cleanup",
+        payload=payload,
+        command="wo auth microsoft cleanup",
+        response_name="auth-microsoft-cleanup.json",
+        run_id_prefix="wo-auth-microsoft-cleanup",
+        success_when=endpoint_success,
+        success_status="ok",
+        failure_status="auth-microsoft-cleanup-failed",
+        gate_name="auth-microsoft-cleanup",
+        stage="auth-microsoft-cleanup",
+        detail_prefix="POST /v1/auth/microsoft/cleanup",
+    )
+
+
+def run_auth_microsoft_device_login(args: argparse.Namespace) -> int:
+    payload = {
+        "runId": args.run_id or next_run_id("wo-auth-microsoft-device-login"),
+        "deviceCode": args.device_code,
+        "dryRun": args.dry_run,
+    }
+    return run_rest_command(
+        args=args,
+        method="POST",
+        path="/v1/auth/microsoft/device-login",
+        payload=payload,
+        command="wo auth microsoft device-login",
+        response_name="auth-microsoft-device-login.json",
+        run_id_prefix="wo-auth-microsoft-device-login",
+        success_when=endpoint_success,
+        success_status="ok",
+        failure_status="auth-microsoft-device-login-failed",
+        gate_name="auth-microsoft-device-login",
+        stage="auth-microsoft-device-login",
+        detail_prefix="POST /v1/auth/microsoft/device-login",
+        effective_run_id=payload["runId"],
+    )
+
+
+def run_auth_microsoft_authorize_probe(args: argparse.Namespace) -> int:
+    payload = {
+        "runId": args.run_id or next_run_id("wo-auth-microsoft-authorize-probe"),
+        "authorizeUrl": args.authorize_url,
+        "dryRun": args.dry_run,
+    }
+    return run_rest_command(
+        args=args,
+        method="POST",
+        path="/v1/auth/microsoft/authorize-probe",
+        payload=payload,
+        command="wo auth microsoft authorize-probe",
+        response_name="auth-microsoft-authorize-probe.json",
+        run_id_prefix="wo-auth-microsoft-authorize-probe",
+        success_when=endpoint_success,
+        success_status="ok",
+        failure_status="auth-microsoft-authorize-probe-failed",
+        gate_name="auth-microsoft-authorize-probe",
+        stage="auth-microsoft-authorize-probe",
+        detail_prefix="POST /v1/auth/microsoft/authorize-probe",
+        effective_run_id=payload["runId"],
+    )
+
+
+def append_common_delegate_args(command: list[str], args: argparse.Namespace, *, default_run_prefix: str | None) -> None:
+    if getattr(args, "deck_url", None):
+        command.extend(["--deck-url", args.deck_url])
+    if getattr(args, "base_url", None):
+        command.extend(["--base-url", args.base_url])
+    if getattr(args, "exchange_root", None):
+        command.extend(["--exchange-root", str(args.exchange_root)])
+    run_id = getattr(args, "run_id", None)
+    if run_id:
+        command.extend(["--run-id", run_id])
+    elif default_run_prefix:
+        command.extend(["--run-id", next_run_id(default_run_prefix)])
+
+
+def run_delegate(command: list[str]) -> int:
+    result = subprocess.run(command)
+    return int(result.returncode)
+
+
+def normalize_delegate_args(values: list[str]) -> list[str]:
+    if values and values[0] == "--":
+        return values[1:]
+    return values
+
+
+def run_ppt_leaf(args: argparse.Namespace) -> int:
+    script = resolve_repo_path(PPT_SCRIPT)
+    command = [sys.executable, str(script)]
+    default_run_prefix = {
+        "profile": "ppt-surface-profile",
+        "profile-fast": "ppt-surface-profile-fast",
+        "warm": "ppt-surface-profile-warm",
+        "hot-start": "ppt-hot-start",
+        "hot-run": "ppt-hot-run",
+        "hot-status": "ppt-hot-status",
+        "hot-cleanup": "ppt-hot-cleanup",
+    }[args.wo_ppt_mode]
+    append_common_delegate_args(command, args, default_run_prefix=default_run_prefix)
+    if args.wo_ppt_mode == "profile":
+        command.append("--verify-readiness")
+    elif args.wo_ppt_mode == "profile-fast":
+        command.append("--verify-readiness-fast")
+    elif args.wo_ppt_mode == "warm":
+        command.extend(["--profile-warm", "--warm-iterations", str(args.warm_iterations)])
+    elif args.wo_ppt_mode == "hot-start":
+        command.extend(["--hot-start", "--hot-session-id", args.hot_session_id])
+    elif args.wo_ppt_mode == "hot-run":
+        command.append("--hot-run")
+    elif args.wo_ppt_mode == "hot-status":
+        command.append("--hot-status")
+    elif args.wo_ppt_mode == "hot-cleanup":
+        command.append("--hot-cleanup")
+    if args.hot_lease_path is not None:
+        command.extend(["--hot-lease-path", str(args.hot_lease_path)])
+    if args.hot_lease_ttl_seconds is not None:
+        command.extend(["--hot-lease-ttl-seconds", str(args.hot_lease_ttl_seconds)])
+    command.extend(normalize_delegate_args(args.delegate_args))
+    return run_delegate(command)
+
+
+def run_smoke(args: argparse.Namespace) -> int:
+    delegate_args = normalize_delegate_args(args.delegate_args)
+    if any(value in {"--help", "-h"} for value in delegate_args):
+        script = resolve_repo_path(SMOKE_SCRIPT)
+        command = [sys.executable, str(script)]
+        append_common_delegate_args(command, args, default_run_prefix="wo-smoke")
+        if args.codex_url is not None:
+            command.extend(["--codex-url", args.codex_url])
+        command.extend(delegate_args)
+        return run_delegate(command)
+
+    started = time.time()
+    started_at_utc = utc_now()
+    run_id = args.run_id or next_run_id("wo-smoke")
+    root = args.exchange_root / "runs" / run_id
+    report_path = root / "live-smoke-report.json"
+    stdout_path = root / "live-smoke.stdout.log"
+    stderr_path = root / "live-smoke.stderr.log"
+
+    script = resolve_repo_path(SMOKE_SCRIPT)
+    command = [
+        sys.executable,
+        str(script),
+    ]
+    command.extend(delegate_args)
+    command.extend(
+        [
+        "--base-url",
+        args.base_url,
+        "--exchange-root",
+        str(args.exchange_root),
+        "--run-id",
+        run_id,
+        "--output",
+        str(report_path),
+        ]
+    )
+    if args.codex_url is not None:
+        command.extend(["--codex-url", args.codex_url])
+
+    root.mkdir(parents=True, exist_ok=True)
+    with stdout_path.open("w", encoding="utf-8") as stdout_handle, stderr_path.open("w", encoding="utf-8") as stderr_handle:
+        completed = subprocess.run(
+            command,
+            stdout=stdout_handle,
+            stderr=stderr_handle,
+            text=True,
+            check=False,
+        )
+
+    report = read_json(report_path)
+    report_ok = isinstance(report, dict) and report.get("ok") is True
+    success = completed.returncode == 0 and report_ok
+    gate_detail = f"live-smoke exit={completed.returncode} reportOk={report_ok}"
+    gate = {
+        "name": "live-smoke-report",
+        "status": "passed" if success else "failed",
+        "required": True,
+        "observedAtUtc": utc_now(),
+        "detail": gate_detail,
+        "evidencePath": str(report_path),
+    }
+    error = None
+    if not success:
+        error_details: dict[str, Any] = {
+            "exitCode": completed.returncode,
+            "reportPath": str(report_path),
+        }
+        if isinstance(report, dict):
+            error_details["reportOk"] = report.get("ok")
+        error = {
+            "code": "live_smoke_failed",
+            "message": gate_detail,
+            "retryable": False,
+            "stage": "live-smoke",
+            "details": error_details,
+        }
+
+    return emit_contract_summary(
+        exchange_root=args.exchange_root,
+        run_id=run_id,
+        command="wo smoke",
+        base_url=args.base_url,
+        response_name="live-smoke-report.json",
+        response_payload=report if report is not None else {"missingReport": True},
+        success=success,
+        status="ok" if success else "live-smoke-failed",
+        http_status=completed.returncode,
+        started_at_utc=started_at_utc,
+        elapsed_seconds=time.time() - started,
+        inputs={
+            "baseUrl": args.base_url,
+            "exchangeRoot": str(args.exchange_root),
+            "runId": run_id,
+            "codexUrl": args.codex_url,
+            "delegateArgs": delegate_args,
+        },
+        gates=[gate],
+        error=error,
+        cleanup=None,
+        extra={
+            "artifacts": {
+                "reportPath": str(report_path),
+                "stdoutPath": str(stdout_path),
+                "stderrPath": str(stderr_path),
+            },
+            "reportOk": report.get("ok") if isinstance(report, dict) else None,
+        },
+        json_stdout=args.json,
+    )
+
+
+def add_rest_common_flags(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--base-url", default=DEFAULT_BASE_URL)
+    parser.add_argument("--exchange-root", type=Path, default=DEFAULT_EXCHANGE_ROOT)
+    parser.add_argument("--run-id")
+    parser.add_argument("--json", action="store_true")
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Windows Operator dispatcher.")
+    subparsers = parser.add_subparsers(dest="domain", required=True, metavar="domain")
+
+    health_parser = subparsers.add_parser("health", help="Host health summary.")
+    add_rest_common_flags(health_parser)
+    health_parser.set_defaults(handler=run_health)
+
+    windows_parser = subparsers.add_parser("windows", help="Window inventory commands.")
+    windows_subparsers = windows_parser.add_subparsers(dest="windows_command", required=True, metavar="command")
+    windows_list_parser = windows_subparsers.add_parser("list", help="List visible top-level windows.")
+    add_rest_common_flags(windows_list_parser)
+    windows_list_parser.set_defaults(handler=run_windows_list)
+
+    mail_parser = subparsers.add_parser("mail", help="Outlook mail commands.")
+    mail_subparsers = mail_parser.add_subparsers(dest="mail_command", required=True, metavar="command")
+
+    mail_status_parser = mail_subparsers.add_parser("status", help="Mail worker and Outlook status.")
+    add_rest_common_flags(mail_status_parser)
+    mail_status_parser.set_defaults(handler=run_mail_status)
+
+    mail_folders_parser = mail_subparsers.add_parser("folders", help="List Outlook mailbox folders.")
+    add_rest_common_flags(mail_folders_parser)
+    mail_folders_parser.add_argument("--freshness", choices=("auto", "cached", "fresh"), default="auto")
+    mail_folders_parser.set_defaults(handler=run_mail_folders)
+
+    mail_search_parser = mail_subparsers.add_parser("search", help="Search Outlook messages.")
+    add_rest_common_flags(mail_search_parser)
+    mail_search_parser.add_argument("--subject")
+    mail_search_parser.add_argument("--folder")
+    mail_search_parser.add_argument("--freshness", choices=("auto", "cached", "fresh"), default="cached")
+    mail_search_parser.add_argument("--max-results", type=int, default=25)
+    mail_search_parser.add_argument("--include-attachment-details", action=argparse.BooleanOptionalAction, default=True)
+    mail_search_parser.set_defaults(handler=run_mail_search)
+
+    mail_download_parser = mail_subparsers.add_parser("download", help="Download Outlook attachments.")
+    add_rest_common_flags(mail_download_parser)
+    mail_download_parser.add_argument("--subject")
+    mail_download_parser.add_argument("--message-id", action="append")
+    mail_download_parser.add_argument("--folder")
+    mail_download_parser.add_argument("--freshness", choices=("auto", "cached", "fresh"), default="cached")
+    mail_download_parser.add_argument("--dry-run", action=argparse.BooleanOptionalAction, default=False)
+    mail_download_parser.set_defaults(handler=run_mail_download)
+
+    auth_parser = subparsers.add_parser("auth", help="Authentication workflow commands.")
+    auth_subparsers = auth_parser.add_subparsers(dest="auth_command", required=True, metavar="command")
+    auth_microsoft_parser = auth_subparsers.add_parser("microsoft", help="Microsoft auth commands.")
+    auth_microsoft_subparsers = auth_microsoft_parser.add_subparsers(
+        dest="auth_microsoft_command",
+        required=True,
+        metavar="command",
+    )
+
+    auth_cleanup_parser = auth_microsoft_subparsers.add_parser("cleanup", help="Cleanup Microsoft auth browser state.")
+    add_rest_common_flags(auth_cleanup_parser)
+    auth_cleanup_parser.add_argument("--preserve-recent-seconds", type=int, default=0)
+    auth_cleanup_parser.add_argument("--dry-run", action=argparse.BooleanOptionalAction, default=True)
+    auth_cleanup_parser.set_defaults(handler=run_auth_microsoft_cleanup)
+
+    auth_device_parser = auth_microsoft_subparsers.add_parser("device-login", help="Submit Microsoft device code login.")
+    add_rest_common_flags(auth_device_parser)
+    auth_device_parser.add_argument("--device-code", required=True)
+    auth_device_parser.add_argument("--dry-run", action=argparse.BooleanOptionalAction, default=False)
+    auth_device_parser.set_defaults(handler=run_auth_microsoft_device_login)
+
+    auth_authorize_parser = auth_microsoft_subparsers.add_parser("authorize-probe", help="Run Microsoft authorize probe.")
+    add_rest_common_flags(auth_authorize_parser)
+    auth_authorize_parser.add_argument("--authorize-url", required=True)
+    auth_authorize_parser.add_argument("--dry-run", action=argparse.BooleanOptionalAction, default=False)
+    auth_authorize_parser.set_defaults(handler=run_auth_microsoft_authorize_probe)
+
+    ppt_parser = subparsers.add_parser("ppt", help="PowerPoint Online workflow commands.")
+    ppt_subparsers = ppt_parser.add_subparsers(dest="ppt_command", required=True, metavar="command")
+    ppt_profile = ppt_subparsers.add_parser(
+        "profile",
+        help="Safe SEM27 readiness profile.",
+        description="Delegate safe SEM27 readiness profile to the PowerPoint harness.",
+    )
+    ppt_profile_fast = ppt_subparsers.add_parser(
+        "profile-fast",
+        help="Fast safe SEM27 readiness profile.",
+        description="Delegate fast safe SEM27 readiness profile to the PowerPoint harness.",
+    )
+    ppt_warm = ppt_subparsers.add_parser(
+        "warm",
+        help="Warm one safe SEM27 session.",
+        description="Delegate warm SEM27 validate-only iterations to the PowerPoint harness.",
+    )
+    ppt_hot = ppt_subparsers.add_parser(
+        "hot",
+        help="Persistent SEM27 hot lease commands.",
+        description="Persistent SEM27 hot lease commands.",
+    )
+
+    hot_subparsers = ppt_hot.add_subparsers(dest="ppt_hot_command", required=True, metavar="command")
+    hot_start = hot_subparsers.add_parser(
+        "start",
+        help="Start or reuse persistent hot lease.",
+        description="Start or reuse persistent SEM27 hot lease.",
+    )
+    hot_run = hot_subparsers.add_parser(
+        "run",
+        help="Run one validate-only hot iteration.",
+        description="Run one validate-only hot iteration against persistent SEM27 lease.",
+    )
+    hot_status = hot_subparsers.add_parser(
+        "status",
+        help="Show hot lease and live session state.",
+        description="Show persistent SEM27 hot lease and live session state.",
+    )
+    hot_cleanup = hot_subparsers.add_parser(
+        "cleanup",
+        help="Cleanup hot lease and session.",
+        description="Cleanup persistent SEM27 hot lease and session.",
+    )
+
+    for leaf_parser, mode in (
+        (ppt_profile, "profile"),
+        (ppt_profile_fast, "profile-fast"),
+        (ppt_warm, "warm"),
+        (hot_start, "hot-start"),
+        (hot_run, "hot-run"),
+        (hot_status, "hot-status"),
+        (hot_cleanup, "hot-cleanup"),
+    ):
+        leaf_parser.add_argument("--deck-url", default=SEM27_DECK_URL)
+        leaf_parser.add_argument("--base-url", default=DEFAULT_BASE_URL)
+        leaf_parser.add_argument("--exchange-root", type=Path, default=DEFAULT_EXCHANGE_ROOT)
+        leaf_parser.add_argument("--run-id")
+        leaf_parser.add_argument("--hot-lease-path", type=Path)
+        leaf_parser.add_argument("--hot-lease-ttl-seconds", type=int)
+        if mode == "warm":
+            leaf_parser.add_argument("--warm-iterations", type=int, default=2)
+        if mode == "hot-start":
+            leaf_parser.add_argument("--hot-session-id", default="ppt-hot-sem27")
+        leaf_parser.add_argument(
+            "delegate_args",
+            nargs=argparse.REMAINDER,
+            help="raw delegate args after --",
+        )
+        leaf_parser.set_defaults(handler=run_ppt_leaf, wo_ppt_mode=mode)
+
+    smoke_parser = subparsers.add_parser("smoke", help="Delegate live smoke runner.")
+    smoke_parser.add_argument("--base-url", default=os.environ.get("WINDOWS_OPERATOR_BASE_URL", "http://127.0.0.1:43117"))
+    smoke_parser.add_argument("--codex-url", default=os.environ.get("WINDOWS_OPERATOR_CODEX_URL", "http://127.0.0.1:43118/"))
+    smoke_parser.add_argument("--exchange-root", type=Path, default=DEFAULT_EXCHANGE_ROOT)
+    smoke_parser.add_argument("--run-id")
+    smoke_parser.add_argument("--json", action="store_true")
+    smoke_parser.add_argument(
+        "delegate_args",
+        nargs=argparse.REMAINDER,
+        help="raw delegate args after --",
+    )
+    smoke_parser.set_defaults(handler=run_smoke)
+
+    return parser
+
+
+def main() -> int:
+    parser = build_parser()
+    args = parser.parse_args()
+    return int(args.handler(args))
+
+
+if __name__ == "__main__":
+    sys.exit(main())
