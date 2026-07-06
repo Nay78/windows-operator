@@ -83,7 +83,7 @@ Named-template target repair is live-proven against SEM27.
 ## Documentation Map
 
 - Durable architecture and public contract: this document.
-- Working notes and historical evidence trail: `.work/powerpoint-online-*`.
+- Current and historical working notes: `.work/powerpoint-online-docs-index.md`.
 - Office.js/PowerPoint Online field notes:
   `.codex/skills/office-js-powerpoint-debug/references/office-js-powerpoint.md`.
 - Add-in module docs: `src/WindowsOperator.PowerPointAddIn/docs/`.

@@ -185,7 +185,7 @@ Expected results:
 - OpenAPI path count matches the generated contract for the checkout; compare
   `curl http://127.0.0.1:43117/openapi.json | jq '.paths | length'` with
   `jq '.paths | length' openapi/windows-operator.openapi.json`.
-- README route inventory contains every committed OpenAPI path:
+- README route inventory contains every committed OpenAPI method/path entry:
 
   ```bash
   scripts/check-readme-route-inventory.sh
@@ -268,12 +268,15 @@ Work profile instead of a fresh temporary Edge profile.
 Cleanup stale Microsoft-auth Edge windows:
 
 ```bash
-scripts/linux/cleanup-microsoft-auth-edge.sh
+scripts/linux/wo auth microsoft cleanup --no-dry-run
 ```
 
 This closes lingering Edge Microsoft-auth windows opened by prior device-login
-or authorize-probe runs. Add `--dry-run` to inspect match counts only, or
-`--preserve-recent-seconds 60` to keep very recent auth windows open.
+or authorize-probe runs. The wrapper defaults to `--dry-run`; pass
+`--no-dry-run` to close matched windows and `--preserve-recent-seconds 60` to
+keep very recent auth windows open. Use
+`scripts/linux/cleanup-microsoft-auth-edge.sh` only if the REST wrapper is
+unavailable.
 
 Graph `Mail.Read` device-code probe:
 

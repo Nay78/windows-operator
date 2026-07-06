@@ -64,7 +64,7 @@ Use exchange root for files other Linux tools need: downloads, run logs, screens
 
 ## Commands
 
-Windows bootstrap:
+Windows VM bootstrap wrapper:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\windows\bootstrap-vm.ps1

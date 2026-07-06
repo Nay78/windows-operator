@@ -142,7 +142,7 @@ Target release gate additions:
 - `scripts/check-openapi-contract.sh` includes breaking-change hook shape via
   `WINDOWS_OPERATOR_BREAKING_CMD` and `WINDOWS_OPERATOR_PREVIOUS_TAG`.
 - `scripts/check-readme-route-inventory.sh` verifies public route docs cover
-  every committed OpenAPI path.
+  every committed OpenAPI method/path entry.
 - Live Host `GET /openapi.json` parity check when Windows runtime is available.
 
 Release checklist:

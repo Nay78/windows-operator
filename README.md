@@ -176,9 +176,8 @@ stages a built add-in and localhost certificate. `WindowsOperator.Agent` runs
 only in the logged-in desktop session, unelevated, after a 30 second delay.
 Codex app-server autostart is a separate per-user task.
 
-The VM bootstrap wrapper also provisions Codex CLI under
-`%LOCALAPPDATA%\Codex`, using a local npm prefix/cache and a per-user
-`Codex.AppServer` scheduled task:
+Codex bootstrap provisions Codex CLI under `%LOCALAPPDATA%\Codex`, using a
+local npm prefix/cache and a per-user `Codex.AppServer` scheduled task:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\windows\bootstrap-codex.ps1 -EnableAutostart -InstallProfile
@@ -255,7 +254,8 @@ For Windows shared-source runs, prefer:
 powershell -ExecutionPolicy Bypass -File .\scripts\windows\run-agent.ps1 -RepoRoot \\server\share\windows-operator
 ```
 
-From Linux, run repo-owned Windows scripts through the exchange runner:
+From Linux, run repo-owned Windows scripts through the exchange runner. The VM
+wrapper runs base bootstrap and Codex bootstrap together:
 
 ```bash
 scripts/linux/windows-run-ps.sh scripts/windows/bootstrap-vm.ps1

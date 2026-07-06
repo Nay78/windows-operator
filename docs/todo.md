@@ -31,7 +31,8 @@ Backlog. Dated live baselines live in [development notes](development.md#live-sm
   - User32 shutdown reason
   - Task Scheduler maintenance triggers
 
-- Re-run `bootstrap-vm.ps1` after host recovery.
+- Re-run VM bootstrap wrapper `bootstrap-vm.ps1` after host recovery.
+  - Wraps base `bootstrap.ps1` and Codex `bootstrap-codex.ps1`
   - Confirms .NET restore/build/test
   - Re-registers tasks
   - Applies power policy guard

@@ -136,7 +136,7 @@ Default check stays offline except normal local generator/toolchain use. If no
 tag or hook command exists, hook steps skip without failure.
 
 The README route-inventory check verifies that the public route list documents
-every committed OpenAPI path.
+every committed OpenAPI method/path entry.
 
 Validate generated bindings compile:
 
