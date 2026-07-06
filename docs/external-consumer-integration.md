@@ -379,29 +379,29 @@ clients/go/README.md
 4. Use `GET /v1/mail/runs/{runId}` for repeatable result reads.
 5. Fetch attachments through artifact refs from the result.
 
-## Implementation Roadmap
+## Implementation Status
 
-P0:
+Complete:
 
-- Add this spec to AGENTS/README/architecture references.
-- Add route surface tags or vendor extensions to OpenAPI.
-- Add release/version policy and make `openapi.info.version` release-owned.
-- Add Go client README and examples.
-- Add contract drift and generated-client checks to release workflow.
+- This spec is linked from AGENTS, README, and harness architecture docs.
+- OpenAPI operations carry tags and `x-windows-operator-surface`.
+- `openapi.info.version` is sourced from `OperatorContractVersion.Value`.
+- `clients/go/README.md` documents generated-client usage.
+- Contract drift and generated-client checks are in release docs and
+  `scripts/check-openapi-contract.sh`.
+- External-facing results use artifact refs, with list/download routes for run
+  artifacts.
+- `OperatorError` branch fields and target codes are documented.
+- `GET /v1/capabilities` exposes contract and feature availability.
+- `docs/external-consumer-relay.md` documents the relay boundary.
+- Go helpers cover errors, artifact download, polling, and contract-version
+  checks.
 
-P1:
+Deferred:
 
-- Add artifact ref shape and artifact download/list routes.
-- Stop requiring local path fields in external-facing artifact results.
-- Add documented `OperatorError` code table and target fields.
-- Add `GET /v1/capabilities`.
-- Add relay guide/template.
-
-P2:
-
-- Add optional Go helpers for errors, polling, artifacts, and version checks.
-- Add additional generated clients only when a real consumer needs them.
-- Add deprecation metadata and compatibility tests for stable routes.
+- Reusable relay template.
+- Additional generated clients beyond Go.
+- Deprecation metadata and compatibility tests for stable routes.
 
 ## Acceptance
 

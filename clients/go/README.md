@@ -7,10 +7,10 @@ SSH runner scripts, staged PowerShell, or Windows-local paths.
 
 ## Install
 
-From a release tag:
+After a release tag is pushed:
 
 ```bash
-go get github.com/alejg/windows-operator/clients/go@v0.1.0
+go get github.com/alejg/windows-operator/clients/go@<tag>
 ```
 
 During local development:

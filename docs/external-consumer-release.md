@@ -58,6 +58,9 @@ External-consumer smoke:
 scripts/external-consumer-smoke.sh
 ```
 
+This is a repo-owned release gate. The fresh consumer proof below must run from
+a separate Go module and avoid repo scripts.
+
 With artifact proof:
 
 ```bash
@@ -66,13 +69,14 @@ WINDOWS_OPERATOR_SMOKE_RUN_ID=<run-id> scripts/external-consumer-smoke.sh
 
 ## Fresh Consumer Proof
 
-Before tagging:
+Use the commit SHA for a pre-tag dry run, then rerun with `v0.1.0` after the
+tag is pushed:
 
 ```bash
 tmpdir="$(mktemp -d)"
 cd "$tmpdir"
 go mod init consumer-proof
-go get github.com/alejg/windows-operator/clients/go@v0.1.0
+go get github.com/alejg/windows-operator/clients/go@<tag-or-commit>
 ```
 
 Use the generated client to call:
@@ -82,6 +86,10 @@ Use the generated client to call:
 - one negative route that returns `OperatorError`
 - `GET /v1/runs/{runId}/artifacts`
 - `GET /v1/artifacts/{artifactId}`
+
+For artifact calls, use an existing run id with at least one artifact; the
+external-consumer smoke can verify that path when
+`WINDOWS_OPERATOR_SMOKE_RUN_ID` points at such a run.
 
 No consumer proof may call `scripts/linux/wo`, `Justfile`, SSH runner scripts,
 staged PowerShell, or Windows-local paths.
