@@ -28,6 +28,7 @@ Notes:
   - windows-script handoff uses scripts/windows/login-microsoft-device-code.ps1 through windows-run-ps.sh.
   - rest handoff uses POST /v1/auth/microsoft/device-login.
   - none skips browser handoff and only returns the device-code payload.
+  - For new operator reruns, prefer explicit --handoff rest; the default is kept for historical reproduction.
 USAGE
 }
 

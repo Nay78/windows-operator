@@ -145,13 +145,14 @@ Linux helper:
 scripts/linux/test-microsoft-graph-mail-read.sh \
   --tenant-id <tenant-id> \
   --client-id <client-id> \
-  --handoff windows-script
+  --handoff rest
 ```
 
 What it does:
 
 1. Calls Entra device-code endpoint for Graph scopes including `Mail.Read`.
-2. Opens Edge in the Windows desktop session with `scripts/windows/login-microsoft-device-code.ps1`.
+2. Opens Edge through `POST /v1/auth/microsoft/device-login` when
+   `--handoff rest` is selected.
 3. Polls the token endpoint.
 4. On success, probes `GET https://graph.microsoft.com/v1.0/me/messages?$top=1`.
 

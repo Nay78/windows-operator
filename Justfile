@@ -28,6 +28,11 @@ contract-check:
 agent-tool-tests:
     scripts/linux/wo-tests.sh
     scripts/linux/windows-run-ps-tests.sh
+    scripts/linux/external-consumer-smoke-tests.sh
+
+# Test the external-consumer smoke gate against a local stub Host.
+external-consumer-smoke-test:
+    scripts/linux/external-consumer-smoke-tests.sh
 
 # Test the agent-facing `wo` wrapper without a live Windows host.
 wo-test:

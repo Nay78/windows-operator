@@ -55,7 +55,9 @@ func main() {
 	fmt.Printf("health status=%s runtime=%s\n", health.JSON200.Status, health.JSON200.RuntimeMode)
 
 	capabilities, err := wo.CheckContractVersion(ctx, client, wo.SupportedContractVersion)
-	must(err)
+	if err != nil {
+		fail("capabilities contract check failed for GET /v1/capabilities: %v\nrefresh WindowsOperator.Host from this checkout, then compare live /openapi.json with openapi/windows-operator.openapi.json", err)
+	}
 	fmt.Printf("capabilities contract=%s features=%d\n", capabilities.ContractVersion, len(capabilities.Features))
 
 	missingRun, err := client.GetMailRunWithResponse(ctx, "__missing_external_smoke__")
@@ -82,12 +84,14 @@ func main() {
 	artifacts, err := client.ListRunArtifactsWithResponse(ctx, runID)
 	must(err)
 	if artifacts.StatusCode() != http.StatusOK || artifacts.JSON200 == nil || len(artifacts.JSON200.Artifacts) == 0 {
-		fail("artifact list failed: status=%d", artifacts.StatusCode())
+		fail("artifact list failed for GET /v1/runs/{runId}/artifacts: status=%d", artifacts.StatusCode())
 	}
 
 	var out bytes.Buffer
 	artifact := artifacts.JSON200.Artifacts[0]
-	must(wo.DownloadArtifact(ctx, client, artifact, &out))
+	if err := wo.DownloadArtifact(ctx, client, artifact, &out); err != nil {
+		fail("artifact download failed for GET /v1/artifacts/{artifactId}: %v", err)
+	}
 	if out.Len() == 0 {
 		fail("artifact download returned zero bytes")
 	}

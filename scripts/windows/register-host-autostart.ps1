@@ -208,8 +208,20 @@ if ([string]::IsNullOrWhiteSpace($resolvedHostExchangeRoot)) {
 
 Stop-ExistingHost -HostRoot $hostRoot
 
+Write-Step "Restoring WindowsOperator.Host packages."
+& $resolvedDotnetPath restore $hostProjectPath --nologo
+if ($LASTEXITCODE -ne 0) {
+    throw "dotnet restore failed."
+}
+
+Write-Step "Cleaning incremental WindowsOperator.Host build outputs."
+& $resolvedDotnetPath clean $hostProjectPath -c Debug --nologo
+if ($LASTEXITCODE -ne 0) {
+    throw "dotnet clean failed."
+}
+
 Write-Step "Publishing WindowsOperator.Host."
-& $resolvedDotnetPath publish $hostProjectPath -c Debug -o $hostRoot --no-self-contained
+& $resolvedDotnetPath publish $hostProjectPath -c Debug -o $hostRoot --no-self-contained --disable-build-servers --no-restore
 if ($LASTEXITCODE -ne 0) {
     throw "dotnet publish failed."
 }

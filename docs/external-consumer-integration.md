@@ -118,7 +118,9 @@ Before an external integration test run, consumers may compare their pinned
 contract to the live Host contract:
 
 ```bash
-curl http://127.0.0.1:43117/openapi.json > live.openapi.json
+curl -fsS http://127.0.0.1:43117/v1/capabilities
+curl -fsS http://127.0.0.1:43117/openapi.json > live.openapi.json
+diff -u openapi/windows-operator.openapi.json live.openapi.json
 ```
 
 Project release gates must compare generated output against source:
@@ -135,7 +137,7 @@ git diff --check
 git status --short
 ```
 
-Target release gate additions:
+Current release gate support:
 
 - `scripts/check-openapi-contract.sh` includes offline hook points for OpenAPI
   lint via `WINDOWS_OPERATOR_LINT_CMD`.
@@ -143,7 +145,8 @@ Target release gate additions:
   `WINDOWS_OPERATOR_BREAKING_CMD` and `WINDOWS_OPERATOR_PREVIOUS_TAG`.
 - `scripts/check-readme-route-inventory.sh` verifies public route docs cover
   every committed OpenAPI method/path entry.
-- Live Host `GET /openapi.json` parity check when Windows runtime is available.
+- Live Host exact `GET /openapi.json` parity check when Windows runtime is
+  available.
 
 Release checklist:
 

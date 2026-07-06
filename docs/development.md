@@ -162,7 +162,9 @@ Targeted manual checks:
 
 ```bash
 curl http://127.0.0.1:43117/v1/health
-curl http://127.0.0.1:43117/openapi.json | jq '.paths | length'
+curl -fsS http://127.0.0.1:43117/v1/capabilities
+curl -fsS http://127.0.0.1:43117/openapi.json > live.openapi.json
+diff -u openapi/windows-operator.openapi.json live.openapi.json
 curl -i http://127.0.0.1:43118/
 curl -X POST http://127.0.0.1:43117/v1/uia/query \
   -H 'Content-Type: application/json' \
@@ -182,9 +184,10 @@ curl -X POST http://127.0.0.1:43117/v1/powerpoint/jobs \
 Expected results:
 
 - Host health returns `status=ok` and `runtimeMode=headless-host`.
-- OpenAPI path count matches the generated contract for the checkout; compare
-  `curl http://127.0.0.1:43117/openapi.json | jq '.paths | length'` with
-  `jq '.paths | length' openapi/windows-operator.openapi.json`.
+- Live OpenAPI exactly matches the generated contract for the checkout.
+  If the diff misses `GET /v1/capabilities`, `GET /v1/runs/{runId}/artifacts`,
+  or `GET /v1/artifacts/{artifactId}`, refresh `WindowsOperator.Host` from this
+  checkout before release checks.
 - README route inventory contains every committed OpenAPI method/path entry:
 
   ```bash
