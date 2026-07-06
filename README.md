@@ -140,7 +140,9 @@ Tool calls return full machine-readable JSON in `structuredContent`. Text conten
 ## Backend choices
 
 - UI automation backend seam exists, but the current implementation ships only `FlaUI.UIA3`.
-- Screenshot backend chain is `WindowsGraphicsCapture -> PrintWindow -> GdiBitBlt`.
+- Screenshot backend chain is `WindowsGraphicsCapture -> PrintWindow -> GdiBitBlt`;
+  WGC is registered as the first seam but currently falls through until WinRT
+  capture is validated.
 - Default screenshot output is JPEG quality `85`, longest edge `1600px`. PNG available for debugging.
 - Workbench screenshots write files under `runs/<runId>/screenshots/` in
   `WINDOWS_OPERATOR_EXCHANGE_ROOT` or `Z:\operator-exchange`; Host paths map

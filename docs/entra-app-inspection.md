@@ -1,5 +1,11 @@
 # Entra App Inspection
 
+Status: point-in-time investigation log, not the canonical Microsoft auth
+runbook. Current operator entrypoints live in
+[Development Notes](development.md#microsoft-device-login) and
+`scripts/linux/wo auth microsoft ...`; reruns should still treat token endpoint
+or Graph response truth as proof.
+
 Goal: inspect existing Entra app registrations from Windows Operator without tenant mutations.
 
 Main constraint:
@@ -252,7 +258,7 @@ Linux-side controller now lives at `scripts/linux/audit_entra_apps.py`.
 
 Purpose:
 
-- Drive planned Windows Operator Edge session REST from Linux
+- Drive Windows Operator Edge session REST from Linux
 - Persist resumable metadata/probe state under one output root
 - Rank candidates by public/delegated/mail/auth signals
 - Probe `User.Read` first, then `Mail.Read` only for mail-relevant apps

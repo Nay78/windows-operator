@@ -15,10 +15,12 @@ Backlog. Dated live baselines live in [development notes](development.md#live-sm
 
 - Resolve no-secret Graph viability with existing Entra apps.
   - Candidate ranking and evidence live in [Entra app inspection](entra-app-inspection.md).
-  - Prove live whether existing app can mint delegated `Mail.Read` token without secret
-  - Inspect redirect/public-client shape and classify viable auth mode
-  - Authorize-probe mode can reuse existing signed-in Edge work profile
-  - If not viable, close Graph path and keep Outlook/OWA fallback as system truth
+  - Current evidence: `ActiveDirectoryClient` mints non-mail delegated tokens
+    only; `ams-prd-n8n-mail` needs admin approval; `ams-prd-rpamail` requires
+    a secret/assertion; no current registered app gives a working no-secret
+    `Mail.Read` path.
+  - Remaining decision: get approval for an admin-consented or secret-bearing
+    Graph path, or close Graph and keep Outlook/OWA fallback as system truth.
 
 ## Windows Provisioning
 
