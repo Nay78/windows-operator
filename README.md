@@ -228,6 +228,12 @@ Regenerate OpenAPI and Go bindings:
 scripts/generate-go-client.sh
 ```
 
+Check committed OpenAPI, generated Go client, and route inventory drift:
+
+```bash
+just contract-check
+```
+
 Details: [Go client generation](docs/go-client-generation.md).
 
 Use Windows for actual development and verification.
@@ -243,6 +249,12 @@ On Linux, use the portable solution filter for Linux-safe builds plus Host/MCP t
 
 ```bash
 dotnet test WindowsOperator.Portable.slnf
+```
+
+Check agent-facing Linux wrappers without a live Windows host:
+
+```bash
+just agent-tool-tests
 ```
 
 `dotnet run` starts loopback REST and a background MCP stdio server in same process.

@@ -167,7 +167,7 @@ scripts/check-openapi-contract.sh
 scripts/generate-go-client.sh
 cd clients/go && go test ./...
 cd ../..
-dotnet build WindowsOperator.sln --no-restore
+dotnet build WindowsOperator.Portable.slnf --no-restore
 dotnet test WindowsOperator.Portable.slnf --no-build
 git diff --check
 git status --short

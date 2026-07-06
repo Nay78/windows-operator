@@ -501,3 +501,5 @@ assert smoke_fail_summary["reportOk"] is False, smoke_fail_summary
 assert smoke_fail_summary["gates"][0]["status"] == "failed", smoke_fail_summary
 assert smoke_fail_summary["error"]["code"] == "live_smoke_failed", smoke_fail_summary
 PY
+
+printf 'wo tests passed\n'

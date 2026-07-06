@@ -19,6 +19,24 @@ sync-codex-plan:
 sync-plan:
     scripts/linux/windows-sync-available.sh --dry-run
 
+# Check committed OpenAPI, generated Go client, and README route inventory.
+contract-check:
+    scripts/check-openapi-contract.sh
+    scripts/check-readme-route-inventory.sh
+
+# Test agent-facing Linux wrappers without a live Windows host.
+agent-tool-tests:
+    scripts/linux/wo-tests.sh
+    scripts/linux/windows-run-ps-tests.sh
+
+# Test the agent-facing `wo` wrapper without a live Windows host.
+wo-test:
+    scripts/linux/wo-tests.sh
+
+# Test the staged Windows PowerShell runner without a live Windows host.
+windows-run-ps-test:
+    scripts/linux/windows-run-ps-tests.sh
+
 # Test the PowerPoint Online final proof runner without live mutation.
 ppt-final-proof-test:
     scripts/linux/powerpoint-online-final-proof-tests.sh

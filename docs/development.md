@@ -477,6 +477,13 @@ Use this for endpoint diagnosis when `scripts/linux/wo smoke` is too broad.
 - Windows testhost execution needs the .NET 8 runtimes that match project refs:
   `Microsoft.NETCore.App`, `Microsoft.AspNetCore.App`, and `Microsoft.WindowsDesktop.App`.
   SDK-only layouts under `%LOCALAPPDATA%\WindowsOperator\dotnet-sdk` are not enough.
+- `just contract-check` runs the offline OpenAPI/generated-client drift check
+  and README route inventory check. Use it after REST/Core contract, OpenAPI,
+  generated Go client, or public route docs changes.
+- `just agent-tool-tests` runs Linux-side wrapper checks for `scripts/linux/wo`
+  and `scripts/linux/windows-run-ps.sh` without a live Windows host. Use it
+  after changing CLI command construction, summary artifact paths, SSH-copy
+  staging, or sync target parsing.
 - When running tests through the staged Linux runner, pass explicit `-RepoRoot`
   so project paths resolve against the Windows source copy:
   `scripts/linux/windows-run-ps.sh scripts/windows/run-dotnet-test.ps1 -RepoRoot 'C:\src\windows-operator' -Project tests\WindowsOperator.Mcp.Tests\WindowsOperator.Mcp.Tests.csproj`.

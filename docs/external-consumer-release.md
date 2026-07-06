@@ -23,7 +23,8 @@ scripts/generate-go-client.sh
 cd clients/go && go test ./...
 cd ../..
 dotnet build WindowsOperator.Portable.slnf --no-restore
-dotnet test tests/WindowsOperator.Host.Tests/WindowsOperator.Host.Tests.csproj --filter OpenApi_ --nologo
+dotnet test WindowsOperator.Portable.slnf --no-build --nologo
+dotnet test tests/WindowsOperator.Host.Tests/WindowsOperator.Host.Tests.csproj --no-build --filter OpenApi_ --nologo
 git diff --check
 git status --short
 ```

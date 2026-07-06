@@ -224,6 +224,10 @@ just ppt-hot-cleanup
 just ppt-profile
 just ppt-profile-fast
 just ppt-profile-warm
+just contract-check
+just agent-tool-tests
+just wo-test
+just windows-run-ps-test
 ```
 
 Bad Just examples:
