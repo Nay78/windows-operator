@@ -16,9 +16,9 @@ module windows-operator-external-smoke
 
 go 1.22
 
-require github.com/alejg/windows-operator/clients/go v0.0.0
+require github.com/Nay78/windows-operator/clients/go v0.0.0
 
-replace github.com/alejg/windows-operator/clients/go => $repo_root/clients/go
+replace github.com/Nay78/windows-operator/clients/go => $repo_root/clients/go
 EOF
 
 cat >"$tmpdir/main.go" <<'EOF'
@@ -32,7 +32,7 @@ import (
 	"os"
 	"time"
 
-	wo "github.com/alejg/windows-operator/clients/go"
+	wo "github.com/Nay78/windows-operator/clients/go"
 )
 
 func main() {

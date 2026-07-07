@@ -28,6 +28,7 @@ External consumers depend only on:
 
 - Host REST routes under `/v1/*`.
 - `GET /openapi.json` for live contract inspection.
+- `GET /openapi/namespaces` and namespace specs for bounded discovery.
 - Committed OpenAPI specs pinned to a commit or release tag.
 - Generated clients published from the same pinned spec.
 - Stable result/error semantics documented in this file and OpenAPI.
@@ -63,10 +64,13 @@ Development routes:
 - Disabled by default.
 - Excluded from external-consumer support unless explicitly promoted.
 
-OpenAPI should mark route class through tags or vendor extensions:
+OpenAPI tags carry bounded discovery namespaces such as `mail.outlook` and
+`powerpoint.online`. OpenAPI marks route class with a vendor extension:
 
 ```json
 {
+  "tags": ["mail.outlook"],
+  "x-windows-operator-namespace": "mail.outlook",
   "x-windows-operator-surface": "stable"
 }
 ```
@@ -76,6 +80,17 @@ Allowed values:
 - `stable`
 - `diagnostic`
 - `development`
+
+Namespace discovery:
+
+```text
+GET /openapi/namespaces
+GET /openapi/namespaces/{namespace}.json?surface=stable
+```
+
+The namespace spec defaults to stable operations. `surface` accepts
+`stable`, `diagnostic`, `development`, `all`, or comma-separated values such as
+`stable,diagnostic`.
 
 ## Versioning
 
@@ -388,6 +403,8 @@ Complete:
 
 - This spec is linked from AGENTS, README, and harness architecture docs.
 - OpenAPI operations carry tags and `x-windows-operator-surface`.
+- OpenAPI operations carry `x-windows-operator-namespace`, namespace tags, and
+  namespace-filtered spec routes.
 - `openapi.info.version` is sourced from `OperatorContractVersion.Value`.
 - `clients/go/README.md` documents generated-client usage.
 - Contract drift and generated-client checks are in release docs and

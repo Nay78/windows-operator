@@ -588,6 +588,24 @@ type MicrosoftDeviceLoginResult struct {
 // MicrosoftDeviceLoginStatus defines model for MicrosoftDeviceLoginStatus.
 type MicrosoftDeviceLoginStatus string
 
+// OpenApiNamespaceDiscoveryResult defines model for OpenApiNamespaceDiscoveryResult.
+type OpenApiNamespaceDiscoveryResult struct {
+	CheckedAtUtc    time.Time                 `json:"checkedAtUtc"`
+	ContractVersion string                    `json:"contractVersion"`
+	Namespaces      []OpenApiNamespaceSummary `json:"namespaces"`
+}
+
+// OpenApiNamespaceSummary defines model for OpenApiNamespaceSummary.
+type OpenApiNamespaceSummary struct {
+	Description    string   `json:"description"`
+	Href           string   `json:"href"`
+	Name           string   `json:"name"`
+	OperationCount int32    `json:"operationCount"`
+	PathCount      int32    `json:"pathCount"`
+	Surfaces       []string `json:"surfaces"`
+	Title          string   `json:"title"`
+}
+
 // OperatorError defines model for OperatorError.
 type OperatorError struct {
 	Category      *OperatorErrorCategory `json:"category"`
@@ -1039,6 +1057,11 @@ type WorkbenchSessionResult struct {
 	Warnings        []string        `json:"warnings"`
 }
 
+// GetOpenApiNamespaceDocumentParams defines parameters for GetOpenApiNamespaceDocument.
+type GetOpenApiNamespaceDocumentParams struct {
+	Surface *string `form:"surface,omitempty" json:"surface,omitempty"`
+}
+
 // CaptureWindowParams defines parameters for CaptureWindow.
 type CaptureWindowParams struct {
 	Format *ScreenshotFormat `form:"format,omitempty" json:"format,omitempty"`
@@ -1222,6 +1245,12 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+	// ListOpenApiNamespaces request
+	ListOpenApiNamespaces(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetOpenApiNamespaceDocument request
+	GetOpenApiNamespaceDocument(ctx context.Context, namespace string, params *GetOpenApiNamespaceDocumentParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetArtifact request
 	GetArtifact(ctx context.Context, artifactId string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1465,6 +1494,30 @@ type ClientInterface interface {
 
 	// CaptureWindow request
 	CaptureWindow(ctx context.Context, id int64, params *CaptureWindowParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+func (c *Client) ListOpenApiNamespaces(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListOpenApiNamespacesRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetOpenApiNamespaceDocument(ctx context.Context, namespace string, params *GetOpenApiNamespaceDocumentParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetOpenApiNamespaceDocumentRequest(c.Server, namespace, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 func (c *Client) GetArtifact(ctx context.Context, artifactId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -2581,6 +2634,89 @@ func (c *Client) CaptureWindow(ctx context.Context, id int64, params *CaptureWin
 		return nil, err
 	}
 	return c.Client.Do(req)
+}
+
+// NewListOpenApiNamespacesRequest generates requests for ListOpenApiNamespaces
+func NewListOpenApiNamespacesRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/openapi/namespaces")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetOpenApiNamespaceDocumentRequest generates requests for GetOpenApiNamespaceDocument
+func NewGetOpenApiNamespaceDocumentRequest(server string, namespace string, params *GetOpenApiNamespaceDocumentParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespace", runtime.ParamLocationPath, namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/openapi/namespaces/%s.json", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Surface != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "surface", runtime.ParamLocationQuery, *params.Surface); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
 }
 
 // NewGetArtifactRequest generates requests for GetArtifact
@@ -4900,6 +5036,12 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
+	// ListOpenApiNamespacesWithResponse request
+	ListOpenApiNamespacesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListOpenApiNamespacesResponse, error)
+
+	// GetOpenApiNamespaceDocumentWithResponse request
+	GetOpenApiNamespaceDocumentWithResponse(ctx context.Context, namespace string, params *GetOpenApiNamespaceDocumentParams, reqEditors ...RequestEditorFn) (*GetOpenApiNamespaceDocumentResponse, error)
+
 	// GetArtifactWithResponse request
 	GetArtifactWithResponse(ctx context.Context, artifactId string, reqEditors ...RequestEditorFn) (*GetArtifactResponse, error)
 
@@ -5143,6 +5285,54 @@ type ClientWithResponsesInterface interface {
 
 	// CaptureWindowWithResponse request
 	CaptureWindowWithResponse(ctx context.Context, id int64, params *CaptureWindowParams, reqEditors ...RequestEditorFn) (*CaptureWindowResponse, error)
+}
+
+type ListOpenApiNamespacesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *OpenApiNamespaceDiscoveryResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r ListOpenApiNamespacesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListOpenApiNamespacesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetOpenApiNamespaceDocumentResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *map[string]interface{}
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetOpenApiNamespaceDocumentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetOpenApiNamespaceDocumentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
 }
 
 type GetArtifactResponse struct {
@@ -6537,6 +6727,24 @@ func (r CaptureWindowResponse) StatusCode() int {
 	return 0
 }
 
+// ListOpenApiNamespacesWithResponse request returning *ListOpenApiNamespacesResponse
+func (c *ClientWithResponses) ListOpenApiNamespacesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListOpenApiNamespacesResponse, error) {
+	rsp, err := c.ListOpenApiNamespaces(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListOpenApiNamespacesResponse(rsp)
+}
+
+// GetOpenApiNamespaceDocumentWithResponse request returning *GetOpenApiNamespaceDocumentResponse
+func (c *ClientWithResponses) GetOpenApiNamespaceDocumentWithResponse(ctx context.Context, namespace string, params *GetOpenApiNamespaceDocumentParams, reqEditors ...RequestEditorFn) (*GetOpenApiNamespaceDocumentResponse, error) {
+	rsp, err := c.GetOpenApiNamespaceDocument(ctx, namespace, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetOpenApiNamespaceDocumentResponse(rsp)
+}
+
 // GetArtifactWithResponse request returning *GetArtifactResponse
 func (c *ClientWithResponses) GetArtifactWithResponse(ctx context.Context, artifactId string, reqEditors ...RequestEditorFn) (*GetArtifactResponse, error) {
 	rsp, err := c.GetArtifact(ctx, artifactId, reqEditors...)
@@ -7337,6 +7545,86 @@ func (c *ClientWithResponses) CaptureWindowWithResponse(ctx context.Context, id 
 		return nil, err
 	}
 	return ParseCaptureWindowResponse(rsp)
+}
+
+// ParseListOpenApiNamespacesResponse parses an HTTP response from a ListOpenApiNamespacesWithResponse call
+func ParseListOpenApiNamespacesResponse(rsp *http.Response) (*ListOpenApiNamespacesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListOpenApiNamespacesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OpenApiNamespaceDiscoveryResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetOpenApiNamespaceDocumentResponse parses an HTTP response from a GetOpenApiNamespaceDocumentWithResponse call
+func ParseGetOpenApiNamespaceDocumentResponse(rsp *http.Response) (*GetOpenApiNamespaceDocumentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetOpenApiNamespaceDocumentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest map[string]interface{}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
 }
 
 // ParseGetArtifactResponse parses an HTTP response from a GetArtifactWithResponse call

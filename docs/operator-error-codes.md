@@ -25,6 +25,8 @@ Every HTTP `OperatorError` response may include:
 | `mail_run_not_found` | `notFound` | false | Mail run id was not found. |
 | `mail_unavailable` | `unavailable` | true | Outlook automation is unavailable. |
 | `minimized_rdp` | `unavailable` | true | Desktop session is minimized or not presentable. |
+| `openapi_namespace_not_found` | `notFound` | false | OpenAPI namespace was not found. |
+| `openapi_surface_invalid` | `validation` | false | OpenAPI namespace surface filter is invalid. |
 | `powerpoint_job_not_found` | `notFound` | false | PowerPoint job or staged job artifact was not found. |
 | `powerpoint_unavailable` | `unavailable` | true | PowerPoint automation is unavailable. |
 | `powerpoint_validation_failed` | `validation` | false | PowerPoint request failed validation. |

@@ -9,7 +9,7 @@ v0.1.0
 The Go module path is:
 
 ```text
-github.com/alejg/windows-operator/clients/go
+github.com/Nay78/windows-operator/clients/go
 ```
 
 ## Pre-Tag Gates
@@ -76,7 +76,7 @@ tag is pushed:
 tmpdir="$(mktemp -d)"
 cd "$tmpdir"
 go mod init consumer-proof
-go get github.com/alejg/windows-operator/clients/go@<tag-or-commit>
+go get github.com/Nay78/windows-operator/clients/go@<tag-or-commit>
 ```
 
 Use the generated client to call:

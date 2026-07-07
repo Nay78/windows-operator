@@ -1,11 +1,15 @@
+using WindowsOperator.Core;
+
 namespace WindowsOperator.Core.Contracts;
 
 public static class OperatorOpenApi
 {
+    private const string NamespaceExtensionName = "x-windows-operator-namespace";
     private const string SurfaceExtensionName = "x-windows-operator-surface";
     private const string StableSurface = "stable";
     private const string DiagnosticSurface = "diagnostic";
     private const string DevelopmentSurface = "development";
+    private static readonly string[] SurfaceOrder = [StableSurface, DiagnosticSurface, DevelopmentSurface];
     private static readonly HashSet<string> DiagnosticPaths =
     [
         "/v1/powerpoint/online/sessions/{sessionId}/addin/probe",
@@ -13,14 +17,88 @@ public static class OperatorOpenApi
         "/v1/auth/microsoft/authorize-probe/status/latest",
         "/v1/auth/microsoft/device-login/status/latest",
     ];
+    private static readonly IReadOnlyList<OpenApiNamespaceDefinition> NamespaceDefinitions =
+    [
+        new("system", "System", "Health, capabilities, and OpenAPI discovery."),
+        new("desktop", "Desktop", "Desktop windows, foreground state, and screenshots."),
+        new("sessions", "Sessions", "Generic operator-owned workbench session lifecycle."),
+        new("uia", "UI Automation", "UI Automation query, click, and typing operations."),
+        new("input", "Input", "Screen coordinate and hotkey input operations."),
+        new("browser.edge", "Edge Browser", "Microsoft Edge session and DOM automation."),
+        new("auth.microsoft", "Microsoft Auth", "Microsoft browser handoff and status operations."),
+        new("powerpoint.online", "PowerPoint Online", "PowerPoint Online session and update orchestration."),
+        new("powerpoint.jobs", "PowerPoint Jobs", "PowerPoint update job queue operations."),
+        new("artifacts", "Artifacts", "Opaque artifact listing and download operations."),
+        new("mail.outlook", "Outlook Mail", "Classic Outlook folder, message, and attachment operations."),
+    ];
+    private static readonly IReadOnlyDictionary<string, OpenApiNamespaceDefinition> NamespacesByName =
+        NamespaceDefinitions.ToDictionary(item => item.Name, StringComparer.Ordinal);
 
     public static object Document { get; } = BuildDocument();
+
+    public static OpenApiNamespaceDiscoveryResult ListNamespaces() =>
+        new(
+            OperatorContractVersion.Value,
+            NamespaceDefinitions
+                .Select(SummarizeNamespace)
+                .Where(summary => summary.OperationCount > 0)
+                .ToArray(),
+            DateTimeOffset.UtcNow);
+
+    public static object NamespaceDocument(string name, string? surface)
+    {
+        if (!NamespacesByName.ContainsKey(name))
+        {
+            throw new OperatorFailureException(
+                OperatorErrors.OpenApiNamespaceNotFound($"OpenAPI namespace '{name}' was not found."));
+        }
+
+        var surfaces = ParseSurfaceFilter(surface);
+        var paths = DocumentPaths(Document);
+        var filteredPaths = new Dictionary<string, object?>(StringComparer.Ordinal);
+        foreach (var (path, pathItem) in paths)
+        {
+            var filteredOperations = new Dictionary<string, object?>(StringComparer.Ordinal);
+            foreach (var (method, operation) in PathOperations(pathItem))
+            {
+                if (OperationNamespace(operation) == name &&
+                    surfaces.Contains(OperationSurface(operation)))
+                {
+                    filteredOperations[method] = operation;
+                }
+            }
+
+            if (filteredOperations.Count > 0)
+            {
+                filteredPaths[path] = filteredOperations;
+            }
+        }
+
+        var document = DocumentRoot(Document);
+        return new Dictionary<string, object?>
+        {
+            ["openapi"] = document["openapi"],
+            ["info"] = document["info"],
+            ["servers"] = document["servers"],
+            ["paths"] = filteredPaths,
+            ["components"] = document["components"],
+        };
+    }
 
     private static object BuildDocument()
     {
         var schema = new OperatorJsonSchema.Registry("#/components/schemas/");
         var paths = new Dictionary<string, object>
         {
+            ["/openapi/namespaces"] = Path(
+                Get("listOpenApiNamespaces", "List bounded OpenAPI discovery namespaces.", schema.Ref<OpenApiNamespaceDiscoveryResult>())),
+            ["/openapi/namespaces/{namespace}.json"] = Path(
+                Get(
+                    "getOpenApiNamespaceDocument",
+                    "Read an OpenAPI document filtered to one namespace and selected surfaces.",
+                    Primitive("object"),
+                    PathParam("namespace", "string"),
+                    QueryParam("surface", Primitive("string")))),
             ["/v1/health"] = Path(
                 Get("getHealth", "Operator health.", schema.Ref<HealthResult>())),
             ["/v1/capabilities"] = Path(
@@ -275,7 +353,7 @@ public static class OperatorOpenApi
                     schema.Ref<MailDownloadResult>(),
                     PathParam("runId", "string"))),
         };
-        AnnotateSurfaces(paths);
+        AnnotateOperations(paths);
         schema.Ref<OperatorError>();
 
         return new Dictionary<string, object?>
@@ -298,7 +376,7 @@ public static class OperatorOpenApi
         };
     }
 
-    private static void AnnotateSurfaces(Dictionary<string, object> paths)
+    private static void AnnotateOperations(Dictionary<string, object> paths)
     {
         foreach (var (path, pathItem) in paths)
         {
@@ -308,9 +386,11 @@ public static class OperatorOpenApi
             }
 
             var surface = ClassifySurface(path);
+            var @namespace = ClassifyNamespace(path);
             foreach (var operation in operations.Values.OfType<Dictionary<string, object?>>())
             {
-                operation["tags"] = new[] { surface };
+                operation["tags"] = new[] { @namespace };
+                operation[NamespaceExtensionName] = @namespace;
                 operation[SurfaceExtensionName] = surface;
             }
         }
@@ -330,6 +410,184 @@ public static class OperatorOpenApi
 
         return StableSurface;
     }
+
+    private static string ClassifyNamespace(string path)
+    {
+        if (path.StartsWith("/openapi/", StringComparison.Ordinal) ||
+            path is "/v1/health" or "/v1/capabilities")
+        {
+            return "system";
+        }
+
+        if (path.StartsWith("/v1/dev/browser/edge/", StringComparison.Ordinal) ||
+            path.StartsWith("/v1/browser/edge/", StringComparison.Ordinal))
+        {
+            return "browser.edge";
+        }
+
+        if (path.StartsWith("/v1/dev/powerpoint/online/", StringComparison.Ordinal) ||
+            path.StartsWith("/v1/powerpoint/online/", StringComparison.Ordinal))
+        {
+            return "powerpoint.online";
+        }
+
+        if (path.StartsWith("/v1/powerpoint/jobs", StringComparison.Ordinal))
+        {
+            return "powerpoint.jobs";
+        }
+
+        if (path.StartsWith("/v1/auth/microsoft/", StringComparison.Ordinal))
+        {
+            return "auth.microsoft";
+        }
+
+        if (path.StartsWith("/v1/mail/", StringComparison.Ordinal))
+        {
+            return "mail.outlook";
+        }
+
+        if (path.StartsWith("/v1/uia/", StringComparison.Ordinal))
+        {
+            return "uia";
+        }
+
+        if (path.StartsWith("/v1/input/", StringComparison.Ordinal))
+        {
+            return "input";
+        }
+
+        if (path.StartsWith("/v1/sessions/", StringComparison.Ordinal))
+        {
+            return "sessions";
+        }
+
+        if (path.StartsWith("/v1/artifacts/", StringComparison.Ordinal) ||
+            path.StartsWith("/v1/runs/", StringComparison.Ordinal))
+        {
+            return "artifacts";
+        }
+
+        if (path.StartsWith("/v1/windows", StringComparison.Ordinal) ||
+            path.StartsWith("/v1/desktop/", StringComparison.Ordinal))
+        {
+            return "desktop";
+        }
+
+        throw new InvalidOperationException($"OpenAPI path '{path}' has no namespace.");
+    }
+
+    private static OpenApiNamespaceSummary SummarizeNamespace(OpenApiNamespaceDefinition definition)
+    {
+        var paths = DocumentPaths(Document);
+        var pathCount = 0;
+        var operationCount = 0;
+        var surfaces = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var pathItem in paths.Values)
+        {
+            var pathHasNamespaceOperation = false;
+            foreach (var (_, operation) in PathOperations(pathItem))
+            {
+                if (OperationNamespace(operation) != definition.Name)
+                {
+                    continue;
+                }
+
+                pathHasNamespaceOperation = true;
+                operationCount++;
+                surfaces.Add(OperationSurface(operation));
+            }
+
+            if (pathHasNamespaceOperation)
+            {
+                pathCount++;
+            }
+        }
+
+        return new OpenApiNamespaceSummary(
+            definition.Name,
+            definition.Title,
+            definition.Description,
+            $"/openapi/namespaces/{definition.Name}.json",
+            SurfaceOrder.Where(surfaces.Contains).ToArray(),
+            pathCount,
+            operationCount);
+    }
+
+    private static HashSet<string> ParseSurfaceFilter(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return new HashSet<string>([StableSurface], StringComparer.Ordinal);
+        }
+
+        var tokens = raw
+            .Split(',', StringSplitOptions.TrimEntries)
+            .Where(token => token.Length > 0)
+            .Select(token => token.ToLowerInvariant())
+            .ToArray();
+
+        if (tokens.Length == 0)
+        {
+            throw new OperatorFailureException(
+                OperatorErrors.OpenApiSurfaceInvalid("OpenAPI surface filter must not be empty."));
+        }
+
+        var allowed = new HashSet<string>(SurfaceOrder.Append("all"), StringComparer.Ordinal);
+        var invalid = tokens.FirstOrDefault(token => !allowed.Contains(token));
+        if (invalid is not null)
+        {
+            throw new OperatorFailureException(
+                OperatorErrors.OpenApiSurfaceInvalid($"OpenAPI surface '{invalid}' is not supported."));
+        }
+
+        if (tokens.Contains("all", StringComparer.Ordinal))
+        {
+            if (tokens.Length > 1)
+            {
+                throw new OperatorFailureException(
+                    OperatorErrors.OpenApiSurfaceInvalid("OpenAPI surface 'all' cannot be combined with other filters."));
+            }
+
+            return new HashSet<string>(SurfaceOrder, StringComparer.Ordinal);
+        }
+
+        return new HashSet<string>(tokens, StringComparer.Ordinal);
+    }
+
+    private static IReadOnlyDictionary<string, object?> DocumentRoot(object document) =>
+        document as IReadOnlyDictionary<string, object?>
+            ?? throw new InvalidOperationException("OpenAPI document root is invalid.");
+
+    private static IReadOnlyDictionary<string, object?> DocumentPaths(object document) =>
+        DocumentRoot(document)["paths"] as IReadOnlyDictionary<string, object?>
+            ?? throw new InvalidOperationException("OpenAPI document paths are invalid.");
+
+    private static IEnumerable<KeyValuePair<string, Dictionary<string, object?>>> PathOperations(object? pathItem)
+    {
+        if (pathItem is not IReadOnlyDictionary<string, object?> operations)
+        {
+            yield break;
+        }
+
+        foreach (var (method, operation) in operations)
+        {
+            if (operation is Dictionary<string, object?> operationObject)
+            {
+                yield return new KeyValuePair<string, Dictionary<string, object?>>(method, operationObject);
+            }
+        }
+    }
+
+    private static string OperationNamespace(IReadOnlyDictionary<string, object?> operation) =>
+        operation.TryGetValue(NamespaceExtensionName, out var value) && value is string @namespace
+            ? @namespace
+            : throw new InvalidOperationException("OpenAPI operation missing namespace metadata.");
+
+    private static string OperationSurface(IReadOnlyDictionary<string, object?> operation) =>
+        operation.TryGetValue(SurfaceExtensionName, out var value) && value is string surface
+            ? surface
+            : throw new InvalidOperationException("OpenAPI operation missing surface metadata.");
 
     private static Dictionary<string, object?> Path(params (string Method, object Operation)[] operations) =>
         operations.ToDictionary(item => item.Method, item => (object?)item.Operation);
@@ -476,4 +734,9 @@ public static class OperatorOpenApi
 
     private static object Ref(string name) =>
         new Dictionary<string, object?> { ["$ref"] = $"#/components/schemas/{name}" };
+
+    private sealed record OpenApiNamespaceDefinition(
+        string Name,
+        string Title,
+        string Description);
 }

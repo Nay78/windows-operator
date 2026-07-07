@@ -82,6 +82,27 @@ POST /v1/mail/folders
 POST /v1/mail/attachments/download
 ```
 
+## OpenAPI
+
+Use namespace tags for bounded service discovery.
+
+Rules:
+
+- Operation `tags` contain one namespace label, not the stability surface.
+- `x-windows-operator-namespace` matches the tag.
+- `x-windows-operator-surface` remains `stable`, `diagnostic`, or `development`.
+- `/openapi/namespaces/{namespace}.json` defaults to stable operations.
+- Keep namespace slices derived from the full OpenAPI document; do not create a separate contract source.
+
+Examples:
+
+```text
+mail.outlook
+powerpoint.online
+browser.edge
+auth.microsoft
+```
+
 ## MCP
 
 Use `<domain>_<provider?>_<action>` tool names.

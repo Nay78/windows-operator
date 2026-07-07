@@ -166,6 +166,24 @@ public static class OperatorErrors
             OperatorErrorCategory.NotFound,
             retryable: false);
 
+    public static OperatorError OpenApiNamespaceNotFound(string detail) =>
+        Create(
+            ErrorCodes.OpenApiNamespaceNotFound,
+            "Requested OpenAPI namespace was not found.",
+            "List OpenAPI namespaces and retry with a known namespace.",
+            detail,
+            OperatorErrorCategory.NotFound,
+            retryable: false);
+
+    public static OperatorError OpenApiSurfaceInvalid(string detail) =>
+        Create(
+            ErrorCodes.OpenApiSurfaceInvalid,
+            "OpenAPI surface filter is invalid.",
+            "Use stable, diagnostic, development, all, or a comma-separated list.",
+            detail,
+            OperatorErrorCategory.Validation,
+            retryable: false);
+
     private static OperatorError Create(
         string code,
         string message,

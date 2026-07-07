@@ -29,8 +29,8 @@ orchestration routes. For auth status polling, prefer explicit
 `/status/{runId}` in automation; `/status/latest` is a convenience path for
 manual or single-agent follow-up.
 
-External projects should consume Host REST, `/openapi.json`, the committed
-OpenAPI spec, or generated clients. Do not use `scripts/linux/wo`, `Justfile`
+External projects should consume Host REST, `/openapi.json`, bounded OpenAPI
+namespace specs, the committed OpenAPI spec, or generated clients. Do not use `scripts/linux/wo`, `Justfile`
 recipes, SSH runner scripts, or staged PowerShell as application dependencies.
 See [External consumer integration spec](docs/external-consumer-integration.md),
 [Go client README](clients/go/README.md), and
@@ -96,8 +96,18 @@ release gates, artifacts, errors, relay, and SDK rules.
 - `GET /v1/mail/runs/{runId}`
 - `GET /v1/mail/status`
 - `GET /openapi.json`
+- `GET /openapi/namespaces`
+- `GET /openapi/namespaces/{namespace}.json`
 
-MCP tools expose the AI-facing operator subset at `POST /mcp`. PowerPoint mutation stays REST-only unless a direct MCP workflow is added.
+OpenAPI operation tags are namespace labels such as `mail.outlook` and
+`powerpoint.online`. Use `GET /openapi/namespaces` and
+`GET /openapi/namespaces/{namespace}.json` for bounded local-service discovery;
+the namespace spec defaults to stable routes and accepts `surface=all` or
+comma-separated surfaces such as `stable,diagnostic`.
+
+MCP tools expose the AI-facing operator subset at `POST /mcp`. Local external
+services should use REST/OpenAPI; MCP is optional for AI tool clients.
+PowerPoint mutation stays REST-only unless a direct MCP workflow is added.
 
 `/v1/dev/...` routes are disabled by default and exist for local debugging harnesses only.
 

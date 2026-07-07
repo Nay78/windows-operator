@@ -10,13 +10,13 @@ SSH runner scripts, staged PowerShell, or Windows-local paths.
 After a release tag is pushed:
 
 ```bash
-go get github.com/alejg/windows-operator/clients/go@<tag>
+go get github.com/Nay78/windows-operator/clients/go@<tag>
 ```
 
 During local development:
 
 ```text
-replace github.com/alejg/windows-operator/clients/go => /path/to/windows-operator/clients/go
+replace github.com/Nay78/windows-operator/clients/go => /path/to/windows-operator/clients/go
 ```
 
 ## Client
@@ -50,6 +50,12 @@ if !capabilities.Features["powerpoint.online.update"].Available {
     return fmt.Errorf("powerpoint unavailable")
 }
 ```
+
+For bounded discovery, call `ListOpenApiNamespacesWithResponse`, then fetch a
+namespace spec such as `mail.outlook` with `GetOpenApiNamespaceDocument`.
+Namespace specs default to stable operations; set the generated `Surface` query
+parameter to `all` or a comma-separated surface list when diagnostic/development
+operations are needed.
 
 ## Operator Errors
 

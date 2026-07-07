@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Http.HttpResults;
+using TypedResults = Microsoft.AspNetCore.Http.TypedResults;
+using WindowsOperator.Core;
 using WindowsOperator.Core.Contracts;
 using WindowsOperator.Core.Services;
 
@@ -362,6 +364,20 @@ public static class OperatorEndpoints
                 () => facade.GetMailRunAsync(runId, cancellationToken)));
 
         endpoints.MapGet("/openapi.json", () => OperatorOpenApi.Document);
+        endpoints.MapGet("/openapi/namespaces", () => OperatorOpenApi.ListNamespaces());
+        endpoints.MapGet("/openapi/namespaces/{namespaceName}.json", Results<Ok<object>, JsonHttpResult<OperatorError>> (
+            string namespaceName,
+            string? surface) =>
+        {
+            try
+            {
+                return TypedResults.Ok(OperatorOpenApi.NamespaceDocument(namespaceName, surface));
+            }
+            catch (OperatorFailureException failure)
+            {
+                return OperatorHttp.Error(failure);
+            }
+        });
 
         return endpoints;
     }

@@ -93,13 +93,13 @@ artifact download, generic polling, and PowerPoint job polling.
 After the first release tag is created, consumers can depend on that tag:
 
 ```bash
-go get github.com/alejg/windows-operator/clients/go@<tag>
+go get github.com/Nay78/windows-operator/clients/go@<tag>
 ```
 
 Import:
 
 ```go
-import wo "github.com/alejg/windows-operator/clients/go"
+import wo "github.com/Nay78/windows-operator/clients/go"
 ```
 
 Create a client:

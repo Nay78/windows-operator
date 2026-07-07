@@ -15,11 +15,14 @@ public static class OperatorHttp
         }
         catch (OperatorFailureException failure)
         {
-            return TypedResults.Json(WithCorrelationId(failure.Error), statusCode: MapStatusCode(failure.Error.Code));
+            return Error(failure);
         }
     }
 
-    private static int MapStatusCode(string errorCode) =>
+    public static JsonHttpResult<OperatorError> Error(OperatorFailureException failure) =>
+        TypedResults.Json(WithCorrelationId(failure.Error), statusCode: MapStatusCode(failure.Error.Code));
+
+    public static int MapStatusCode(string errorCode) =>
         errorCode switch
         {
             ErrorCodes.WindowNotFound => StatusCodes.Status404NotFound,
@@ -39,6 +42,8 @@ public static class OperatorHttp
             ErrorCodes.MailFolderNotFound => StatusCodes.Status404NotFound,
             ErrorCodes.MailRunNotFound => StatusCodes.Status404NotFound,
             ErrorCodes.MailUnavailable => StatusCodes.Status423Locked,
+            ErrorCodes.OpenApiNamespaceNotFound => StatusCodes.Status404NotFound,
+            ErrorCodes.OpenApiSurfaceInvalid => StatusCodes.Status422UnprocessableEntity,
             _ => StatusCodes.Status500InternalServerError,
         };
 

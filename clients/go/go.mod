@@ -1,4 +1,4 @@
-module github.com/alejg/windows-operator/clients/go
+module github.com/Nay78/windows-operator/clients/go
 
 go 1.22
 

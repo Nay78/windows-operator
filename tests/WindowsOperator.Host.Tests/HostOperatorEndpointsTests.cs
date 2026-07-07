@@ -336,11 +336,25 @@ public sealed class HostOperatorEndpointsTests
     {
         using var document = JsonDocument.Parse(JsonSerializer.Serialize(OperatorOpenApi.Document, OperatorJson.SerializerOptions));
         var paths = document.RootElement.GetProperty("paths");
-        var allowed = new HashSet<string>(StringComparer.Ordinal)
+        var allowedSurfaces = new HashSet<string>(StringComparer.Ordinal)
         {
             "stable",
             "diagnostic",
             "development",
+        };
+        var allowedNamespaces = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "system",
+            "desktop",
+            "sessions",
+            "uia",
+            "input",
+            "browser.edge",
+            "auth.microsoft",
+            "powerpoint.online",
+            "powerpoint.jobs",
+            "artifacts",
+            "mail.outlook",
         };
 
         foreach (var path in paths.EnumerateObject())
@@ -349,11 +363,15 @@ public sealed class HostOperatorEndpointsTests
             {
                 var surface = operation.Value.GetProperty("x-windows-operator-surface").GetString();
                 Assert.NotNull(surface);
-                Assert.Contains(surface!, allowed);
+                Assert.Contains(surface!, allowedSurfaces);
+
+                var @namespace = operation.Value.GetProperty("x-windows-operator-namespace").GetString();
+                Assert.NotNull(@namespace);
+                Assert.Contains(@namespace!, allowedNamespaces);
 
                 var tags = operation.Value.GetProperty("tags");
                 Assert.Equal(JsonValueKind.Array, tags.ValueKind);
-                Assert.Equal(surface, Assert.Single(tags.EnumerateArray()).GetString());
+                Assert.Equal(@namespace, Assert.Single(tags.EnumerateArray()).GetString());
             }
         }
 
@@ -361,22 +379,108 @@ public sealed class HostOperatorEndpointsTests
             "stable",
             paths.GetProperty("/v1/windows").GetProperty("get").GetProperty("x-windows-operator-surface").GetString());
         Assert.Equal(
+            "desktop",
+            paths.GetProperty("/v1/windows").GetProperty("get").GetProperty("x-windows-operator-namespace").GetString());
+        Assert.Equal(
             "stable",
             paths.GetProperty("/v1/health").GetProperty("get").GetProperty("x-windows-operator-surface").GetString());
         Assert.Equal(
+            "mail.outlook",
+            paths.GetProperty("/v1/mail/messages/search").GetProperty("post").GetProperty("x-windows-operator-namespace").GetString());
+        Assert.Equal(
+            "stable",
+            paths.GetProperty("/v1/mail/messages/search").GetProperty("post").GetProperty("x-windows-operator-surface").GetString());
+        Assert.Equal(
+            "powerpoint.online",
+            paths
+                .GetProperty("/v1/powerpoint/online/sessions/{sessionId}/addin/probe")
+                .GetProperty("post")
+                .GetProperty("x-windows-operator-namespace")
+                .GetString());
+        Assert.Equal(
             "diagnostic",
             paths
-                .GetProperty("/v1/powerpoint/online/sessions/{sessionId}/addin/run-pending-job")
+                .GetProperty("/v1/powerpoint/online/sessions/{sessionId}/addin/probe")
                 .GetProperty("post")
                 .GetProperty("x-windows-operator-surface")
+                .GetString());
+        Assert.Equal(
+            "browser.edge",
+            paths
+                .GetProperty("/v1/dev/browser/edge/sessions/{sessionId}/eval")
+                .GetProperty("post")
+                .GetProperty("x-windows-operator-namespace")
                 .GetString());
         Assert.Equal(
             "development",
             paths
-                .GetProperty("/v1/dev/powerpoint/online/sessions/{sessionId}/script")
+                .GetProperty("/v1/dev/browser/edge/sessions/{sessionId}/eval")
                 .GetProperty("post")
                 .GetProperty("x-windows-operator-surface")
                 .GetString());
+    }
+
+    [Fact]
+    public async Task OpenApiNamespaceRoutes_ReturnBoundedDocumentsAndErrors()
+    {
+        await using var app = await CreateAppAsync(new FakeUpdateService(new PowerPointOnlineUpdateResult
+        {
+            Success = true,
+            Status = PowerPointOnlineUpdateStatus.Succeeded,
+            SaveProofTier = PowerPointOnlineSaveProofTier.Tier2SavedIndicator,
+            Session = CreateSession(),
+            JobRecord = CreateJobRecord(),
+            Evidence = Array.Empty<DesktopScreenshotResult>(),
+            Actions = Array.Empty<string>(),
+            Warnings = Array.Empty<string>(),
+            Errors = Array.Empty<OperatorError>(),
+            ObservedAtUtc = DateTimeOffset.Parse("2026-07-03T12:00:05Z"),
+        }));
+        var client = app.GetTestClient();
+
+        var discovery = await client.GetFromJsonAsync<OpenApiNamespaceDiscoveryResult>(
+            "/openapi/namespaces",
+            OperatorJson.SerializerOptions);
+
+        Assert.NotNull(discovery);
+        Assert.Equal("0.1.0", discovery!.ContractVersion);
+        var mailNamespace = Assert.Single(discovery.Namespaces, item => item.Name == "mail.outlook");
+        Assert.Equal("/openapi/namespaces/mail.outlook.json", mailNamespace.Href);
+        Assert.Equal(new[] { "stable" }, mailNamespace.Surfaces);
+        Assert.Equal(5, mailNamespace.PathCount);
+        Assert.Equal(5, mailNamespace.OperationCount);
+
+        using var mail = await GetJsonDocumentAsync(client, "/openapi/namespaces/mail.outlook.json");
+        var mailPaths = mail.RootElement.GetProperty("paths").EnumerateObject().Select(item => item.Name).ToArray();
+        Assert.NotEmpty(mailPaths);
+        Assert.All(mailPaths, path => Assert.StartsWith("/v1/mail/", path, StringComparison.Ordinal));
+
+        using var powerpointStable = await GetJsonDocumentAsync(client, "/openapi/namespaces/powerpoint.online.json");
+        Assert.True(powerpointStable.RootElement.GetProperty("paths").TryGetProperty("/v1/powerpoint/online/updates", out _));
+        Assert.False(powerpointStable.RootElement.GetProperty("paths").TryGetProperty("/v1/powerpoint/online/sessions/{sessionId}/addin/probe", out _));
+        Assert.False(powerpointStable.RootElement.GetProperty("paths").TryGetProperty("/v1/dev/powerpoint/online/sessions/{sessionId}/script", out _));
+
+        using var powerpointDiagnostic = await GetJsonDocumentAsync(client, "/openapi/namespaces/powerpoint.online.json?surface=stable,diagnostic");
+        Assert.True(powerpointDiagnostic.RootElement.GetProperty("paths").TryGetProperty("/v1/powerpoint/online/sessions/{sessionId}/addin/probe", out _));
+        Assert.False(powerpointDiagnostic.RootElement.GetProperty("paths").TryGetProperty("/v1/dev/powerpoint/online/sessions/{sessionId}/script", out _));
+
+        using var powerpointAll = await GetJsonDocumentAsync(client, "/openapi/namespaces/powerpoint.online.json?surface=all");
+        Assert.True(powerpointAll.RootElement.GetProperty("paths").TryGetProperty("/v1/dev/powerpoint/online/sessions/{sessionId}/script", out _));
+
+        var missing = await client.GetAsync("/openapi/namespaces/missing.json");
+        Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
+        var missingError = await missing.Content.ReadFromJsonAsync<OperatorError>(OperatorJson.SerializerOptions);
+        Assert.Equal("openapi_namespace_not_found", missingError!.Code);
+
+        var invalidSurface = await client.GetAsync("/openapi/namespaces/mail.outlook.json?surface=unsafe");
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, invalidSurface.StatusCode);
+        var invalidSurfaceError = await invalidSurface.Content.ReadFromJsonAsync<OperatorError>(OperatorJson.SerializerOptions);
+        Assert.Equal("openapi_surface_invalid", invalidSurfaceError!.Code);
+
+        var mixedAllSurface = await client.GetAsync("/openapi/namespaces/mail.outlook.json?surface=all,stable");
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, mixedAllSurface.StatusCode);
+        var mixedAllSurfaceError = await mixedAllSurface.Content.ReadFromJsonAsync<OperatorError>(OperatorJson.SerializerOptions);
+        Assert.Equal("openapi_surface_invalid", mixedAllSurfaceError!.Code);
     }
 
     private static async Task<WebApplication> CreateAppAsync(
@@ -447,6 +551,13 @@ public sealed class HostOperatorEndpointsTests
             EnqueuedAtUtc = DateTimeOffset.Parse("2026-07-03T12:00:01Z"),
             UpdatedAtUtc = DateTimeOffset.Parse("2026-07-03T12:00:02Z"),
         };
+
+    private static async Task<JsonDocument> GetJsonDocumentAsync(HttpClient client, string requestUri)
+    {
+        var response = await client.GetAsync(requestUri);
+        response.EnsureSuccessStatusCode();
+        return JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+    }
 
     private sealed class FakeUpdateService : IPowerPointOnlineUpdateService
     {

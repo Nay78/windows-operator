@@ -20,4 +20,6 @@ public static class ErrorCodes
     public const string MailUnavailable = "mail_unavailable";
     public const string MailFolderNotFound = "mail_folder_not_found";
     public const string MailRunNotFound = "mail_run_not_found";
+    public const string OpenApiNamespaceNotFound = "openapi_namespace_not_found";
+    public const string OpenApiSurfaceInvalid = "openapi_surface_invalid";
 }

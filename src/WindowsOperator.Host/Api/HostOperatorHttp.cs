@@ -42,6 +42,8 @@ public static class HostOperatorHttp
             ErrorCodes.MailFolderNotFound => StatusCodes.Status404NotFound,
             ErrorCodes.MailRunNotFound => StatusCodes.Status404NotFound,
             ErrorCodes.MailUnavailable => StatusCodes.Status423Locked,
+            ErrorCodes.OpenApiNamespaceNotFound => StatusCodes.Status404NotFound,
+            ErrorCodes.OpenApiSurfaceInvalid => StatusCodes.Status422UnprocessableEntity,
             _ => StatusCodes.Status500InternalServerError,
         };
 
