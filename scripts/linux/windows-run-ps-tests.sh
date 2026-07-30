@@ -5,7 +5,6 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 runner="$repo_root/scripts/linux/windows-run-ps.sh"
 syncer="$repo_root/scripts/linux/windows-sync-repo.sh"
 profile_syncer="$repo_root/scripts/linux/windows-sync-powershell-profile.sh"
-codex_syncer="$repo_root/scripts/linux/windows-sync-codex-profile.sh"
 available_syncer="$repo_root/scripts/linux/windows-sync-available.sh"
 tmp_root="$(mktemp -d)"
 trap 'rm -rf "$tmp_root"' EXIT
@@ -13,9 +12,6 @@ trap 'rm -rf "$tmp_root"' EXIT
 "$available_syncer" --help >"$tmp_root/available-help.txt"
 grep -q "WINDOWS_OPERATOR_SSH_TARGET" "$tmp_root/available-help.txt"
 grep -q "WINDOWS_OPERATOR_SSH_IDENTITY_FILE" "$tmp_root/available-help.txt"
-
-"$codex_syncer" --help >"$tmp_root/codex-help.txt"
-grep -q "WINDOWS_OPERATOR_SSH_TIMEOUT" "$tmp_root/codex-help.txt"
 
 run_ok() {
   local run_id=$1
@@ -157,73 +153,6 @@ assert install_request["arguments"] == [
 ]
 PY
 
-codex_home="$tmp_root/codex-home"
-mkdir -p "$codex_home/skills/example"
-printf 'model = "gpt-5"\n' >"$codex_home/config.toml"
-printf '%s\n' '# Example Skill' >"$codex_home/skills/example/SKILL.md"
-
-WINDOWS_OPERATOR_LOCAL_ENV="/dev/null" \
-WINDOWS_OPERATOR_CODEX_HOME="$codex_home" \
-WINDOWS_OPERATOR_EXCHANGE_ROOT="$tmp_root/exchange" \
-WINDOWS_OPERATOR_RUN_ID="codex-profile" \
-WINDOWS_OPERATOR_WINDOWS_REPO_ROOT="C:\\src\\windows-operator" \
-WINDOWS_OPERATOR_WINDOWS_CODEX_HOME="C:\\Users\\tester\\.codex" \
-WINDOWS_OPERATOR_RUN_TRANSPORT="ssh-copy" \
-"$codex_syncer" --dry-run >"$tmp_root/codex-sync.txt"
-grep -q "\\[codex-sync\\] sourceCodexHome=$codex_home" "$tmp_root/codex-sync.txt"
-grep -q "repoResult=$tmp_root/exchange/runs/codex-profile-repo/request.json" "$tmp_root/codex-sync.txt"
-grep -q "staticProfileResult=$tmp_root/exchange/runs/codex-profile-static/request.json" "$tmp_root/codex-sync.txt"
-grep -q "configResult=$tmp_root/exchange/runs/codex-profile-config/request.json" "$tmp_root/codex-sync.txt"
-grep -q "verifyResult=$tmp_root/exchange/runs/codex-profile-verify/request.json" "$tmp_root/codex-sync.txt"
-grep -q "\\[codex-sync\\] dry-run: would upload skills archive through ssh-copy transport" "$tmp_root/codex-sync.txt"
-python3 - \
-  "$tmp_root/exchange/runs/codex-profile-repo/request.json" \
-  "$tmp_root/exchange/runs/codex-profile-static/request.json" \
-  "$tmp_root/exchange/runs/codex-profile-config/request.json" \
-  "$tmp_root/exchange/runs/codex-profile-verify/request.json" <<'PY'
-import json
-import sys
-
-with open(sys.argv[1], encoding="utf-8") as handle:
-    repo_request = json.load(handle)
-with open(sys.argv[2], encoding="utf-8") as handle:
-    static_request = json.load(handle)
-with open(sys.argv[3], encoding="utf-8") as handle:
-    config_request = json.load(handle)
-with open(sys.argv[4], encoding="utf-8") as handle:
-    verify_request = json.load(handle)
-
-assert repo_request["repoRootWindows"] == r"C:\src\windows-operator"
-assert static_request["sourcePath"] == "scripts/windows/configure-codex-profile.ps1"
-assert static_request["arguments"] == [
-    "-CodexHome",
-    r"C:\Users\tester\.codex",
-    "-ForceStaticProfile",
-]
-assert config_request["sourcePath"] == "scripts/windows/sync-codex-config.ps1"
-assert config_request["arguments"] == ["-CodexHome", r"C:\Users\tester\.codex"]
-assert verify_request["sourcePath"] == "scripts/windows/verify-codex-profile.ps1"
-assert verify_request["arguments"] == ["-CodexHome", r"C:\Users\tester\.codex"]
-PY
-
-mkdir -p "$tmp_root/codex-home-no-skills"
-printf 'model = "gpt-5"\n' >"$tmp_root/codex-home-no-skills/config.toml"
-codex_missing_home_output="$(
-  capture_fail env \
-    WINDOWS_OPERATOR_LOCAL_ENV="/dev/null" \
-    WINDOWS_OPERATOR_CODEX_HOME="$tmp_root/codex-home-missing" \
-    "$codex_syncer" --dry-run
-)"
-grep -q "source Codex home missing" <<<"$codex_missing_home_output"
-
-codex_missing_skills_output="$(
-  capture_fail env \
-    WINDOWS_OPERATOR_LOCAL_ENV="/dev/null" \
-    WINDOWS_OPERATOR_CODEX_HOME="$tmp_root/codex-home-no-skills" \
-    "$codex_syncer" --dry-run
-)"
-grep -q "source Codex skills missing" <<<"$codex_missing_skills_output"
-
 WINDOWS_OPERATOR_LOCAL_ENV="/dev/null" \
 WINDOWS_OPERATOR_SYNC_TARGETS="tester@win-a:2222 win-b" \
 WINDOWS_OPERATOR_SSH_USER="fallback" \
@@ -231,23 +160,20 @@ WINDOWS_OPERATOR_SSH_PORT="22" \
 "$available_syncer" --dry-run >"$tmp_root/available-sync.txt"
 grep -q "target=win-a port=2222 user=tester" "$tmp_root/available-sync.txt"
 grep -q "target=win-b port=22 user=fallback" "$tmp_root/available-sync.txt"
-grep -q "sync repo + profile + codex" "$tmp_root/available-sync.txt"
+grep -q "sync repo + profile" "$tmp_root/available-sync.txt"
 
 WINDOWS_OPERATOR_LOCAL_ENV="/dev/null" \
 WINDOWS_OPERATOR_SYNC_TARGETS="tester@win-a:2222" \
 WINDOWS_OPERATOR_RUN_ID="sync-minimal" \
 WINDOWS_OPERATOR_SYNC_PROFILE="0" \
-WINDOWS_OPERATOR_SYNC_CODEX="0" \
 "$available_syncer" --dry-run >"$tmp_root/available-sync-minimal.txt"
 grep -q "sync repo run-id-base=sync-minimal target-label=tester-win-a-2222" "$tmp_root/available-sync-minimal.txt"
 ! grep -q "+ profile" "$tmp_root/available-sync-minimal.txt"
-! grep -q "+ codex" "$tmp_root/available-sync-minimal.txt"
 
 WINDOWS_OPERATOR_LOCAL_ENV="/dev/null" \
 WINDOWS_OPERATOR_SYNC_TARGETS="alice@win-a:2222 bob@win-a:2223" \
 WINDOWS_OPERATOR_RUN_ID="sync-label-test" \
 WINDOWS_OPERATOR_SYNC_PROFILE="0" \
-WINDOWS_OPERATOR_SYNC_CODEX="1" \
 "$available_syncer" --dry-run >"$tmp_root/available-sync-labels.txt"
 grep -q "run-id-base=sync-label-test target-label=alice-win-a-2222" "$tmp_root/available-sync-labels.txt"
 grep -q "run-id-base=sync-label-test target-label=bob-win-a-2223" "$tmp_root/available-sync-labels.txt"

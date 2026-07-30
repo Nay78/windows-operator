@@ -455,7 +455,6 @@ Linux scripts:
 | `windows-run-ps.sh` | operational transport helper | keep direct and optional `wo windows run-ps` | Contract-sensitive transport defaults. |
 | `windows-sync-available.sh` | operational helper | keep direct and Just shortcut | Sync has separate target logic. |
 | `windows-sync-repo.sh` | operational helper | keep direct | Lower-level sync primitive. |
-| `windows-sync-codex-profile.sh` | operational helper | keep direct and Just shortcut | Codex-specific. |
 | `cleanup-microsoft-auth-edge.sh` | break-glass helper | wrapped by `wo auth microsoft cleanup` | REST/CLI cleanup is preferred for normal use. |
 | `test-microsoft-graph-mail-read.sh` | one-off/dev | keep direct or retire after mail CLI | Graph viability probe, not stable harness. |
 | `audit_entra_apps.py` | one-off/dev | keep direct | External app audit, not runtime harness. |
@@ -468,7 +467,6 @@ Windows scripts:
 | `restart-scheduled-task.ps1`, `run-dotnet-test.ps1` | operational helper | keep direct, optional CLI wrappers | Useful from Linux runner. |
 | `login-microsoft-device-code.ps1` | legacy/fallback auth helper | break-glass | REST auth path preferred. |
 | `recover-outlook-mail.ps1`, `restart-outlook.ps1` | break-glass mail recovery | keep direct | Do not hide destructive/recovery semantics behind generic shortcuts. |
-| `sync-codex-*.ps1`, `verify-codex-profile.ps1` | Codex profile ops | keep direct behind Linux sync scripts | Machine/profile state needs explicit scripts. |
 
 ## Target End State
 

@@ -163,26 +163,15 @@ profile files remain machine-local state; the actual aliases/functions live in
 `profiles\powershell\profile.ps1` inside the synced repo. Override targets with
 `WINDOWS_OPERATOR_POWERSHELL_PROFILE_TARGETS`, separated by semicolons.
 
-Repo-owned Codex profile sync:
-
-```bash
-scripts/linux/windows-sync-codex-profile.sh
-```
-
-This syncs durable Codex config, `AGENTS.md`, rules, subagents, and skills. It
-does not copy auth, history, session databases, plugin caches, or plugin
-runtimes. Codex credentials stay machine-local.
-
 Top-level sync shortcut:
 
 ```bash
 just sync
 ```
 
-`just sync` probes configured targets, skips offline machines, and runs repo,
-PowerShell profile, and durable Codex config/skills sync on reachable machines.
-Set `WINDOWS_OPERATOR_SYNC_PROFILE=0` or `WINDOWS_OPERATOR_SYNC_CODEX=0` to
-narrow that top-level behavior. Configure multiple targets with
+`just sync` probes configured targets, skips offline machines, and runs repo
+plus PowerShell profile sync on reachable machines. Set
+`WINDOWS_OPERATOR_SYNC_PROFILE=0` to narrow that top-level behavior. Configure multiple targets with
 `WINDOWS_OPERATOR_SYNC_TARGETS`, separated by whitespace:
 
 ```bash
@@ -191,8 +180,8 @@ just sync
 ```
 
 Use `just sync-plan` to inspect target resolution without connecting.
-Use `just sync-codex` for only Codex config/skills and `just sync-codex-plan`
-for its dry-run plan.
+Windows Operator does not render, install, sync, or verify Codex configuration.
+Edit Codex files directly on each machine.
 
 Keep Host REST loopback-only on non-VM targets too. Use an SSH local forward
 instead of binding unauthenticated Operator REST to the tailnet:

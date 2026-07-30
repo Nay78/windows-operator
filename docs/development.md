@@ -109,30 +109,29 @@ curl http://127.0.0.1:43127/v1/health
 ```
 
 For interactive shell conveniences on the Windows user, sync repo-owned shell
-and Codex profile state:
+state:
 
 ```bash
 just sync
 ```
 
-Sync target selection, direct profile/Codex helpers, and opt-outs are documented
+Sync target selection, PowerShell profile helpers, and opt-outs are documented
 in [operator exchange](operator-exchange.md#linux-runner). Edit aliases and
 functions in `profiles/powershell/profile.ps1`, then run sync again.
 
 VM bootstrap also installs Codex CLI and registers `Codex.AppServer`:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\windows\bootstrap-codex.ps1 -EnableAutostart -InstallProfile
+powershell -ExecutionPolicy Bypass -File .\scripts\windows\bootstrap-codex.ps1 -EnableAutostart
 ```
 
 Codex install/log/npm state lives under `%LOCALAPPDATA%\Codex`. Codex
 configuration and auth use `CODEX_HOME`, defaulting here to
 `%USERPROFILE%\.codex`, matching Codex's documented default shape.
-`-InstallProfile` writes a Windows-safe profile: `config.toml`, `AGENTS.md`,
-`rules/default.rules`, and read-only agent definitions. It does not copy
-`auth.json`, history, session databases, plugin caches, or Linux/Nix-specific
-MCP paths. Run `codex login` manually in the Windows desktop session;
-provisioning never writes credentials. The task starts
+Windows Operator does not render, install, sync, or verify Codex configuration.
+Edit Codex files directly on each machine.
+Run `codex login` manually in the Windows desktop session; provisioning never
+writes credentials. The task starts
 `codex app-server --listen ws://127.0.0.1:43118` only after login is present.
 Linux host access uses the NixOS SSH tunnel on `127.0.0.1:43118`.
 

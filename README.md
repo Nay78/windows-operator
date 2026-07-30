@@ -190,8 +190,11 @@ Codex bootstrap provisions Codex CLI under `%LOCALAPPDATA%\Codex`, using a
 local npm prefix/cache and a per-user `Codex.AppServer` scheduled task:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\windows\bootstrap-codex.ps1 -EnableAutostart -InstallProfile
+powershell -ExecutionPolicy Bypass -File .\scripts\windows\bootstrap-codex.ps1 -EnableAutostart
 ```
+
+Windows Operator does not render, install, sync, or verify Codex configuration.
+Edit Codex files directly on the Windows machine.
 
 Codex credentials are not provisioned. Run `codex login` manually in the
 Windows desktop session. After login, `Codex.AppServer` starts

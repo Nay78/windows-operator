@@ -3,17 +3,9 @@ set dotenv-load := false
 default:
     @just --list
 
-# Sync repo-owned source, PowerShell profile, and Codex profile/skills to reachable Windows targets.
+# Sync repo-owned source and PowerShell profile to reachable Windows targets.
 sync:
     scripts/linux/windows-sync-available.sh
-
-# Sync only Codex config, agents, rules, and skills to the configured Windows target.
-sync-codex:
-    scripts/linux/windows-sync-codex-profile.sh
-
-# Show Codex config/skills sync plan without connecting.
-sync-codex-plan:
-    scripts/linux/windows-sync-codex-profile.sh --dry-run
 
 # Show sync target resolution without connecting.
 sync-plan:

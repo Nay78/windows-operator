@@ -6,8 +6,6 @@ param(
 
     [switch]$EnableAutostart,
 
-    [switch]$InstallProfile,
-
     [string]$ListenUrl = "ws://127.0.0.1:43118"
 )
 
@@ -347,23 +345,6 @@ if ($versionResult.ExitCode -ne 0) {
     throw "codex --version failed."
 }
 Write-Step "Installed $($versionResult.Output)"
-
-if ($InstallProfile) {
-    Write-Step "Installing Windows Codex profile."
-    $profileProjectRoots = @("C:\src", (Join-Path $env:USERPROFILE "projects"), $repoRoot)
-    $profileProjectRootsText = $profileProjectRoots -join ';'
-    & powershell.exe `
-        -NoProfile `
-        -ExecutionPolicy Bypass `
-        -File (Join-Path $PSScriptRoot "configure-codex-profile.ps1") `
-        -CodexHome $resolvedCodexHome `
-        -TrustedProjectRootsText $profileProjectRootsText `
-        -ForceStaticProfile
-
-    if ($LASTEXITCODE -ne 0) {
-        throw "Codex profile installation failed."
-    }
-}
 
 if ($EnableAutostart) {
     Write-Step "Registering Codex app-server logon task."

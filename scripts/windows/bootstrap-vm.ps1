@@ -21,7 +21,7 @@ if (-not $?) {
     throw "Windows Operator VM bootstrap failed."
 }
 
-& $codexBootstrapPath -EnableAutostart -InstallProfile
+& $codexBootstrapPath -EnableAutostart
 if (-not $?) {
     throw "Codex VM bootstrap failed."
 }

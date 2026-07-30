@@ -17,11 +17,10 @@ Environment:
   WINDOWS_OPERATOR_SSH_TIMEOUT      Per-target probe timeout seconds. Default: 5.
   WINDOWS_OPERATOR_RUN_ID           Optional run id base.
   WINDOWS_OPERATOR_SYNC_PROFILE     Sync PowerShell profile after repo sync. Default: 1.
-  WINDOWS_OPERATOR_SYNC_CODEX       Sync Codex config, agents, rules, and skills. Default: 1.
 
 The script probes configured SSH targets. Offline targets are skipped. Reachable
 targets receive the repo sync and, by default, the repo-owned PowerShell profile
-plus durable Codex config and skills.
+state.
 USAGE
 }
 
@@ -104,7 +103,6 @@ else
 fi
 ssh_timeout="${WINDOWS_OPERATOR_SSH_TIMEOUT:-5}"
 sync_profile="${WINDOWS_OPERATOR_SYNC_PROFILE:-1}"
-sync_codex="${WINDOWS_OPERATOR_SYNC_CODEX:-1}"
 run_id_base="${WINDOWS_OPERATOR_RUN_ID:-sync-available-$(date -u +%Y%m%dT%H%M%SZ)-$$}"
 
 if [[ -n "${WINDOWS_OPERATOR_SYNC_TARGETS:-}" ]]; then
@@ -142,11 +140,10 @@ for spec in "${target_specs[@]}"; do
   printf '[sync] target=%s port=%s user=%s\n' "$target_host" "$target_port" "$target_user"
 
   if [[ "$dry_run" -eq 1 ]]; then
-    printf '[sync] dry-run: would probe %s:%s and sync repo%s%s run-id-base=%s target-label=%s\n' \
+    printf '[sync] dry-run: would probe %s:%s and sync repo%s run-id-base=%s target-label=%s\n' \
       "$target_host" \
       "$target_port" \
       "$(if [[ "$sync_profile" != "0" ]]; then printf ' + profile'; fi)" \
-      "$(if [[ "$sync_codex" != "0" ]]; then printf ' + codex'; fi)" \
       "$run_id_base" \
       "$target_label"
     continue
@@ -181,18 +178,6 @@ for spec in "${target_specs[@]}"; do
       printf '[sync] failed target=%s\n' "$target_host" >&2
       failed=$((failed + 1))
       target_failed=1
-    fi
-  fi
-
-  if [[ "$sync_codex" != "0" && "$target_failed" -eq 0 ]]; then
-    if ! WINDOWS_OPERATOR_RUN_ID="${run_id_base}-${target_label}-codex" \
-      WINDOWS_OPERATOR_SSH_USER="$target_user" \
-      WINDOWS_OPERATOR_SSH_HOST="$target_host" \
-      WINDOWS_OPERATOR_SSH_TARGET="$target" \
-      WINDOWS_OPERATOR_SSH_PORT="$target_port" \
-      "$repo_root/scripts/linux/windows-sync-codex-profile.sh"; then
-      printf '[sync] codex failed target=%s\n' "$target_host" >&2
-      failed=$((failed + 1))
     fi
   fi
 done

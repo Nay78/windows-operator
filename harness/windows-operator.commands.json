@@ -20,7 +20,7 @@
   },
   {
     "name": "sync",
-    "summary": "Sync repo plus managed PowerShell and Codex profile state to reachable Windows targets.",
+    "summary": "Sync repo plus managed PowerShell profile state to reachable Windows targets.",
     "layer": "just",
     "command": "just sync",
     "safeDefault": false,
@@ -33,42 +33,6 @@
     ],
     "preferredFor": [
       "full Windows sync to reachable targets"
-    ],
-    "replacedBy": null
-  },
-  {
-    "name": "sync-codex",
-    "summary": "Sync durable Codex config, rules, agents, and skills to configured Windows target.",
-    "layer": "just",
-    "command": "just sync-codex",
-    "safeDefault": false,
-    "mutatesExternalState": true,
-    "requiresDesktop": false,
-    "requiresCleanup": false,
-    "summaryPath": null,
-    "examples": [
-      "just sync-codex"
-    ],
-    "preferredFor": [
-      "updating Windows Codex profile without full repo sync menu"
-    ],
-    "replacedBy": null
-  },
-  {
-    "name": "sync-codex-plan",
-    "summary": "Show Codex profile sync plan without connecting or writing remote state.",
-    "layer": "just",
-    "command": "just sync-codex-plan",
-    "safeDefault": true,
-    "mutatesExternalState": false,
-    "requiresDesktop": false,
-    "requiresCleanup": false,
-    "summaryPath": null,
-    "examples": [
-      "just sync-codex-plan"
-    ],
-    "preferredFor": [
-      "previewing Codex profile sync"
     ],
     "replacedBy": null
   },
@@ -912,25 +876,6 @@
     ],
     "preferredFor": [
       "PowerShell profile installation after repo sync"
-    ],
-    "replacedBy": null
-  },
-  {
-    "name": "windows-sync-codex-profile",
-    "summary": "Sync durable Codex config and verify target Codex profile state on Windows.",
-    "layer": "script",
-    "command": "scripts/linux/windows-sync-codex-profile.sh",
-    "safeDefault": false,
-    "mutatesExternalState": true,
-    "requiresDesktop": false,
-    "requiresCleanup": false,
-    "summaryPath": null,
-    "examples": [
-      "scripts/linux/windows-sync-codex-profile.sh",
-      "scripts/linux/windows-sync-codex-profile.sh --dry-run"
-    ],
-    "preferredFor": [
-      "low-level Codex profile sync and verification"
     ],
     "replacedBy": null
   },
