@@ -4,6 +4,42 @@ namespace WindowsOperator.Core;
 
 public static class OperatorErrors
 {
+    public static OperatorError InvalidRequest(string detail) =>
+        Create(
+            ErrorCodes.InvalidRequest,
+            "Request payload or parameters are invalid.",
+            "Fix the request using the published OpenAPI contract, then retry.",
+            detail,
+            OperatorErrorCategory.Validation,
+            retryable: false);
+
+    public static OperatorError RouteNotFound(string detail) =>
+        Create(
+            ErrorCodes.RouteNotFound,
+            "Requested API route does not exist.",
+            "Use a method and path published by the live OpenAPI document.",
+            detail,
+            OperatorErrorCategory.NotFound,
+            retryable: false);
+
+    public static OperatorError MethodNotAllowed(string detail) =>
+        Create(
+            ErrorCodes.MethodNotAllowed,
+            "HTTP method is not allowed for this API route.",
+            "Use the method published for this path by the live OpenAPI document.",
+            detail,
+            OperatorErrorCategory.Validation,
+            retryable: false);
+
+    public static OperatorError InternalError() =>
+        Create(
+            ErrorCodes.InternalError,
+            "Windows Operator encountered an unexpected failure.",
+            "Retry once. If the failure persists, inspect server logs using the correlation id.",
+            "Unhandled endpoint exception.",
+            OperatorErrorCategory.Internal,
+            retryable: true);
+
     public static OperatorError LockedDesktop(string detail) =>
         Create(
             ErrorCodes.LockedDesktop,
@@ -76,6 +112,33 @@ public static class OperatorErrors
             OperatorErrorCategory.Unavailable,
             retryable: true);
 
+    public static OperatorError AuthRunNotFound(string detail) =>
+        Create(
+            ErrorCodes.AuthRunNotFound,
+            "Requested Microsoft authentication run was not found.",
+            "Check the run id or start a new Microsoft authentication handoff.",
+            detail,
+            OperatorErrorCategory.NotFound,
+            retryable: false);
+
+    public static OperatorError BrowserSessionNotFound(string detail) =>
+        Create(
+            ErrorCodes.BrowserSessionNotFound,
+            "Requested Edge browser session was not found.",
+            "Check the session id or start a new owned Edge browser session.",
+            detail,
+            OperatorErrorCategory.NotFound,
+            retryable: false);
+
+    public static OperatorError WorkbenchSessionNotFound(string detail) =>
+        Create(
+            ErrorCodes.WorkbenchSessionNotFound,
+            "Requested workbench session was not found.",
+            "Check the session id or open a new workbench session.",
+            detail,
+            OperatorErrorCategory.NotFound,
+            retryable: false);
+
     public static OperatorError PowerPointUnavailable(string detail) =>
         Create(
             ErrorCodes.PowerPointUnavailable,
@@ -92,6 +155,15 @@ public static class OperatorErrors
             "Inspect the presentation, fix selectors or paths, then retry.",
             detail,
             OperatorErrorCategory.Validation,
+            retryable: false);
+
+    public static OperatorError PowerPointSessionNotFound(string detail) =>
+        Create(
+            ErrorCodes.PowerPointSessionNotFound,
+            "Requested PowerPoint Online session was not found.",
+            "Check the session id or start a new PowerPoint Online session.",
+            detail,
+            OperatorErrorCategory.NotFound,
             retryable: false);
 
     public static OperatorError PowerPointJobNotFound(string detail) =>
@@ -164,6 +236,24 @@ public static class OperatorErrors
             "Check the run id or rerun the download.",
             detail,
             OperatorErrorCategory.NotFound,
+            retryable: false);
+
+    public static OperatorError PowerAutomateMcpUnavailable(string detail) =>
+        Create(
+            ErrorCodes.PowerAutomateMcpUnavailable,
+            "Power Automate MCP bridge is unavailable.",
+            "Confirm Windows desktop session, Microsoft Edge, Node.js, npm, and loopback bridge state, then retry.",
+            detail,
+            OperatorErrorCategory.Unavailable,
+            retryable: true);
+
+    public static OperatorError PowerAutomateMcpValidationFailed(string detail) =>
+        Create(
+            ErrorCodes.PowerAutomateMcpValidationFailed,
+            "Power Automate MCP request is invalid.",
+            "Fix the bridge host, port, package, URL, or extension path, then retry.",
+            detail,
+            OperatorErrorCategory.Validation,
             retryable: false);
 
     public static OperatorError OpenApiNamespaceNotFound(string detail) =>

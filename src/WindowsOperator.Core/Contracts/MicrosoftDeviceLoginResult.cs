@@ -23,4 +23,4 @@ public sealed record MicrosoftDeviceLoginResult(
     string? BrowserState = null,
     string? BrowserTitle = null,
     DateTimeOffset? ObservedAtUtc = null,
-    string? StatusPath = null);
+    [property: OperatorInternal] string? StatusPath = null);

@@ -4,6 +4,7 @@ using FlaUI.Core.Exceptions;
 using FlaUI.Core.Input;
 using FlaUI.Core.WindowsAPI;
 using FlaUI.UIA3;
+using System.Runtime.InteropServices;
 using WindowsOperator.Core;
 using WindowsOperator.Core.Contracts;
 
@@ -24,8 +25,7 @@ public sealed class FlaUiUia3AutomationBackend : IUiAutomationBackend
 
         using var automation = new UIA3Automation();
         var root = ResolveRoot(automation, query.WindowHwnd);
-        var matches = root
-            .FindAllDescendants()
+        var matches = EnumerateDescendants(root)
             .Where(element => Matches(element, query))
             .Take(Math.Max(1, query.MaxResults))
             .Select(Map)
@@ -117,7 +117,7 @@ public sealed class FlaUiUia3AutomationBackend : IUiAutomationBackend
     private static AutomationElement ResolveSingle(UIA3Automation automation, UiQuery query)
     {
         var root = ResolveRoot(automation, query.WindowHwnd);
-        var element = root.FindAllDescendants().FirstOrDefault(candidate => Matches(candidate, query));
+        var element = EnumerateDescendants(root).FirstOrDefault(candidate => Matches(candidate, query));
 
         if (element is null)
         {
@@ -126,6 +126,32 @@ public sealed class FlaUiUia3AutomationBackend : IUiAutomationBackend
         }
 
         return element;
+    }
+
+    private static IEnumerable<AutomationElement> EnumerateDescendants(AutomationElement root)
+    {
+        var pending = new Queue<AutomationElement>();
+        pending.Enqueue(root);
+
+        while (pending.Count > 0)
+        {
+            var parent = pending.Dequeue();
+            AutomationElement[] children;
+            try
+            {
+                children = parent.FindAllChildren();
+            }
+            catch (Exception exception) when (IsTransientAutomationFailure(exception))
+            {
+                continue;
+            }
+
+            foreach (var child in children)
+            {
+                yield return child;
+                pending.Enqueue(child);
+            }
+        }
     }
 
     private static bool Matches(AutomationElement element, UiQuery query)
@@ -141,10 +167,20 @@ public sealed class FlaUiUia3AutomationBackend : IUiAutomationBackend
             return false;
         }
 
-        if (!string.IsNullOrWhiteSpace(query.AutomationId) &&
-            !string.Equals(ReadProperty(element, item => item.AutomationId, string.Empty), query.AutomationId, StringComparison.OrdinalIgnoreCase))
+        if (!string.IsNullOrWhiteSpace(query.AutomationId))
         {
-            return false;
+            if (TryParsePointSelector(query.AutomationId, out var pointX, out var pointY))
+            {
+                var rect = ReadProperty(element, item => item.BoundingRectangle, default);
+                if (pointX < rect.X || pointY < rect.Y || pointX >= rect.X + rect.Width || pointY >= rect.Y + rect.Height)
+                {
+                    return false;
+                }
+            }
+            else if (!string.Equals(ReadProperty(element, item => item.AutomationId, string.Empty), query.AutomationId, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(query.ControlType) &&
@@ -154,6 +190,23 @@ public sealed class FlaUiUia3AutomationBackend : IUiAutomationBackend
         }
 
         return true;
+    }
+
+    private static bool TryParsePointSelector(string value, out int x, out int y)
+    {
+        x = 0;
+        y = 0;
+
+        const string Prefix = "point:";
+        if (!value.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var parts = value[Prefix.Length..].Split(',', 2, StringSplitOptions.TrimEntries);
+        return parts.Length == 2
+            && int.TryParse(parts[0], out x)
+            && int.TryParse(parts[1], out y);
     }
 
     private static UiElementRef Map(AutomationElement element)
@@ -179,5 +232,12 @@ public sealed class FlaUiUia3AutomationBackend : IUiAutomationBackend
         {
             return fallback;
         }
+        catch (Exception exception) when (IsTransientAutomationFailure(exception))
+        {
+            return fallback;
+        }
     }
+
+    private static bool IsTransientAutomationFailure(Exception exception) =>
+        exception is COMException or ElementNotAvailableException;
 }

@@ -23,12 +23,17 @@ public sealed class PowerPointJobService : IPowerPointJobService
     private const string ReadTable = "readTable";
     private const string ReplaceTableCell = "replaceTableCell";
     private const string ReplaceTableRange = "replaceTableRange";
+    private const string ReadShapeBounds = "readShapeBounds";
+    private const string SetShapeBounds = "setShapeBounds";
+    private const string ReadTableGeometry = "readTableGeometry";
+    private const string FindTableColumn = "findTableColumn";
     private const string Plain = "plain";
     private const string Contain = "contain";
     private const string Cover = "cover";
     private const string TextTargetType = "text";
     private const string ImageTargetType = "image";
     private const string TableTargetType = "table";
+    private const string ShapeTargetType = "shape";
     private const string UnknownTargetType = "unknown";
     private const string BindingTargetSource = "binding";
     private const string NameTargetSource = "name";
@@ -432,6 +437,28 @@ public sealed class PowerPointJobService : IPowerPointJobService
             return;
         }
 
+        if (string.Equals(operation.Kind, ReadShapeBounds, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        if (string.Equals(operation.Kind, SetShapeBounds, StringComparison.Ordinal))
+        {
+            ValidateSetShapeBoundsOperation(operation, validateOnly);
+            return;
+        }
+
+        if (string.Equals(operation.Kind, ReadTableGeometry, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        if (string.Equals(operation.Kind, FindTableColumn, StringComparison.Ordinal))
+        {
+            ValidateFindTableColumnOperation(operation, validateOnly);
+            return;
+        }
+
         throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"Unsupported PowerPoint operation kind: {operation.Kind}"));
     }
 
@@ -536,6 +563,97 @@ public sealed class PowerPointJobService : IPowerPointJobService
         }
     }
 
+    private static void ValidateSetShapeBoundsOperation(PowerPointUpdateOperation operation, bool validateOnly)
+    {
+        if (validateOnly &&
+            operation.Left is null &&
+            operation.Top is null &&
+            operation.Width is null &&
+            operation.Height is null)
+        {
+            return;
+        }
+
+        ValidateShapeCoordinate(operation.Left, "left", operation.TargetId);
+        ValidateShapeCoordinate(operation.Top, "top", operation.TargetId);
+        ValidateShapeDimension(operation.Width, "width", operation.TargetId);
+        ValidateShapeDimension(operation.Height, "height", operation.TargetId);
+
+        if (validateOnly)
+        {
+            return;
+        }
+
+        if (operation.Left is null)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"setShapeBounds requires left: {operation.TargetId}"));
+        }
+
+        if (operation.Top is null)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"setShapeBounds requires top: {operation.TargetId}"));
+        }
+
+        if (operation.Width is null)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"setShapeBounds requires width: {operation.TargetId}"));
+        }
+
+        if (operation.Height is null)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"setShapeBounds requires height: {operation.TargetId}"));
+        }
+    }
+
+    private static void ValidateFindTableColumnOperation(PowerPointUpdateOperation operation, bool validateOnly)
+    {
+        if (operation.RowIndex is not null && operation.RowIndex < 0)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"findTableColumn rowIndex must be zero or greater: {operation.TargetId}"));
+        }
+
+        if (validateOnly)
+        {
+            return;
+        }
+
+        if (operation.RowIndex is null)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"findTableColumn requires rowIndex: {operation.TargetId}"));
+        }
+
+        if (string.IsNullOrWhiteSpace(operation.Text))
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"findTableColumn requires text: {operation.TargetId}"));
+        }
+    }
+
+    private static void ValidateShapeCoordinate(double? value, string name, string targetId)
+    {
+        if (value is null)
+        {
+            return;
+        }
+
+        if (!double.IsFinite(value.Value) || value < 0)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"setShapeBounds {name} must be zero or greater: {targetId}"));
+        }
+    }
+
+    private static void ValidateShapeDimension(double? value, string name, string targetId)
+    {
+        if (value is null)
+        {
+            return;
+        }
+
+        if (!double.IsFinite(value.Value) || value <= 0)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"setShapeBounds {name} must be greater than zero: {targetId}"));
+        }
+    }
+
     private static void ValidateTableValues(
         string targetId,
         IReadOnlyList<IReadOnlyList<string>> values,
@@ -624,7 +742,8 @@ public sealed class PowerPointJobService : IPowerPointJobService
             throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed("PowerPoint target result targetId is required."));
         }
 
-        if (target.OperationKind is not ReplaceText and not ReplaceImage and not ReadTable and not ReplaceTableCell and not ReplaceTableRange)
+        if (target.OperationKind is not ReplaceText and not ReplaceImage and not ReadTable and not ReplaceTableCell and not ReplaceTableRange
+            and not ReadShapeBounds and not SetShapeBounds and not ReadTableGeometry and not FindTableColumn)
         {
             throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"Unsupported PowerPoint target operation kind: {target.OperationKind}"));
         }
@@ -640,7 +759,7 @@ public sealed class PowerPointJobService : IPowerPointJobService
         }
 
         if (!string.IsNullOrWhiteSpace(target.Type) &&
-            target.Type is not TextTargetType and not ImageTargetType and not TableTargetType and not UnknownTargetType)
+            target.Type is not TextTargetType and not ImageTargetType and not TableTargetType and not ShapeTargetType and not UnknownTargetType)
         {
             throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"Unsupported PowerPoint target result type: {target.Type}"));
         }
@@ -650,6 +769,16 @@ public sealed class PowerPointJobService : IPowerPointJobService
         if (target.Table is not null)
         {
             ValidateTableSnapshot(target.Table, target.TargetId);
+        }
+
+        if (target.Bounds is not null)
+        {
+            ValidateBounds(target.Bounds, $"PowerPoint target bounds for {target.TargetId}");
+        }
+
+        if (target.TableMatch is not null)
+        {
+            ValidateTableMatch(target.TableMatch, target.TargetId);
         }
 
         if (target.Error is not null)
@@ -670,7 +799,7 @@ public sealed class PowerPointJobService : IPowerPointJobService
             throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed("PowerPoint discovered target targetId is required."));
         }
 
-        if (target.Type is not TextTargetType and not ImageTargetType and not TableTargetType and not UnknownTargetType)
+        if (target.Type is not TextTargetType and not ImageTargetType and not TableTargetType and not ShapeTargetType and not UnknownTargetType)
         {
             throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"Unsupported PowerPoint discovered target type: {target.Type}"));
         }
@@ -705,6 +834,76 @@ public sealed class PowerPointJobService : IPowerPointJobService
             {
                 throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"PowerPoint table column count mismatch: {targetId}"));
             }
+        }
+
+        if (table.Geometry is not null)
+        {
+            ValidateTableGeometry(table.Geometry, table.RowCount, table.ColumnCount, targetId);
+        }
+    }
+
+    private static void ValidateTableGeometry(PowerPointTableGeometry geometry, int rowCount, int columnCount, string targetId)
+    {
+        if (geometry.Bounds is null)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"PowerPoint table geometry requires bounds: {targetId}"));
+        }
+
+        ValidateBounds(geometry.Bounds, $"PowerPoint table geometry bounds for {targetId}");
+
+        if (geometry.Columns is null || geometry.Columns.Count != columnCount)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"PowerPoint table geometry column count mismatch: {targetId}"));
+        }
+
+        foreach (var column in geometry.Columns)
+        {
+            if (column.ColumnIndex < 0 || column.ColumnIndex >= columnCount ||
+                !double.IsFinite(column.Left) ||
+                !double.IsFinite(column.Right) ||
+                !double.IsFinite(column.Width) ||
+                column.Width <= 0)
+            {
+                throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"PowerPoint table geometry column is invalid: {targetId}"));
+            }
+        }
+
+        if (geometry.Rows is null || geometry.Rows.Count != rowCount)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"PowerPoint table geometry row count mismatch: {targetId}"));
+        }
+
+        foreach (var row in geometry.Rows)
+        {
+            if (row.RowIndex < 0 || row.RowIndex >= rowCount ||
+                !double.IsFinite(row.Top) ||
+                !double.IsFinite(row.Bottom) ||
+                !double.IsFinite(row.Height) ||
+                row.Height <= 0)
+            {
+                throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"PowerPoint table geometry row is invalid: {targetId}"));
+            }
+        }
+    }
+
+    private static void ValidateBounds(PowerPointShapeBounds bounds, string subject)
+    {
+        if (!double.IsFinite(bounds.Left) ||
+            !double.IsFinite(bounds.Top) ||
+            !double.IsFinite(bounds.Width) ||
+            !double.IsFinite(bounds.Height) ||
+            bounds.Width <= 0 ||
+            bounds.Height <= 0)
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"{subject} are invalid."));
+        }
+    }
+
+    private static void ValidateTableMatch(PowerPointTableMatch match, string targetId)
+    {
+        if (match.RowIndex < 0 || match.ColumnIndex < 0 || string.IsNullOrWhiteSpace(match.Text))
+        {
+            throw new OperatorFailureException(OperatorErrors.PowerPointValidationFailed($"PowerPoint table match is invalid: {targetId}"));
         }
     }
 

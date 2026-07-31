@@ -2,6 +2,7 @@ import { UpdateFailure } from "../domain/errors";
 import type {
   DiscoveredTarget,
   ResolvedArtifact,
+  ShapeBounds,
   TableRangeUpdateOperation,
   TableSnapshot,
   TargetInspection,
@@ -18,6 +19,7 @@ import {
   targetIdFromShapeName,
 } from "../template/namedTargetContract";
 import { assertPowerPointRequirements, supportsPowerPointApi } from "./requirements";
+import { buildTableGeometry, findUniqueTableColumn } from "./tableGeometry";
 
 type NullableOfficeObject<T> = T & { isNullObject: boolean };
 type QueuedMutation = () => void;
@@ -129,7 +131,7 @@ export class OfficePresentationAdapter implements PresentationAdapter {
         }
 
         queueTagRepair(plan.record.shape, "TARGET_ID", plan.record.targetId, plan.record.targetIdTag);
-        queueTagRepair(plan.record.shape, "TARGET_KIND", plan.expectedType, plan.record.targetKindTag);
+        queueTargetKindRepair(plan.record.shape, plan.expectedType, plan.record.targetKindTag);
       }
 
       if (plans.some((plan) => plan.addBinding || needsTagRepair(plan.record, plan.expectedType))) {
@@ -175,7 +177,7 @@ export class OfficePresentationAdapter implements PresentationAdapter {
       }));
 
       targetShapes.forEach(({ shape }) => {
-        shape.load("id,name,type");
+        shape.load("id,name,type,left,top,width,height");
       });
 
       try {
@@ -426,17 +428,34 @@ function targetRequestsForOperations(operations: UpdateOperation[]): TargetReque
   for (const operation of operations) {
     const expectedType = expectedTargetTypeForOperation(operation);
     const existing = requests.get(operation.targetId);
-    if (existing && existing !== expectedType) {
+    const combined = existing ? combineTargetTypes(existing, expectedType) : expectedType;
+    if (existing && !combined) {
       throw new UpdateFailure(
         "TARGET_AMBIGUOUS",
         `Target ${operation.targetId} is used with incompatible operation types.`,
         `expected=${existing}; requested=${expectedType}`,
       );
     }
-    requests.set(operation.targetId, expectedType);
+    requests.set(operation.targetId, combined ?? expectedType);
   }
 
   return [...requests.entries()].map(([targetId, expectedType]) => ({ targetId, expectedType }));
+}
+
+function combineTargetTypes(existing: TargetType, requested: TargetType): TargetType | undefined {
+  if (existing === requested) {
+    return existing;
+  }
+
+  if (existing === "shape") {
+    return requested;
+  }
+
+  if (requested === "shape") {
+    return existing;
+  }
+
+  return undefined;
 }
 
 function assertCompatibleTarget(record: ShapeTargetRecord, expectedType: TargetType): void {
@@ -458,7 +477,7 @@ function assertTagsCompatible(record: ShapeTargetRecord, expectedType: TargetTyp
     );
   }
 
-  if (record.targetKindTag && record.targetKindTag !== expectedType) {
+  if (!isTargetKindCompatible(record.targetKindTag, expectedType)) {
     throw new UpdateFailure(
       "TARGET_NOT_EDITABLE",
       `Target ${record.targetId} has a conflicting TARGET_KIND tag.`,
@@ -486,11 +505,28 @@ function toInspection(
 }
 
 function hasExpectedTags(record: ShapeTargetRecord, expectedType: TargetType): boolean {
-  return record.targetIdTag === record.targetId && record.targetKindTag === expectedType;
+  return record.targetIdTag === record.targetId &&
+    record.targetKindTag !== undefined &&
+    isTargetKindCompatible(record.targetKindTag, expectedType);
 }
 
 function needsTagRepair(record: ShapeTargetRecord, expectedType: TargetType): boolean {
-  return record.targetIdTag !== record.targetId || record.targetKindTag !== expectedType;
+  return record.targetIdTag !== record.targetId ||
+    record.targetKindTag === undefined ||
+    !isTargetKindCompatible(record.targetKindTag, expectedType);
+}
+
+function isTargetKindCompatible(existing: string | undefined, expectedType: TargetType): boolean {
+  if (!existing) {
+    return true;
+  }
+
+  if (existing === expectedType) {
+    return true;
+  }
+
+  return expectedType === "shape" &&
+    (existing === "text" || existing === "image" || existing === "table");
 }
 
 function queueTagRepair(shape: PowerPoint.Shape, tag: TargetTag, value: string, existing?: string): void {
@@ -499,6 +535,14 @@ function queueTagRepair(shape: PowerPoint.Shape, tag: TargetTag, value: string, 
   }
 
   shape.tags.add(tag, value);
+}
+
+function queueTargetKindRepair(shape: PowerPoint.Shape, expectedType: TargetType, existing?: string): void {
+  if (existing !== undefined && isTargetKindCompatible(existing, expectedType)) {
+    return;
+  }
+
+  shape.tags.add("TARGET_KIND", expectedType);
 }
 
 function validateOperations(operations: UpdateOperation[]): void {
@@ -521,7 +565,11 @@ function validateOperations(operations: UpdateOperation[]): void {
       continue;
     }
 
-    if (operation.kind === "readTable") {
+    if (operation.kind === "readShapeBounds" ||
+        operation.kind === "setShapeBounds" ||
+        operation.kind === "readTable" ||
+        operation.kind === "readTableGeometry" ||
+        operation.kind === "findTableColumn") {
       continue;
     }
 
@@ -538,13 +586,15 @@ function validateOperations(operations: UpdateOperation[]): void {
       continue;
     }
 
-    if (!operation.values) {
-      throw new UpdateFailure("UPDATE_FAILED", `Table target ${operation.targetId} is missing range values.`);
-    }
+    if (operation.kind === "replaceTableRange") {
+      if (!operation.values) {
+        throw new UpdateFailure("UPDATE_FAILED", `Table target ${operation.targetId} is missing range values.`);
+      }
 
-    validateTableIndex(operation.startRowIndex ?? 0, "startRowIndex", operation.targetId);
-    validateTableIndex(operation.startColumnIndex ?? 0, "startColumnIndex", operation.targetId);
-    validateTableValues(operation, operation.values);
+      validateTableIndex(operation.startRowIndex ?? 0, "startRowIndex", operation.targetId);
+      validateTableIndex(operation.startColumnIndex ?? 0, "startColumnIndex", operation.targetId);
+      validateTableValues(operation, operation.values);
+    }
   }
 }
 
@@ -587,6 +637,38 @@ async function prepareOperation(
   operation: UpdateOperation,
   artifacts: Map<string, ResolvedArtifact>,
 ): Promise<{ result: TargetResult; mutations: QueuedMutation[] }> {
+  if (operation.kind === "readShapeBounds") {
+    return {
+      result: {
+        targetId: operation.targetId,
+        operationKind: operation.kind,
+        status: "succeeded",
+        type: "shape",
+        bounds: shapeBounds(shape),
+      },
+      mutations: [],
+    };
+  }
+
+  if (operation.kind === "setShapeBounds") {
+    const bounds = operationBounds(operation);
+    return {
+      result: {
+        targetId: operation.targetId,
+        operationKind: operation.kind,
+        status: "succeeded",
+        type: "shape",
+        bounds,
+      },
+      mutations: [() => {
+        shape.left = bounds.left;
+        shape.top = bounds.top;
+        shape.width = bounds.width;
+        shape.height = bounds.height;
+      }],
+    };
+  }
+
   if (operation.kind === "readTable") {
     const table = await loadTableSnapshot(context, shape, operation.targetId);
     return {
@@ -596,6 +678,40 @@ async function prepareOperation(
         status: "succeeded",
         type: "table",
         table,
+      },
+      mutations: [],
+    };
+  }
+
+  if (operation.kind === "readTableGeometry") {
+    const table = await loadTableSnapshot(context, shape, operation.targetId, true);
+    return {
+      result: {
+        targetId: operation.targetId,
+        operationKind: operation.kind,
+        status: "succeeded",
+        type: "table",
+        table,
+      },
+      mutations: [],
+    };
+  }
+
+  if (operation.kind === "findTableColumn") {
+    const table = await loadTableSnapshot(context, shape, operation.targetId);
+    const tableMatch = findUniqueTableColumn(
+      table.values,
+      operation.rowIndex ?? -1,
+      operation.text ?? "",
+      operation.targetId,
+    );
+    return {
+      result: {
+        targetId: operation.targetId,
+        operationKind: operation.kind,
+        status: "succeeded",
+        type: "table",
+        tableMatch,
       },
       mutations: [],
     };
@@ -681,13 +797,48 @@ async function loadTableSnapshot(
   context: PowerPoint.RequestContext,
   shape: PowerPoint.Shape,
   targetId: string,
+  includeGeometry = false,
 ): Promise<TableSnapshot> {
   const table = await loadTableForMutation(context, shape, targetId);
+  const geometry = includeGeometry
+    ? await loadTableGeometry(context, shape, table)
+    : undefined;
+
   return {
     rowCount: table.rowCount,
     columnCount: table.columnCount,
     values: table.values.map((row) => row.map((value) => value ?? "")),
+    geometry,
   };
+}
+
+async function loadTableGeometry(
+  context: PowerPoint.RequestContext,
+  shape: PowerPoint.Shape,
+  table: PowerPoint.Table,
+): Promise<TableSnapshot["geometry"]> {
+  const columns = table.columns;
+  const rows = table.rows;
+  columns.load("items");
+  rows.load("items");
+  await context.sync();
+
+  columns.items.forEach((column) => {
+    column.load("columnIndex,width");
+  });
+  rows.items.forEach((row) => {
+    row.load("rowIndex,currentHeight");
+  });
+  await context.sync();
+
+  const columnWidths = [...columns.items]
+    .sort((left, right) => left.columnIndex - right.columnIndex)
+    .map((column) => column.width);
+  const rowHeights = [...rows.items]
+    .sort((left, right) => left.rowIndex - right.rowIndex)
+    .map((row) => row.currentHeight);
+
+  return buildTableGeometry(shapeBounds(shape), columnWidths, rowHeights);
 }
 
 async function loadTableForMutation(
@@ -733,6 +884,39 @@ function validateRangeInBounds(
 
 function normalizeCellText(value: string): string {
   return value.replace(/\r\n?/gu, "\n");
+}
+
+function shapeBounds(shape: PowerPoint.Shape): ShapeBounds {
+  return {
+    left: shape.left,
+    top: shape.top,
+    width: shape.width,
+    height: shape.height,
+  };
+}
+
+function operationBounds(operation: Extract<UpdateOperation, { kind: "setShapeBounds" }>): ShapeBounds {
+  if (!isValidCoordinate(operation.left) ||
+      !isValidCoordinate(operation.top) ||
+      !isValidDimension(operation.width) ||
+      !isValidDimension(operation.height)) {
+    throw new UpdateFailure("UPDATE_FAILED", `Shape target ${operation.targetId} requires valid bounds.`);
+  }
+
+  return {
+    left: operation.left,
+    top: operation.top,
+    width: operation.width,
+    height: operation.height,
+  };
+}
+
+function isValidCoordinate(value: number | undefined): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+function isValidDimension(value: number | undefined): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
 
 function queueShapeOperation(

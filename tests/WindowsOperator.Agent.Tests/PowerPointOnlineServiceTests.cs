@@ -10,6 +10,26 @@ namespace WindowsOperator.Agent.Tests;
 public sealed class PowerPointOnlineServiceTests
 {
     [Fact]
+    public async Task GetOnlineSessionAsync_UnknownSession_ReturnsTypedNotFound()
+    {
+        using var env = new ExchangeRootScope();
+        var service = new PowerPointOnlineService(
+            new FakeEdgeBrowserService(),
+            new FakeInputService(),
+            new FakeAddInHostProbe(),
+            new FakeUiAutomationService(),
+            new WorkbenchRunStore(env.Options),
+            new FakeWorkbenchService());
+
+        var failure = await Assert.ThrowsAsync<OperatorFailureException>(
+            () => service.GetOnlineSessionAsync("missing-session", CancellationToken.None));
+
+        Assert.Equal(ErrorCodes.PowerPointSessionNotFound, failure.Error.Code);
+        Assert.Equal(OperatorErrorCategory.NotFound, failure.Error.Category);
+        Assert.False(failure.Error.Retryable);
+    }
+
+    [Fact]
     public async Task StartOnlineSessionAsync_OpensEdgeWorkSession_AndCapturesEvidence()
     {
         using var env = new ExchangeRootScope();

@@ -74,11 +74,29 @@ Host-facing artifact refs map the same relative path under
 Fresh Windows host:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\windows\bootstrap.ps1 -RepoRoot \\server\share\windows-operator -EnableAutostart
+powershell -ExecutionPolicy Bypass -File .\scripts\windows\bootstrap.ps1 -RepoRoot \\server\share\windows-operator
 ```
 
-Bootstrap creates local state directories for .NET home, NuGet cache, build
-outputs, logs, and run wrappers. Agent local machine overrides belong in
+Bootstrap always publishes and registers both runtimes: Host under
+`%ProgramData%\WindowsOperator\host`, Agent under
+`%LOCALAPPDATA%\WindowsOperator\agent`. It waits up to 120 seconds for Host
+health and, when a desktop exists, Agent health. It does not run solution tests;
+run those separately during development. Bootstrap also creates local state
+directories for .NET home, NuGet cache, build outputs, logs, and run wrappers.
+It applies the reversible `OperatorSafe` desktop profile by default. The
+allowlist changes only per-user menu delay, window/taskbar animation,
+transparency, and Explorer startup delay. It never downloads or executes a
+third-party optimizer and does not modify Windows services, Defender, Windows
+Update, AppX packages, DNS, OneDrive, or page-file policy. Pre-state snapshots
+live under
+`%LOCALAPPDATA%\WindowsOperator\provisioning\operator-safe\operator-safe-before-*.json`.
+Pass `-ProvisionProfile None` to skip it. Use
+`provision-operator-safe.ps1 -Action Audit` for read-only inspection or
+`-Action Rollback -SnapshotPath <snapshot-json>` for exact restoration.
+`register-agent-autostart.ps1` publishes the task runtime;
+`run-agent.ps1` remains the manual source-build harness and builds only the
+Agent project.
+Agent local machine overrides belong in
 `%LOCALAPPDATA%\WindowsOperator\run\appsettings.Local.json`. Host autostart
 overrides are generated under
 `%ProgramData%\WindowsOperator\run\host.appsettings.Local.json` by
@@ -101,7 +119,6 @@ export WINDOWS_OPERATOR_RUN_TRANSPORT=ssh-copy
 scripts/linux/windows-sync-repo.sh
 scripts/linux/windows-run-ps.sh scripts/windows/bootstrap.ps1 \
   -RepoRoot 'C:\src\windows-operator' \
-  -EnableAutostart \
   -ExchangeRoot 'C:\ProgramData\WindowsOperator\exchange' \
   -HostExchangeRoot 'C:\ProgramData\WindowsOperator\exchange'
 ssh -N -L 43127:127.0.0.1:43117 <windows-user>@<tailscale-host>

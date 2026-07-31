@@ -150,7 +150,9 @@ public sealed class RestAndMcpParityTests
         Assert.NotNull(result);
         Assert.True(result!.Success);
         Assert.Equal("image/png", result.Artifact.MediaType);
-        Assert.Equal("runs/workbench-test/screenshots/foreground.png", result.Artifact.RelativePath);
+        Assert.Equal(
+            ArtifactRef.Create("runs/workbench-test/screenshots/foreground.png", "image/png").Href,
+            result.Artifact.Artifact?.Href);
         Assert.DoesNotContain("base64", JsonSerializer.Serialize(result, OperatorJson.SerializerOptions), StringComparison.OrdinalIgnoreCase);
     }
 
@@ -186,7 +188,9 @@ public sealed class RestAndMcpParityTests
         Assert.Equal("example-session", result.State.SessionId);
         Assert.Equal("https://example.com", result.State.Url);
         Assert.NotNull(result.Screenshot);
-        Assert.Equal("runs/workbench-test/screenshots/edge-open.png", result.Screenshot!.Artifact.RelativePath);
+        Assert.Equal(
+            ArtifactRef.Create("runs/workbench-test/screenshots/edge-open.png", "image/png").Href,
+            result.Screenshot!.Artifact.Artifact?.Href);
     }
 
     [Fact]
@@ -211,7 +215,9 @@ public sealed class RestAndMcpParityTests
         response.EnsureSuccessStatusCode();
         Assert.NotNull(result);
         Assert.True(result!.Success);
-        Assert.Equal("runs/workbench-test/screenshots/edge-session.png", result.Artifact.RelativePath);
+        Assert.Equal(
+            ArtifactRef.Create("runs/workbench-test/screenshots/edge-session.png", "image/png").Href,
+            result.Artifact.Artifact?.Href);
     }
 
     [Fact]
@@ -323,15 +329,23 @@ public sealed class RestAndMcpParityTests
         Assert.Equal("saved", saveWait!.SaveState);
         prepareResponse.EnsureSuccessStatusCode();
         Assert.Contains("template_prepare_click_dispatched", prepare!.Actions);
-        Assert.Equal("runs/workbench-test/screenshots/template-prepare.png", Assert.Single(prepare.Evidence).Artifact.RelativePath);
+        Assert.Equal(
+            ArtifactRef.Create("runs/workbench-test/screenshots/template-prepare.png", "image/png").Href,
+            Assert.Single(prepare.Evidence).Artifact.Artifact?.Href);
         templateCleanupResponse.EnsureSuccessStatusCode();
         Assert.Contains("template_cleanup_click_dispatched", templateCleanup!.Actions);
-        Assert.Equal("runs/workbench-test/screenshots/template-cleanup.png", Assert.Single(templateCleanup.Evidence).Artifact.RelativePath);
+        Assert.Equal(
+            ArtifactRef.Create("runs/workbench-test/screenshots/template-cleanup.png", "image/png").Href,
+            Assert.Single(templateCleanup.Evidence).Artifact.Artifact?.Href);
         runPendingJobResponse.EnsureSuccessStatusCode();
         Assert.Contains("addin_run_pending_job_click_dispatched", runPendingJob!.Actions);
-        Assert.Equal("runs/workbench-test/screenshots/run-pending-job.png", Assert.Single(runPendingJob.Evidence).Artifact.RelativePath);
+        Assert.Equal(
+            ArtifactRef.Create("runs/workbench-test/screenshots/run-pending-job.png", "image/png").Href,
+            Assert.Single(runPendingJob.Evidence).Artifact.Artifact?.Href);
         screenshotResponse.EnsureSuccessStatusCode();
-        Assert.Equal("runs/workbench-test/screenshots/ppt-online-shot.png", Assert.Single(screenshot!.Evidence).Artifact.RelativePath);
+        Assert.Equal(
+            ArtifactRef.Create("runs/workbench-test/screenshots/ppt-online-shot.png", "image/png").Href,
+            Assert.Single(screenshot!.Evidence).Artifact.Artifact?.Href);
         cleanupResponse.EnsureSuccessStatusCode();
         Assert.Equal(PowerPointOnlineSessionStatus.Closed, cleanup!.Status);
     }
@@ -362,9 +376,11 @@ public sealed class RestAndMcpParityTests
 
         Assert.NotNull(session);
         Assert.Equal("browser.edge", session!.Kind);
-        Assert.Equal("runs/workbench-test", session.ArtifactRoot.RelativePath);
+        Assert.Equal("workbench-test", session.ArtifactRoot.RunId);
         screenshotResponse.EnsureSuccessStatusCode();
-        Assert.Equal("runs/workbench-test/screenshots/generic-session.png", screenshot!.Artifact.RelativePath);
+        Assert.Equal(
+            ArtifactRef.Create("runs/workbench-test/screenshots/generic-session.png", "image/png").Href,
+            screenshot!.Artifact.Artifact?.Href);
         cleanupResponse.EnsureSuccessStatusCode();
         Assert.True(cleanup!.Success);
         Assert.Equal(1, cleanup.ClosedWindows);

@@ -62,7 +62,7 @@ func main() {
 
 	missingRun, err := client.GetMailRunWithResponse(ctx, "__missing_external_smoke__")
 	must(err)
-	if missingRun.StatusCode() < 400 || missingRun.JSON4XX == nil || missingRun.JSON4XX.Code == nil {
+	if missingRun.StatusCode() < 400 || missingRun.JSON4XX == nil || missingRun.JSON4XX.Code == "" {
 		fail("negative error missing OperatorError: status=%d", missingRun.StatusCode())
 	}
 	category := ""
@@ -73,7 +73,7 @@ func main() {
 	if missingRun.JSON4XX.Retryable != nil {
 		retryable = *missingRun.JSON4XX.Retryable
 	}
-	fmt.Printf("negative code=%s category=%s retryable=%v\n", *missingRun.JSON4XX.Code, category, retryable)
+	fmt.Printf("negative code=%s category=%s retryable=%v\n", missingRun.JSON4XX.Code, category, retryable)
 
 	runID := os.Getenv("WINDOWS_OPERATOR_SMOKE_RUN_ID")
 	if runID == "" {

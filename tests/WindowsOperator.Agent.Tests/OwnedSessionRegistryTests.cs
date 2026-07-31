@@ -34,7 +34,9 @@ public sealed class OwnedSessionRegistryTests
 
         var failure = Assert.Throws<OperatorFailureException>(() => registry.GetSession("missing"));
 
-        Assert.Equal(ErrorCodes.AuthUnavailable, failure.Error.Code);
+        Assert.Equal(ErrorCodes.WorkbenchSessionNotFound, failure.Error.Code);
+        Assert.Equal(OperatorErrorCategory.NotFound, failure.Error.Category);
+        Assert.False(failure.Error.Retryable);
         Assert.NotNull(failure.Error.Details);
         Assert.True(failure.Error.Details!.TryGetValue("detail", out var detail));
         Assert.Contains("Workbench session was not found", detail);

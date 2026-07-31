@@ -82,21 +82,58 @@ function Invoke-InteractiveLaunch {
     }
 
     try {
-        $process = Start-Process -FilePath "notepad.exe" -PassThru
+        $existingProcessIds = @(
+            Get-Process -Name "notepad" -ErrorAction SilentlyContinue |
+                Select-Object -ExpandProperty Id
+        )
+        $process = Start-Process -FilePath "notepad.exe" -ArgumentList "/new" -PassThru
         $deadline = (Get-Date).AddSeconds($WaitSeconds)
+        $windowProcess = $null
 
         do {
-            $process.Refresh()
-            if ($process.MainWindowHandle -ne 0) {
+            $candidates = @()
+            try {
+                $process.Refresh()
+                $candidates += $process
+            }
+            catch {
+                # Modern Notepad can hand off to another app process.
+            }
+
+            $candidates += @(
+                Get-Process -Name "notepad" -ErrorAction SilentlyContinue |
+                    Where-Object { $_.Id -notin $existingProcessIds }
+            )
+            $windowProcess = $candidates |
+                Sort-Object -Property StartTime -Descending |
+                Where-Object {
+                    try {
+                        $_.Refresh()
+                        $_.MainWindowHandle -ne 0
+                    }
+                    catch {
+                        $false
+                    }
+                } |
+                Select-Object -First 1
+
+            if ($null -ne $windowProcess) {
                 break
             }
 
             Start-Sleep -Milliseconds 250
         } while ((Get-Date) -lt $deadline)
 
-        $payload.processId = $process.Id
-        $payload.mainWindowHandle = [int64]$process.MainWindowHandle
-        $payload.hasExited = $process.HasExited
+        if ($null -ne $windowProcess) {
+            $payload.processId = $windowProcess.Id
+            $payload.mainWindowHandle = [int64]$windowProcess.MainWindowHandle
+            $payload.hasExited = $windowProcess.HasExited
+        }
+        else {
+            $payload.processId = $process.Id
+            $payload.mainWindowHandle = 0
+            $payload.hasExited = $process.HasExited
+        }
     }
     catch {
         $payload.error = $_.Exception.Message

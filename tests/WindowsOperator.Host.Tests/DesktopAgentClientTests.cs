@@ -292,6 +292,77 @@ public sealed class DesktopAgentClientTests
         Assert.Contains("\"timeoutSeconds\":3", handler.Body);
     }
 
+    [Fact]
+    public async Task PowerAutomateMcpEndpoints_ForwardExpectedPayloads()
+    {
+        var handler = new RecordingResponseHandler(request =>
+            request.Method == HttpMethod.Get
+                ? JsonResponse(CreatePowerAutomateMcpStatusResult())
+                : request.RequestUri?.AbsolutePath.EndsWith("/start", StringComparison.Ordinal) == true
+                    ? JsonResponse(new PowerAutomateMcpStartResult { Success = true, Status = CreatePowerAutomateMcpStatusResult() })
+                    : request.RequestUri?.AbsolutePath.EndsWith("/cleanup", StringComparison.Ordinal) == true
+                        ? JsonResponse(new PowerAutomateMcpEdgeCleanupResult { Success = true, Alive = false })
+                    : request.RequestUri?.AbsolutePath.EndsWith("/flows/read", StringComparison.Ordinal) == true
+                        ? JsonResponse(new PowerAutomateMcpFlowReadResult { Success = true, FlowId = "flow-1", EnvId = "env-1" })
+                    : request.RequestUri?.AbsolutePath.EndsWith("/flows/update", StringComparison.Ordinal) == true
+                        ? JsonResponse(new PowerAutomateMcpFlowUpdateResult { Success = true, Status = PowerAutomateMcpFlowUpdateStatus.Succeeded })
+                    : JsonResponse(new PowerAutomateMcpEdgeResult { Success = true, Url = "https://make.powerautomate.com/" }));
+        var client = CreateClient(handler);
+
+        await client.GetStatusAsync(CancellationToken.None);
+        Assert.Equal(HttpMethod.Get, handler.Method);
+        Assert.Equal("/v1/power-automate/mcp/status", handler.PathAndQuery);
+        Assert.Null(handler.Body);
+
+        await client.StartBridgeAsync(
+            new PowerAutomateMcpStartRequest
+            {
+                BridgePort = 17373,
+                DryRun = true,
+            },
+            CancellationToken.None);
+        Assert.Equal(HttpMethod.Post, handler.Method);
+        Assert.Equal("/v1/power-automate/mcp/start", handler.PathAndQuery);
+        Assert.Contains("\"bridgePort\":17373", handler.Body);
+        Assert.Contains("\"dryRun\":true", handler.Body);
+
+        await client.OpenEdgeAsync(
+            new PowerAutomateMcpEdgeRequest
+            {
+                DryRun = true,
+                ProfileMode = BrowserEdgeProfileMode.Temp,
+            },
+            CancellationToken.None);
+        Assert.Equal(HttpMethod.Post, handler.Method);
+        Assert.Equal("/v1/power-automate/mcp/edge", handler.PathAndQuery);
+        Assert.DoesNotContain("allowTokenCapture", handler.Body);
+        Assert.Contains("\"dryRun\":true", handler.Body);
+        Assert.Contains("\"profileMode\":\"temp\"", handler.Body);
+
+        await client.CleanupEdgeAsync(CancellationToken.None);
+        Assert.Equal(HttpMethod.Post, handler.Method);
+        Assert.Equal("/v1/power-automate/mcp/edge/cleanup", handler.PathAndQuery);
+        Assert.Null(handler.Body);
+
+        await client.ReadFlowAsync(new PowerAutomateMcpFlowReadRequest { FlowId = "flow-1" }, CancellationToken.None);
+        Assert.Equal(HttpMethod.Post, handler.Method);
+        Assert.Equal("/v1/power-automate/mcp/flows/read", handler.PathAndQuery);
+        Assert.Contains("\"flowId\":\"flow-1\"", handler.Body);
+
+        await client.UpdateFlowAsync(
+            new PowerAutomateMcpFlowUpdateRequest
+            {
+                FlowId = "flow-1",
+                FlowJson = "{\"connectionReferences\":{},\"definition\":{}}",
+                DryRun = true,
+            },
+            CancellationToken.None);
+        Assert.Equal(HttpMethod.Post, handler.Method);
+        Assert.Equal("/v1/power-automate/mcp/flows/update", handler.PathAndQuery);
+        Assert.Contains("connectionReferences", handler.Body);
+        Assert.Contains("\"dryRun\":true", handler.Body);
+    }
+
     private static DesktopAgentClient CreateClient(HttpResponseMessage response) =>
         new(
             new HttpClient(new StaticResponseHandler(response)),
@@ -462,6 +533,24 @@ public sealed class DesktopAgentClientTests
             Errors = Array.Empty<string>(),
             ObservedAtUtc = DateTimeOffset.UnixEpoch,
             EvidencePath = "/host/runs/dev/result.json",
+        };
+
+    private static PowerAutomateMcpStatusResult CreatePowerAutomateMcpStatusResult() =>
+        new()
+        {
+            Success = true,
+            BridgeListening = true,
+            BridgeHealthy = true,
+            ContextAvailable = true,
+            BridgeVersion = "0.4.1",
+            EdgeSessionAlive = true,
+            EdgeProcessId = 5678,
+            EdgeHwnd = 4321,
+            EdgeIdleTtlSeconds = 900,
+            Actions = Array.Empty<string>(),
+            Warnings = Array.Empty<string>(),
+            Errors = Array.Empty<string>(),
+            ObservedAtUtc = DateTimeOffset.UnixEpoch,
         };
 
     private sealed class StaticResponseHandler : HttpMessageHandler

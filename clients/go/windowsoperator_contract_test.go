@@ -17,6 +17,7 @@ func TestPowerPointOnlineUpdateRequestFinalProofShape(t *testing.T) {
 	verifyReopen := true
 	cleanupSession := true
 	bindNamedTargets := true
+	validateOnly := false
 	capture := true
 	evidenceSlide := int32(4)
 	templateWait := int32(2)
@@ -34,21 +35,21 @@ func TestPowerPointOnlineUpdateRequestFinalProofShape(t *testing.T) {
 		VerifyReopen:        &verifyReopen,
 		ReopenWaitSeconds:   &reopenWait,
 		CleanupSession:      &cleanupSession,
-		Job: &PowerPointUpdateJob{
+		Job: PowerPointUpdateJobInput{
 			JobId:            sessionID,
-			DiscoverTargets:  true,
-			BindNamedTargets: bindNamedTargets,
-			ValidateOnly:     false,
+			DiscoverTargets:  &prepareTemplate,
+			BindNamedTargets: &bindNamedTargets,
+			ValidateOnly:     &validateOnly,
 			RequestedBy:      "codex-live-mutation-proof",
-			CreatedAt:        time.Date(2026, 7, 4, 9, 50, 0, 0, time.UTC),
-			Operations: []PowerPointUpdateOperation{
+			CreatedAt:        timePtr(time.Date(2026, 7, 4, 9, 50, 0, 0, time.UTC)),
+			Operations: slicePtr([]PowerPointUpdateOperationInput{
 				{
 					Kind:     "replaceText",
 					TargetId: "TITLE_MAIN",
 					Mode:     &mode,
 					Text:     &text,
 				},
-			},
+			}),
 		},
 	}
 
@@ -92,6 +93,14 @@ func TestPowerPointOnlineUpdateRequestFinalProofShape(t *testing.T) {
 	assertField(t, operation, "text", text)
 }
 
+func timePtr(value time.Time) *time.Time {
+	return &value
+}
+
+func slicePtr[T any](value []T) *[]T {
+	return &value
+}
+
 func TestPowerPointOnlineUpdateResultProofSessionFieldsCompile(t *testing.T) {
 	shapeName := "TARGET_TITLE_MAIN"
 	source := "repairedName"
@@ -99,7 +108,7 @@ func TestPowerPointOnlineUpdateResultProofSessionFieldsCompile(t *testing.T) {
 	tagged := true
 	result := PowerPointOnlineUpdateResult{
 		SaveProofTier: Tier3ReopenVisual,
-		Status:        Succeeded,
+		Status:        PowerPointOnlineUpdateStatusSucceeded,
 		VerificationSession: &PowerPointOnlineSessionResult{
 			Status: PowerPointOnlineSessionStatusReady,
 		},

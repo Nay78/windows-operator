@@ -10,9 +10,37 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+function Stop-AgentChildProcesses {
+    $processes = @(Get-CimInstance Win32_Process |
+        Where-Object {
+            $_.CommandLine -and (
+                $_.CommandLine -like "*WindowsOperator.Agent.exe*" -or
+                $_.CommandLine -like "*WindowsOperator.Agent.dll*"
+            )
+        })
+
+    $listener = Get-NetTCPConnection -State Listen -LocalPort 43119 -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if ($listener) {
+        $listenerProcess = Get-CimInstance Win32_Process -Filter "ProcessId = $($listener.OwningProcess)" -ErrorAction SilentlyContinue
+        if ($listenerProcess) {
+            $processes += $listenerProcess
+        }
+    }
+
+    $stopped = @()
+    foreach ($process in $processes | Sort-Object ProcessId -Unique) {
+        Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
+        $stopped += [int]$process.ProcessId
+    }
+
+    return $stopped
+}
+
 $task = Get-ScheduledTask -TaskName $TaskName -ErrorAction Stop
 $beforeState = [string]$task.State
 $before = Get-ScheduledTaskInfo -TaskName $TaskName -ErrorAction SilentlyContinue
+$stoppedChildProcesses = @()
 
 if ($task.State -eq "Running") {
     Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
@@ -21,6 +49,10 @@ if ($task.State -eq "Running") {
         Start-Sleep -Milliseconds 250
         $task = Get-ScheduledTask -TaskName $TaskName -ErrorAction Stop
     } while ($task.State -eq "Running" -and (Get-Date) -lt $deadline)
+}
+
+if ($TaskName -eq "WindowsOperator.Agent") {
+    $stoppedChildProcesses = Stop-AgentChildProcesses
 }
 
 Start-ScheduledTask -TaskName $TaskName
@@ -36,4 +68,5 @@ $after = Get-ScheduledTaskInfo -TaskName $TaskName -ErrorAction SilentlyContinue
     afterState = [string]$afterTask.State
     afterLastRunTime = if ($after) { $after.LastRunTime } else { $null }
     lastTaskResult = if ($after) { $after.LastTaskResult } else { $null }
+    stoppedChildProcesses = $stoppedChildProcesses
 } | ConvertTo-Json -Compress

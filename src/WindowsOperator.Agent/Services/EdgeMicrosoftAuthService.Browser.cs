@@ -255,7 +255,7 @@ public sealed partial class EdgeMicrosoftAuthService
 
         if (metadata.Hwnd is { } hwnd && hwnd != 0)
         {
-            closed = TryCloseWindow(new BrowserWindow(metadata.ProcessId, new IntPtr(hwnd), metadata.Title, metadata.StartedAtUtc));
+            closed = TryCloseWindow(new BrowserWindow(metadata.ProcessId, new IntPtr(hwnd), metadata.Title, metadata.StartedAtUtc, false, false));
             if (closed)
             {
                 actions.Add("session_window_closed");
@@ -454,7 +454,7 @@ public sealed partial class EdgeMicrosoftAuthService
         if (!File.Exists(metadataPath))
         {
             throw new OperatorFailureException(
-                OperatorErrors.AuthUnavailable($"Edge browser session was not found: {normalized}"));
+                OperatorErrors.BrowserSessionNotFound($"Edge browser session was not found: {normalized}"));
         }
 
         metadata = JsonSerializer.Deserialize<EdgeBrowserSessionMetadata>(

@@ -17,4 +17,4 @@ public sealed record BrowserEdgeSessionStateResult(
     IReadOnlyList<BrowserEdgeSessionElementRef>? Elements = null,
     int? DevToolsPort = null,
     string? BrowserState = null,
-    string? StatePath = null);
+    [property: OperatorInternal] string? StatePath = null);

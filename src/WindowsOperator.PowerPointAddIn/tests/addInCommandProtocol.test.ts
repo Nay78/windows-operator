@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  type MessageTargetLike,
   registerRunPendingJobCommandHandler,
   RUN_PENDING_JOB_COMMAND,
   WINDOWS_OPERATOR_ADDIN_CHANNEL,
@@ -60,20 +61,20 @@ describe("addInCommandProtocol", () => {
   });
 });
 
-class FakeMessageTarget {
-  private listener: ((event: unknown) => void) | null = null;
+class FakeMessageTarget implements MessageTargetLike {
+  private listener: Parameters<MessageTargetLike["addEventListener"]>[1] | null = null;
 
-  addEventListener(_type: "message", listener: (event: unknown) => void): void {
+  addEventListener(_type: "message", listener: Parameters<MessageTargetLike["addEventListener"]>[1]): void {
     this.listener = listener;
   }
 
-  removeEventListener(_type: "message", listener: (event: unknown) => void): void {
+  removeEventListener(_type: "message", listener: Parameters<MessageTargetLike["removeEventListener"]>[1]): void {
     if (this.listener === listener) {
       this.listener = null;
     }
   }
 
-  dispatch(event: unknown): void {
+  dispatch(event: Parameters<NonNullable<typeof this.listener>>[0]): void {
     this.listener?.(event);
   }
 }

@@ -11,13 +11,17 @@ export interface UpdateJob {
   createdAt: string;
 }
 
-export type TargetType = "text" | "image" | "table" | "unknown";
+export type TargetType = "text" | "image" | "table" | "shape" | "unknown";
 export type TargetSource = "binding" | "name" | "repairedName";
 
 export type UpdateOperation =
   | TextUpdateOperation
   | ImageUpdateOperation
+  | ReadShapeBoundsOperation
+  | SetShapeBoundsOperation
   | ReadTableOperation
+  | ReadTableGeometryOperation
+  | FindTableColumnOperation
   | TableCellUpdateOperation
   | TableRangeUpdateOperation;
 
@@ -37,9 +41,35 @@ export interface ImageUpdateOperation {
   fit?: "cover" | "contain";
 }
 
+export interface ReadShapeBoundsOperation {
+  kind: "readShapeBounds";
+  targetId: string;
+}
+
+export interface SetShapeBoundsOperation {
+  kind: "setShapeBounds";
+  targetId: string;
+  left?: number;
+  top?: number;
+  width?: number;
+  height?: number;
+}
+
 export interface ReadTableOperation {
   kind: "readTable";
   targetId: string;
+}
+
+export interface ReadTableGeometryOperation {
+  kind: "readTableGeometry";
+  targetId: string;
+}
+
+export interface FindTableColumnOperation {
+  kind: "findTableColumn";
+  targetId: string;
+  rowIndex?: number;
+  text?: string;
 }
 
 export interface TableCellUpdateOperation {
@@ -103,6 +133,8 @@ export interface TargetResult {
   bound?: boolean;
   tagged?: boolean;
   table?: TableSnapshot;
+  bounds?: ShapeBounds;
+  tableMatch?: TableMatch;
 }
 
 export interface DiscoveredTarget {
@@ -120,6 +152,40 @@ export interface TableSnapshot {
   rowCount: number;
   columnCount: number;
   values: string[][];
+  geometry?: TableGeometry;
+}
+
+export interface ShapeBounds {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+export interface TableGeometry {
+  bounds: ShapeBounds;
+  columns: TableGeometryColumn[];
+  rows: TableGeometryRow[];
+}
+
+export interface TableGeometryColumn {
+  columnIndex: number;
+  left: number;
+  width: number;
+  right: number;
+}
+
+export interface TableGeometryRow {
+  rowIndex: number;
+  top: number;
+  height: number;
+  bottom: number;
+}
+
+export interface TableMatch {
+  rowIndex: number;
+  columnIndex: number;
+  text: string;
 }
 
 export interface UpdateError {

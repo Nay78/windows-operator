@@ -1,4 +1,7 @@
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.Extensions.Options;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
@@ -197,6 +200,7 @@ public sealed class ContractSerializationTests
     {
         var result = new CapabilitiesResult(
             "0.1.0",
+            new RuntimeBuildIdentity("1.0.0+abcdef123456", "1.0.0.0", "abcdef123456"),
             new CapabilityHost("ok", "headless-host", "http://127.0.0.1:43117", "ok"),
             new Dictionary<string, CapabilityFeature>(StringComparer.Ordinal)
             {
@@ -208,6 +212,7 @@ public sealed class ContractSerializationTests
         var json = JsonSerializer.Serialize(result, OperatorJson.SerializerOptions);
 
         Assert.Contains("\"contractVersion\":\"0.1.0\"", json);
+        Assert.Contains("\"sourceRevision\":\"abcdef123456\"", json);
         Assert.Contains("\"runtimeMode\":\"headless-host\"", json);
         Assert.Contains("\"powerpoint.online.update\"", json);
         Assert.Contains("\"available\":true", json);
@@ -500,6 +505,86 @@ public sealed class ContractSerializationTests
     }
 
     [Fact]
+    public void PowerPointGeometryOperations_Serialize()
+    {
+        var job = new PowerPointUpdateJob
+        {
+            JobId = "job-geometry",
+            RequestedBy = "test",
+            CreatedAt = DateTimeOffset.Parse("2026-07-09T12:00:00Z"),
+            Operations = new[]
+            {
+                new PowerPointUpdateOperation
+                {
+                    Kind = "setShapeBounds",
+                    TargetId = "DATE_HIGHLIGHT_BOX",
+                    Left = 120.5,
+                    Top = 60,
+                    Width = 48.25,
+                    Height = 400,
+                },
+                new PowerPointUpdateOperation
+                {
+                    Kind = "findTableColumn",
+                    TargetId = "DATA_TABLE",
+                    RowIndex = 0,
+                    Text = "08-jul",
+                },
+            },
+        };
+
+        var json = JsonSerializer.Serialize(job, OperatorJson.SerializerOptions);
+        var roundTrip = JsonSerializer.Deserialize<PowerPointUpdateJob>(json, OperatorJson.SerializerOptions);
+
+        Assert.Contains("\"kind\":\"setShapeBounds\"", json);
+        Assert.Contains("\"left\":120.5", json);
+        Assert.Contains("\"top\":60", json);
+        Assert.Contains("\"width\":48.25", json);
+        Assert.Contains("\"height\":400", json);
+        Assert.Contains("\"kind\":\"findTableColumn\"", json);
+        Assert.Contains("\"text\":\"08-jul\"", json);
+        Assert.Equal(120.5, roundTrip!.Operations[0].Left);
+        Assert.Equal("08-jul", roundTrip.Operations[1].Text);
+    }
+
+    [Fact]
+    public void PowerPointTargetResult_Serializes_GeometryPayloads()
+    {
+        var result = new PowerPointTargetResult(
+            "DATA_TABLE",
+            "readTableGeometry",
+            "succeeded",
+            Type: "table",
+            Table: new PowerPointTableSnapshot(
+                1,
+                2,
+                new[]
+                {
+                    new[] { "07-jul", "08-jul" },
+                },
+                new PowerPointTableGeometry(
+                    new PowerPointShapeBounds(10, 20, 200, 40),
+                    new[]
+                    {
+                        new PowerPointTableGeometryColumn(0, 10, 100, 110),
+                        new PowerPointTableGeometryColumn(1, 110, 100, 210),
+                    },
+                    new[]
+                    {
+                        new PowerPointTableGeometryRow(0, 20, 40, 60),
+                    })),
+            Bounds: new PowerPointShapeBounds(10, 20, 200, 40),
+            TableMatch: new PowerPointTableMatch(0, 1, "08-jul"));
+
+        var json = JsonSerializer.Serialize(result, OperatorJson.SerializerOptions);
+
+        Assert.Contains("\"bounds\":{\"left\":10,\"top\":20,\"width\":200,\"height\":40}", json);
+        Assert.Contains("\"geometry\":", json);
+        Assert.Contains("\"columnIndex\":1", json);
+        Assert.Contains("\"tableMatch\":{\"rowIndex\":0,\"columnIndex\":1,\"text\":\"08-jul\"}", json);
+    }
+
+    [Fact]
     public void PowerPointUpdateResult_Serializes_DiscoveredTargets()
     {
         var result = new PowerPointUpdateResult
@@ -788,7 +873,11 @@ public sealed class ContractSerializationTests
             "columnIndex",
             "startRowIndex",
             "startColumnIndex",
-            "values");
+            "values",
+            "left",
+            "top",
+            "width",
+            "height");
         AssertHasProperties(
             schemas.GetProperty("PowerPointTargetResult").GetProperty("properties"),
             "targetId",
@@ -803,7 +892,20 @@ public sealed class ContractSerializationTests
             "source",
             "bound",
             "tagged",
-            "table");
+            "table",
+            "bounds",
+            "tableMatch");
+        AssertHasProperties(
+            schemas.GetProperty("PowerPointTableSnapshot").GetProperty("properties"),
+            "rowCount",
+            "columnCount",
+            "values",
+            "geometry");
+        AssertHasProperties(
+            schemas.GetProperty("PowerPointTableGeometry").GetProperty("properties"),
+            "bounds",
+            "columns",
+            "rows");
         AssertHasProperties(
             schemas.GetProperty("PowerPointDiscoveredTarget").GetProperty("properties"),
             "targetId",
@@ -824,6 +926,237 @@ public sealed class ContractSerializationTests
         Assert.Equal(
             OperatorContractVersion.Value,
             document.RootElement.GetProperty("info").GetProperty("version").GetString());
+    }
+
+    [Fact]
+    public void OperatorOpenApi_Requires_DeclaredRequestMembers_AndCoreErrorFields()
+    {
+        using var document = JsonDocument.Parse(JsonSerializer.Serialize(OperatorOpenApi.Document, OperatorJson.SerializerOptions));
+        var schemas = document.RootElement.GetProperty("components").GetProperty("schemas");
+
+        AssertRequiredProperties(schemas.GetProperty("HotkeyRequest"), "keys");
+        AssertRequiredProperties(schemas.GetProperty("ScreenClickRequest"), "x", "y");
+        AssertRequiredProperties(schemas.GetProperty("UiaClickRequest"), "query");
+        AssertRequiredProperties(schemas.GetProperty("UiaTypeRequest"), "query", "text");
+        AssertRequiredProperties(schemas.GetProperty("BrowserEdgeOpenUrlRequest"), "url");
+        AssertRequiredProperties(schemas.GetProperty("PowerPointOnlineUpdateRequest"), "job");
+        AssertRequiredProperties(schemas.GetProperty("OperatorError"), "code", "message", "remediation");
+
+        Assert.DoesNotContain(
+            "doubleClick",
+            schemas.GetProperty("UiaClickRequest")
+                .GetProperty("required")
+                .EnumerateArray()
+                .Select(item => item.GetString()));
+
+        var processId = schemas.GetProperty("WindowRef")
+            .GetProperty("properties")
+            .GetProperty("processId");
+        Assert.Equal("integer", processId.GetProperty("type").GetString());
+        Assert.Equal("int64", processId.GetProperty("format").GetString());
+        Assert.Equal(0, processId.GetProperty("minimum").GetInt32());
+    }
+
+    [Fact]
+    public void OperatorOpenApi_Projects_EveryRequestBody_AsInput()
+    {
+        using var document = JsonDocument.Parse(JsonSerializer.Serialize(OperatorOpenApi.Document, OperatorJson.SerializerOptions));
+        var root = document.RootElement;
+        var schemas = root.GetProperty("components").GetProperty("schemas");
+        var contractTypes = typeof(OperatorOpenApi).Assembly
+            .GetTypes()
+            .Where(type => type.IsPublic && type.Namespace == typeof(OperatorOpenApi).Namespace)
+            .ToDictionary(type => type.Name, StringComparer.Ordinal);
+        var requestBodyCount = 0;
+
+        foreach (var path in root.GetProperty("paths").EnumerateObject())
+        {
+            foreach (var operation in path.Value.EnumerateObject())
+            {
+                if (!operation.Value.TryGetProperty("requestBody", out var requestBody))
+                {
+                    continue;
+                }
+
+                requestBodyCount++;
+                var reference = requestBody
+                    .GetProperty("content")
+                    .GetProperty("application/json")
+                    .GetProperty("schema")
+                    .GetProperty("$ref")
+                    .GetString()!;
+                var schemaName = reference.Split('/')[^1];
+                var typeName = schemaName.EndsWith("Input", StringComparison.Ordinal)
+                    ? schemaName[..^"Input".Length]
+                    : schemaName;
+
+                Assert.True(
+                    contractTypes.TryGetValue(typeName, out var contractType),
+                    $"{operation.Value.GetProperty("operationId").GetString()} request schema '{schemaName}' has no contract type.");
+
+                var expectedRequired = contractType!
+                    .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                    .Where(property =>
+                        property.IsDefined(typeof(RequiredMemberAttribute), inherit: true) &&
+                        !property.IsDefined(typeof(OperatorInternalAttribute), inherit: true))
+                    .Select(JsonPropertyName)
+                    .Order(StringComparer.Ordinal)
+                    .ToArray();
+                var actualRequired = RequiredProperties(schemas.GetProperty(schemaName))
+                    .Order(StringComparer.Ordinal)
+                    .ToArray();
+
+                Assert.Equal(expectedRequired, actualRequired);
+            }
+        }
+
+        Assert.Equal(39, requestBodyCount);
+    }
+
+    [Fact]
+    public void PublicHttpContract_Omits_InternalMachinePaths()
+    {
+        using var document = JsonDocument.Parse(
+            JsonSerializer.Serialize(OperatorOpenApi.Document, OperatorJson.SerializerOptions));
+        var schemas = document.RootElement.GetProperty("components").GetProperty("schemas");
+
+        Assert.DoesNotContain(
+            "hostPath",
+            schemas.GetProperty("WorkbenchArtifactRef").GetProperty("properties").EnumerateObject().Select(item => item.Name));
+        Assert.DoesNotContain(
+            "statePath",
+            schemas.GetProperty("BrowserEdgeSessionStateResult").GetProperty("properties").EnumerateObject().Select(item => item.Name));
+        Assert.DoesNotContain(
+            "statusPath",
+            schemas.GetProperty("MicrosoftAuthorizeProbeResult").GetProperty("properties").EnumerateObject().Select(item => item.Name));
+        Assert.DoesNotContain(
+            "absolutePath",
+            schemas.GetProperty("MailSavedAttachment").GetProperty("properties").EnumerateObject().Select(item => item.Name));
+        Assert.DoesNotContain(
+            "runRoot",
+            schemas.GetProperty("MailDownloadResult").GetProperty("properties").EnumerateObject().Select(item => item.Name));
+        Assert.DoesNotContain(
+            "lastWorkerError",
+            schemas.GetProperty("MailStatusResult").GetProperty("properties").EnumerateObject().Select(item => item.Name));
+        Assert.DoesNotContain(
+            "evidencePath",
+            schemas.GetProperty("DevScriptResult").GetProperty("properties").EnumerateObject().Select(item => item.Name));
+        Assert.DoesNotContain(
+            "statePath",
+            schemas.GetProperty("PowerAutomateMcpStartResult").GetProperty("properties").EnumerateObject().Select(item => item.Name));
+        Assert.DoesNotContain(
+            "nodePath",
+            schemas.GetProperty("PowerAutomateMcpStatusResult").GetProperty("properties").EnumerateObject().Select(item => item.Name));
+        Assert.DoesNotContain(
+            "extensionPath",
+            schemas.GetProperty("PowerAutomateMcpEdgeResult").GetProperty("properties").EnumerateObject().Select(item => item.Name));
+
+        var value = new WorkbenchArtifactRef(
+            @"C:\local\capture.png",
+            "runs/test/capture.png",
+            "/host/runs/test/capture.png",
+            "image/png",
+            42);
+        var httpOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        OperatorJson.ConfigureHttp(httpOptions);
+
+        var publicJson = JsonSerializer.Serialize(value, httpOptions);
+        Assert.DoesNotContain("hostPath", publicJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("relativePath", publicJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"path\"", publicJson, StringComparison.Ordinal);
+
+        var mailStatus = new MailStatusResult(
+            true,
+            1,
+            0,
+            @"Mail worker failed under C:\Users\operator\AppData\Local\WindowsOperator.",
+            DateTimeOffset.Parse("2026-07-23T16:42:40Z"));
+        var publicMailStatusJson = JsonSerializer.Serialize(mailStatus, httpOptions);
+        Assert.DoesNotContain("lastWorkerError", publicMailStatusJson, StringComparison.Ordinal);
+        Assert.DoesNotContain(@"C:\Users", publicMailStatusJson, StringComparison.Ordinal);
+
+        var persistedJson = JsonSerializer.Serialize(value, OperatorJson.SerializerOptions);
+        Assert.Contains("hostPath", persistedJson, StringComparison.Ordinal);
+        Assert.Contains("relativePath", persistedJson, StringComparison.Ordinal);
+        Assert.Contains("\"path\"", persistedJson, StringComparison.Ordinal);
+
+        var persistedMailStatusJson = JsonSerializer.Serialize(mailStatus, OperatorJson.SerializerOptions);
+        Assert.Contains("lastWorkerError", persistedMailStatusJson, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void OperatorOpenApi_Separates_PowerPointJobInput_FromOutput()
+    {
+        using var document = JsonDocument.Parse(JsonSerializer.Serialize(OperatorOpenApi.Document, OperatorJson.SerializerOptions));
+        var root = document.RootElement;
+        var schemas = root.GetProperty("components").GetProperty("schemas");
+
+        Assert.Equal(
+            "#/components/schemas/PowerPointUpdateJobInput",
+            schemas.GetProperty("PowerPointOnlineUpdateRequest")
+                .GetProperty("properties")
+                .GetProperty("job")
+                .GetProperty("$ref")
+                .GetString());
+        Assert.Equal(
+            "#/components/schemas/PowerPointUpdateOperationInput",
+            schemas.GetProperty("PowerPointUpdateJobInput")
+                .GetProperty("properties")
+                .GetProperty("operations")
+                .GetProperty("items")
+                .GetProperty("$ref")
+                .GetString());
+        Assert.Equal(
+            new[] { "jobId", "requestedBy" },
+            RequiredProperties(schemas.GetProperty("PowerPointUpdateJobInput"))
+                .Order(StringComparer.Ordinal));
+        Assert.Equal(
+            new[]
+            {
+                "bindNamedTargets",
+                "createdAt",
+                "discoverTargets",
+                "jobId",
+                "operations",
+                "requestedBy",
+                "validateOnly",
+            },
+            RequiredProperties(schemas.GetProperty("PowerPointUpdateJob"))
+                .Order(StringComparer.Ordinal));
+        Assert.Equal(
+            "#/components/schemas/PowerPointUpdateJob",
+            root.GetProperty("paths")
+                .GetProperty("/v1/powerpoint/jobs/claim")
+                .GetProperty("post")
+                .GetProperty("responses")
+                .GetProperty("200")
+                .GetProperty("content")
+                .GetProperty("application/json")
+                .GetProperty("schema")
+                .GetProperty("$ref")
+                .GetString());
+    }
+
+    [Fact]
+    public void OperatorOpenApi_Emits_RuntimeInputDefaults()
+    {
+        using var document = JsonDocument.Parse(JsonSerializer.Serialize(OperatorOpenApi.Document, OperatorJson.SerializerOptions));
+        var schemas = document.RootElement.GetProperty("components").GetProperty("schemas");
+        var edgeProperties = schemas.GetProperty("BrowserEdgeOpenUrlRequest").GetProperty("properties");
+        var updateProperties = schemas.GetProperty("PowerPointOnlineUpdateRequest").GetProperty("properties");
+        var queryProperties = schemas.GetProperty("UiQueryInput").GetProperty("properties");
+        var jobProperties = schemas.GetProperty("PowerPointUpdateJobInput").GetProperty("properties");
+
+        Assert.Equal("work", edgeProperties.GetProperty("profileMode").GetProperty("default").GetString());
+        Assert.Equal(12, edgeProperties.GetProperty("waitSeconds").GetProperty("default").GetInt32());
+        Assert.False(edgeProperties.GetProperty("capture").GetProperty("default").GetBoolean());
+        Assert.True(updateProperties.GetProperty("capture").GetProperty("default").GetBoolean());
+        Assert.Equal(30, updateProperties.GetProperty("openWaitSeconds").GetProperty("default").GetInt32());
+        Assert.True(updateProperties.GetProperty("cleanupTemplateOnFailure").GetProperty("default").GetBoolean());
+        Assert.Equal(25, queryProperties.GetProperty("maxResults").GetProperty("default").GetInt32());
+        Assert.False(jobProperties.GetProperty("discoverTargets").GetProperty("default").GetBoolean());
+        Assert.False(jobProperties.GetProperty("createdAt").TryGetProperty("default", out _));
+        Assert.False(jobProperties.GetProperty("jobId").TryGetProperty("default", out _));
     }
 
     [Fact]
@@ -934,4 +1267,23 @@ public sealed class ContractSerializationTests
             Assert.True(properties.TryGetProperty(name, out _), $"Missing OpenAPI property '{name}'.");
         }
     }
+
+    private static void AssertRequiredProperties(JsonElement schema, params string[] names)
+    {
+        var required = RequiredProperties(schema).ToHashSet(StringComparer.Ordinal);
+
+        foreach (var name in names)
+        {
+            Assert.Contains(name, required);
+        }
+    }
+
+    private static IEnumerable<string> RequiredProperties(JsonElement schema) =>
+        schema.TryGetProperty("required", out var required)
+            ? required.EnumerateArray().Select(item => item.GetString()!)
+            : Array.Empty<string>();
+
+    private static string JsonPropertyName(PropertyInfo property) =>
+        property.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name ??
+        JsonNamingPolicy.CamelCase.ConvertName(property.Name);
 }

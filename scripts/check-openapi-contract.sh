@@ -8,6 +8,7 @@ contract_version="$(scripts/read-contract-version.sh)"
 spec_path="$repo_root/openapi/windows-operator.openapi.json"
 tmpdir="$(mktemp -d)"
 tmp_spec="$tmpdir/windows-operator.openapi.json"
+tmp_stable_spec="$tmpdir/windows-operator.stable.openapi.json"
 tmp_go_root="$tmpdir/clients/go"
 tmp_go_file="$tmp_go_root/windowsoperator.gen.go"
 tmp_go_config="$tmpdir/go-client.oapi-codegen.yaml"
@@ -47,6 +48,7 @@ grep -q "const SupportedContractVersion = \"$contract_version\"" clients/go/help
 cmp -s "$tmp_spec" "$spec_path" || fail "openapi/windows-operator.openapi.json stale. run scripts/generate-openapi.sh"
 
 mkdir -p "$tmp_go_root"
+python3 scripts/filter-openapi-surface.py "$tmp_spec" "$tmp_stable_spec" --surface stable
 cp clients/go/*.go "$tmp_go_root/"
 cp clients/go/go.mod clients/go/go.sum "$tmp_go_root/"
 cat >"$tmp_go_config" <<EOF
@@ -61,7 +63,7 @@ EOF
 
 go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.5.0 \
   -config "$tmp_go_config" \
-  "$tmp_spec"
+  "$tmp_stable_spec"
 gofmt -w "$tmp_go_file" "$tmp_go_root/generate.go" "$tmp_go_root/windowsoperator_contract_test.go"
 (cd "$tmp_go_root" && go mod tidy -go=1.22)
 
@@ -72,10 +74,14 @@ cmp -s "$tmp_go_root/go.mod" clients/go/go.mod \
 cmp -s "$tmp_go_root/go.sum" clients/go/go.sum \
   || fail "clients/go/go.sum stale. run scripts/generate-go-client.sh"
 
+python3 scripts/lint-openapi.py "$spec_path"
 run_optional_hook "lint" "${WINDOWS_OPERATOR_LINT_CMD:-}"
 
 latest_tag="$(git describe --tags --abbrev=0 2>/dev/null || true)"
-if [[ -n "${WINDOWS_OPERATOR_BREAKING_CMD:-}" ]]; then
+baseline_spec="$repo_root/openapi/windows-operator.v1-baseline.json"
+if [[ -f "$baseline_spec" ]]; then
+  python3 scripts/check-openapi-breaking.py "$baseline_spec" "$spec_path"
+elif [[ -n "${WINDOWS_OPERATOR_BREAKING_CMD:-}" ]]; then
   WINDOWS_OPERATOR_PREVIOUS_TAG="$latest_tag" run_optional_hook "breaking" "$WINDOWS_OPERATOR_BREAKING_CMD"
 elif [[ -n "$latest_tag" ]]; then
   echo "skip breaking hook. latest tag: $latest_tag. set WINDOWS_OPERATOR_BREAKING_CMD to enable."

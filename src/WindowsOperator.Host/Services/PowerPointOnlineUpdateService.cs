@@ -1217,7 +1217,7 @@ public sealed class PowerPointOnlineUpdateService : IPowerPointOnlineUpdateServi
         (!request.Job.ValidateOnly && request.Job.Operations?.Any(IsMutatingOperation) is true);
 
     private static bool IsMutatingOperation(PowerPointUpdateOperation operation) =>
-        operation.Kind is "replaceText" or "replaceImage" or "replaceTableCell" or "replaceTableRange";
+        operation.Kind is "replaceText" or "replaceImage" or "replaceTableCell" or "replaceTableRange" or "setShapeBounds";
 
     private sealed record VerificationAttemptResult(
         bool Success,

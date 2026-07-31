@@ -2,9 +2,15 @@ namespace WindowsOperator.Core.Contracts;
 
 public sealed record CapabilitiesResult(
     string ContractVersion,
+    RuntimeBuildIdentity Build,
     CapabilityHost Host,
     IReadOnlyDictionary<string, CapabilityFeature> Features,
     DateTimeOffset CheckedAtUtc);
+
+public sealed record RuntimeBuildIdentity(
+    string InformationalVersion,
+    string AssemblyVersion,
+    string SourceRevision);
 
 public sealed record CapabilityHost(
     string Status,

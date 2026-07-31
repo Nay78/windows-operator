@@ -2,6 +2,25 @@
 
 Backlog. Dated live baselines live in [development notes](development.md#live-smoke).
 
+This file is the intake boundary for unplanned work, including while an active
+`.work` campaign owns its execution queue. Capture opportunities here without
+editing the active roadmap. During queue review, promote accepted items into
+`.work` and retain their disposition here.
+
+## Opportunity Inbox
+
+- [ ] Harden Power Automate reauthentication and connector validation.
+  - Status: inbox; captured 2026-07-26.
+  - Outcome: recover expired sessions with one command and report actionable
+    authentication state before flow operations.
+  - Scope: automatic Edge lease renewal; legacy `service.flow.microsoft.com`
+    token capture; token class, extension permission, session age, and lease
+    expiry diagnostics; safe authenticated-profile reuse; managed credential
+    storage; targeted connector reauthentication; API validation; controlled
+    attachment smoke test and cleanup.
+  - Promotion: move into `.work` after the active campaign releases queue
+    ownership or explicit reprioritization occurs.
+
 ## External Dependency
 
 - Rebuild/switch NixOS host with pending VM hardening changes.

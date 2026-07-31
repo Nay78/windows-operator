@@ -70,6 +70,13 @@ const (
 	OperatorErrorCategoryValidation  OperatorErrorCategory = "validation"
 )
 
+// Defines values for PowerAutomateMcpFlowUpdateStatus.
+const (
+	PowerAutomateMcpFlowUpdateStatusDryRun    PowerAutomateMcpFlowUpdateStatus = "dryRun"
+	PowerAutomateMcpFlowUpdateStatusFailed    PowerAutomateMcpFlowUpdateStatus = "failed"
+	PowerAutomateMcpFlowUpdateStatusSucceeded PowerAutomateMcpFlowUpdateStatus = "succeeded"
+)
+
 // Defines values for PowerPointOnlineAddInProbeStatus.
 const (
 	PowerPointOnlineAddInProbeStatusBlockedActivation PowerPointOnlineAddInProbeStatus = "blockedActivation"
@@ -102,14 +109,14 @@ const (
 
 // Defines values for PowerPointOnlineUpdateStatus.
 const (
-	BlockedAddIn         PowerPointOnlineUpdateStatus = "blockedAddIn"
-	BlockedSession       PowerPointOnlineUpdateStatus = "blockedSession"
-	CleanupFailed        PowerPointOnlineUpdateStatus = "cleanupFailed"
-	Failed               PowerPointOnlineUpdateStatus = "failed"
-	SaveUnverified       PowerPointOnlineUpdateStatus = "saveUnverified"
-	SessionCleanupFailed PowerPointOnlineUpdateStatus = "sessionCleanupFailed"
-	Succeeded            PowerPointOnlineUpdateStatus = "succeeded"
-	VerificationFailed   PowerPointOnlineUpdateStatus = "verificationFailed"
+	PowerPointOnlineUpdateStatusBlockedAddIn         PowerPointOnlineUpdateStatus = "blockedAddIn"
+	PowerPointOnlineUpdateStatusBlockedSession       PowerPointOnlineUpdateStatus = "blockedSession"
+	PowerPointOnlineUpdateStatusCleanupFailed        PowerPointOnlineUpdateStatus = "cleanupFailed"
+	PowerPointOnlineUpdateStatusFailed               PowerPointOnlineUpdateStatus = "failed"
+	PowerPointOnlineUpdateStatusSaveUnverified       PowerPointOnlineUpdateStatus = "saveUnverified"
+	PowerPointOnlineUpdateStatusSessionCleanupFailed PowerPointOnlineUpdateStatus = "sessionCleanupFailed"
+	PowerPointOnlineUpdateStatusSucceeded            PowerPointOnlineUpdateStatus = "succeeded"
+	PowerPointOnlineUpdateStatusVerificationFailed   PowerPointOnlineUpdateStatus = "verificationFailed"
 )
 
 // Defines values for ScreenshotFormat.
@@ -145,24 +152,38 @@ type ArtifactRef struct {
 
 // BrowserEdgeDevEvalRequest defines model for BrowserEdgeDevEvalRequest.
 type BrowserEdgeDevEvalRequest struct {
-	AllowUnsafeRawJs  *bool   `json:"allowUnsafeRawJs,omitempty"`
+	// AllowUnsafeRawJs Defaults to false when omitted.
+	AllowUnsafeRawJs *bool `json:"allowUnsafeRawJs,omitempty"`
+
+	// CaptureScreenshot Defaults to false when omitted.
 	CaptureScreenshot *bool   `json:"captureScreenshot,omitempty"`
 	Label             *string `json:"label"`
 	RunId             *string `json:"runId"`
-	Source            *string `json:"source,omitempty"`
-	TimeoutSeconds    *int32  `json:"timeoutSeconds,omitempty"`
+
+	// Source Defaults to "" when omitted.
+	Source *string `json:"source,omitempty"`
+
+	// TimeoutSeconds Defaults to 5 when omitted.
+	TimeoutSeconds *int32 `json:"timeoutSeconds,omitempty"`
 }
 
 // BrowserEdgeOpenUrlRequest defines model for BrowserEdgeOpenUrlRequest.
 type BrowserEdgeOpenUrlRequest struct {
-	Capture     *bool                   `json:"capture,omitempty"`
-	InPrivate   *bool                   `json:"inPrivate,omitempty"`
-	Label       *string                 `json:"label"`
+	// Capture Defaults to false when omitted.
+	Capture *bool `json:"capture,omitempty"`
+
+	// InPrivate Defaults to false when omitted.
+	InPrivate *bool   `json:"inPrivate,omitempty"`
+	Label     *string `json:"label"`
+
+	// ProfileMode Defaults to "work" when omitted.
 	ProfileMode *BrowserEdgeProfileMode `json:"profileMode,omitempty"`
 	RunId       *string                 `json:"runId"`
 	SessionId   *string                 `json:"sessionId"`
-	Url         *string                 `json:"url,omitempty"`
-	WaitSeconds *int32                  `json:"waitSeconds,omitempty"`
+	Url         string                  `json:"url"`
+
+	// WaitSeconds Defaults to 12 when omitted.
+	WaitSeconds *int32 `json:"waitSeconds,omitempty"`
 }
 
 // BrowserEdgeOpenUrlResult defines model for BrowserEdgeOpenUrlResult.
@@ -174,11 +195,12 @@ type BrowserEdgeOpenUrlResult struct {
 	Warnings   []string                      `json:"warnings"`
 }
 
-// BrowserEdgeProfileMode defines model for BrowserEdgeProfileMode.
+// BrowserEdgeProfileMode Allowed values for BrowserEdgeProfileMode.
 type BrowserEdgeProfileMode string
 
 // BrowserEdgeResetRequest defines model for BrowserEdgeResetRequest.
 type BrowserEdgeResetRequest struct {
+	// DryRun Defaults to false when omitted.
 	DryRun *bool `json:"dryRun,omitempty"`
 }
 
@@ -202,7 +224,6 @@ type BrowserEdgeSessionDomActionResult struct {
 	MatchedText   *string   `json:"matchedText"`
 	ObservedAtUtc time.Time `json:"observedAtUtc"`
 	SessionId     string    `json:"sessionId"`
-	StatePath     *string   `json:"statePath"`
 	Success       bool      `json:"success"`
 	TagName       *string   `json:"tagName"`
 	Title         *string   `json:"title"`
@@ -211,20 +232,28 @@ type BrowserEdgeSessionDomActionResult struct {
 
 // BrowserEdgeSessionDomClickRequest defines model for BrowserEdgeSessionDomClickRequest.
 type BrowserEdgeSessionDomClickRequest struct {
-	LabelText      *string `json:"labelText"`
-	MatchIndex     *int32  `json:"matchIndex,omitempty"`
-	Selector       *string `json:"selector"`
+	LabelText *string `json:"labelText"`
+
+	// MatchIndex Defaults to 0 when omitted.
+	MatchIndex *int32  `json:"matchIndex,omitempty"`
+	Selector   *string `json:"selector"`
+
+	// TimeoutSeconds Defaults to 10 when omitted.
 	TimeoutSeconds *int32  `json:"timeoutSeconds,omitempty"`
 	VisibleText    *string `json:"visibleText"`
 }
 
 // BrowserEdgeSessionDomFillRequest defines model for BrowserEdgeSessionDomFillRequest.
 type BrowserEdgeSessionDomFillRequest struct {
-	LabelText      *string `json:"labelText"`
-	MatchIndex     *int32  `json:"matchIndex,omitempty"`
-	Selector       *string `json:"selector"`
+	LabelText *string `json:"labelText"`
+
+	// MatchIndex Defaults to 0 when omitted.
+	MatchIndex *int32  `json:"matchIndex,omitempty"`
+	Selector   *string `json:"selector"`
+
+	// TimeoutSeconds Defaults to 10 when omitted.
 	TimeoutSeconds *int32  `json:"timeoutSeconds,omitempty"`
-	Value          *string `json:"value,omitempty"`
+	Value          string  `json:"value"`
 	VisibleText    *string `json:"visibleText"`
 }
 
@@ -240,18 +269,29 @@ type BrowserEdgeSessionElementRef struct {
 
 // BrowserEdgeSessionNavigateRequest defines model for BrowserEdgeSessionNavigateRequest.
 type BrowserEdgeSessionNavigateRequest struct {
-	Url         *string `json:"url,omitempty"`
-	WaitSeconds *int32  `json:"waitSeconds,omitempty"`
+	Url string `json:"url"`
+
+	// WaitSeconds Defaults to 2 when omitted.
+	WaitSeconds *int32 `json:"waitSeconds,omitempty"`
 }
 
 // BrowserEdgeSessionStartRequest defines model for BrowserEdgeSessionStartRequest.
 type BrowserEdgeSessionStartRequest struct {
-	DryRun          *bool                   `json:"dryRun,omitempty"`
-	InPrivate       *bool                   `json:"inPrivate,omitempty"`
-	PageLoadSeconds *int32                  `json:"pageLoadSeconds,omitempty"`
-	ProfileMode     *BrowserEdgeProfileMode `json:"profileMode,omitempty"`
-	SessionId       *string                 `json:"sessionId"`
-	StartUrl        *string                 `json:"startUrl,omitempty"`
+	// DryRun Defaults to false when omitted.
+	DryRun *bool `json:"dryRun,omitempty"`
+
+	// InPrivate Defaults to false when omitted.
+	InPrivate *bool `json:"inPrivate,omitempty"`
+
+	// PageLoadSeconds Defaults to 4 when omitted.
+	PageLoadSeconds *int32 `json:"pageLoadSeconds,omitempty"`
+
+	// ProfileMode Defaults to "temp" when omitted.
+	ProfileMode *BrowserEdgeProfileMode `json:"profileMode,omitempty"`
+	SessionId   *string                 `json:"sessionId"`
+
+	// StartUrl Defaults to "https://microsoft.com/devicelogin" when omitted.
+	StartUrl *string `json:"startUrl,omitempty"`
 }
 
 // BrowserEdgeSessionStateResult defines model for BrowserEdgeSessionStateResult.
@@ -267,16 +307,18 @@ type BrowserEdgeSessionStateResult struct {
 	IsAlive       bool                            `json:"isAlive"`
 	ObservedAtUtc time.Time                       `json:"observedAtUtc"`
 	ProcessId     *int32                          `json:"processId"`
-	ProfileMode   BrowserEdgeProfileMode          `json:"profileMode"`
-	SessionId     string                          `json:"sessionId"`
-	StatePath     *string                         `json:"statePath"`
-	Success       bool                            `json:"success"`
-	Title         *string                         `json:"title"`
-	Url           *string                         `json:"url"`
+
+	// ProfileMode Allowed values for BrowserEdgeProfileMode.
+	ProfileMode BrowserEdgeProfileMode `json:"profileMode"`
+	SessionId   string                 `json:"sessionId"`
+	Success     bool                   `json:"success"`
+	Title       *string                `json:"title"`
+	Url         *string                `json:"url"`
 }
 
 // CapabilitiesResult defines model for CapabilitiesResult.
 type CapabilitiesResult struct {
+	Build           RuntimeBuildIdentity         `json:"build"`
 	CheckedAtUtc    time.Time                    `json:"checkedAtUtc"`
 	ContractVersion string                       `json:"contractVersion"`
 	Features        map[string]CapabilityFeature `json:"features"`
@@ -301,12 +343,15 @@ type CapabilityHost struct {
 
 // DesktopScreenshotRequest defines model for DesktopScreenshotRequest.
 type DesktopScreenshotRequest struct {
-	Format        *ScreenshotFormat `json:"format,omitempty"`
-	Hwnd          *int64            `json:"hwnd"`
-	Label         *string           `json:"label"`
-	RunId         *string           `json:"runId"`
-	Target        *string           `json:"target,omitempty"`
-	TitleContains *string           `json:"titleContains"`
+	// Format Defaults to "png" when omitted.
+	Format *ScreenshotFormat `json:"format,omitempty"`
+	Hwnd   *int64            `json:"hwnd"`
+	Label  *string           `json:"label"`
+	RunId  *string           `json:"runId"`
+
+	// Target Defaults to "foreground" when omitted.
+	Target        *string `json:"target,omitempty"`
+	TitleContains *string `json:"titleContains"`
 }
 
 // DesktopScreenshotResult defines model for DesktopScreenshotResult.
@@ -324,24 +369,25 @@ type DesktopScreenshotResult struct {
 
 // DevScriptResult defines model for DevScriptResult.
 type DevScriptResult struct {
-	Actions       []string        `json:"actions"`
-	Errors        []string        `json:"errors"`
-	EvidencePath  *string         `json:"evidencePath"`
-	ObservedAtUtc time.Time       `json:"observedAtUtc"`
-	ResultJson    *string         `json:"resultJson"`
-	ResultText    *string         `json:"resultText"`
-	ScriptId      string          `json:"scriptId"`
-	SessionId     string          `json:"sessionId"`
-	SourceSha256  *string         `json:"sourceSha256"`
-	Status        DevScriptStatus `json:"status"`
-	Success       bool            `json:"success"`
-	Target        *string         `json:"target"`
-	TargetTitle   *string         `json:"targetTitle"`
-	TargetUrl     *string         `json:"targetUrl"`
-	Warnings      []string        `json:"warnings"`
+	Actions       []string  `json:"actions"`
+	Errors        []string  `json:"errors"`
+	ObservedAtUtc time.Time `json:"observedAtUtc"`
+	ResultJson    *string   `json:"resultJson"`
+	ResultText    *string   `json:"resultText"`
+	ScriptId      string    `json:"scriptId"`
+	SessionId     string    `json:"sessionId"`
+	SourceSha256  *string   `json:"sourceSha256"`
+
+	// Status Allowed values for DevScriptStatus.
+	Status      DevScriptStatus `json:"status"`
+	Success     bool            `json:"success"`
+	Target      *string         `json:"target"`
+	TargetTitle *string         `json:"targetTitle"`
+	TargetUrl   *string         `json:"targetUrl"`
+	Warnings    []string        `json:"warnings"`
 }
 
-// DevScriptStatus defines model for DevScriptStatus.
+// DevScriptStatus Allowed values for DevScriptStatus.
 type DevScriptStatus string
 
 // HealthResult defines model for HealthResult.
@@ -358,7 +404,7 @@ type HealthResult struct {
 
 // HotkeyRequest defines model for HotkeyRequest.
 type HotkeyRequest struct {
-	Keys *[]string `json:"keys,omitempty"`
+	Keys []string `json:"keys"`
 }
 
 // MailAttachmentRef defines model for MailAttachmentRef.
@@ -371,10 +417,16 @@ type MailAttachmentRef struct {
 
 // MailDownloadRequest defines model for MailDownloadRequest.
 type MailDownloadRequest struct {
-	AttachmentIndexes *[]int32   `json:"attachmentIndexes"`
-	DryRun            *bool      `json:"dryRun,omitempty"`
-	FolderPath        *string    `json:"folderPath"`
-	Freshness         *string    `json:"freshness,omitempty"`
+	AttachmentIndexes *[]int32 `json:"attachmentIndexes"`
+
+	// DryRun Defaults to false when omitted.
+	DryRun     *bool   `json:"dryRun,omitempty"`
+	FolderPath *string `json:"folderPath"`
+
+	// Freshness Defaults to "auto" when omitted.
+	Freshness *string `json:"freshness,omitempty"`
+
+	// MaxMessages Defaults to 25 when omitted.
 	MaxMessages       *int32     `json:"maxMessages,omitempty"`
 	MessageIds        *[]string  `json:"messageIds"`
 	ReceivedAfterUtc  *time.Time `json:"receivedAfterUtc"`
@@ -389,14 +441,12 @@ type MailDownloadResult struct {
 	AttachmentsSaved   int32                   `json:"attachmentsSaved"`
 	AttachmentsSkipped int32                   `json:"attachmentsSkipped"`
 	CompletedAtUtc     time.Time               `json:"completedAtUtc"`
-	DownloadRoot       string                  `json:"downloadRoot"`
 	Errors             []MailRunError          `json:"errors"`
 	LastSyncUtc        *time.Time              `json:"lastSyncUtc"`
 	MessagesMatched    int32                   `json:"messagesMatched"`
 	MessagesScanned    int32                   `json:"messagesScanned"`
 	Recovered          bool                    `json:"recovered"`
 	RunId              string                  `json:"runId"`
-	RunRoot            string                  `json:"runRoot"`
 	Saved              []MailSavedAttachment   `json:"saved"`
 	Skipped            []MailSkippedAttachment `json:"skipped"`
 	Success            bool                    `json:"success"`
@@ -425,6 +475,7 @@ type MailFoldersResult struct {
 
 // MailListFoldersRequest defines model for MailListFoldersRequest.
 type MailListFoldersRequest struct {
+	// Freshness Defaults to "auto" when omitted.
 	Freshness *string `json:"freshness,omitempty"`
 }
 
@@ -448,7 +499,6 @@ type MailRunError struct {
 
 // MailSavedAttachment defines model for MailSavedAttachment.
 type MailSavedAttachment struct {
-	AbsolutePath     string       `json:"absolutePath"`
 	AlreadyProcessed bool         `json:"alreadyProcessed"`
 	Artifact         *ArtifactRef `json:"artifact"`
 	AttachmentIndex  int32        `json:"attachmentIndex"`
@@ -457,20 +507,25 @@ type MailSavedAttachment struct {
 	FolderPath       string       `json:"folderPath"`
 	MessageId        string       `json:"messageId"`
 	ReceivedTime     *time.Time   `json:"receivedTime"`
-	RelativePath     string       `json:"relativePath"`
 	Subject          string       `json:"subject"`
 }
 
 // MailSearchRequest defines model for MailSearchRequest.
 type MailSearchRequest struct {
-	FolderPath               *string    `json:"folderPath"`
-	Freshness                *string    `json:"freshness,omitempty"`
-	HasAttachments           *bool      `json:"hasAttachments"`
-	IncludeAttachmentDetails *bool      `json:"includeAttachmentDetails,omitempty"`
-	MaxResults               *int32     `json:"maxResults,omitempty"`
-	ReceivedAfterUtc         *time.Time `json:"receivedAfterUtc"`
-	ReceivedBeforeUtc        *time.Time `json:"receivedBeforeUtc"`
-	SubjectContains          *string    `json:"subjectContains"`
+	FolderPath *string `json:"folderPath"`
+
+	// Freshness Defaults to "auto" when omitted.
+	Freshness      *string `json:"freshness,omitempty"`
+	HasAttachments *bool   `json:"hasAttachments"`
+
+	// IncludeAttachmentDetails Defaults to true when omitted.
+	IncludeAttachmentDetails *bool `json:"includeAttachmentDetails,omitempty"`
+
+	// MaxResults Defaults to 25 when omitted.
+	MaxResults        *int32     `json:"maxResults,omitempty"`
+	ReceivedAfterUtc  *time.Time `json:"receivedAfterUtc"`
+	ReceivedBeforeUtc *time.Time `json:"receivedBeforeUtc"`
+	SubjectContains   *string    `json:"subjectContains"`
 }
 
 // MailSearchResult defines model for MailSearchResult.
@@ -500,14 +555,16 @@ type MailSkippedAttachment struct {
 type MailStatusResult struct {
 	CheckedAtUtc         time.Time `json:"checkedAtUtc"`
 	HeadlessOutlookCount int32     `json:"headlessOutlookCount"`
-	LastWorkerError      *string   `json:"lastWorkerError"`
 	VisibleOutlookCount  int32     `json:"visibleOutlookCount"`
 	WorkerAvailable      bool      `json:"workerAvailable"`
 }
 
 // MicrosoftAuthCleanupRequest defines model for MicrosoftAuthCleanupRequest.
 type MicrosoftAuthCleanupRequest struct {
-	DryRun                *bool  `json:"dryRun,omitempty"`
+	// DryRun Defaults to false when omitted.
+	DryRun *bool `json:"dryRun,omitempty"`
+
+	// PreserveRecentSeconds Defaults to 0 when omitted.
 	PreserveRecentSeconds *int32 `json:"preserveRecentSeconds,omitempty"`
 }
 
@@ -525,67 +582,91 @@ type MicrosoftAuthCleanupResult struct {
 
 // MicrosoftAuthorizeProbeRequest defines model for MicrosoftAuthorizeProbeRequest.
 type MicrosoftAuthorizeProbeRequest struct {
-	AuthorizeUrl              *string `json:"authorizeUrl,omitempty"`
-	DryRun                    *bool   `json:"dryRun,omitempty"`
-	InPrivate                 *bool   `json:"inPrivate,omitempty"`
-	ObservationTimeoutSeconds *int32  `json:"observationTimeoutSeconds,omitempty"`
-	PageLoadSeconds           *int32  `json:"pageLoadSeconds,omitempty"`
-	ReuseExistingProfile      *bool   `json:"reuseExistingProfile,omitempty"`
-	RunId                     *string `json:"runId"`
+	AuthorizeUrl string `json:"authorizeUrl"`
+
+	// DryRun Defaults to false when omitted.
+	DryRun *bool `json:"dryRun,omitempty"`
+
+	// InPrivate Defaults to false when omitted.
+	InPrivate *bool `json:"inPrivate,omitempty"`
+
+	// ObservationTimeoutSeconds Defaults to 90 when omitted.
+	ObservationTimeoutSeconds *int32 `json:"observationTimeoutSeconds,omitempty"`
+
+	// PageLoadSeconds Defaults to 6 when omitted.
+	PageLoadSeconds *int32 `json:"pageLoadSeconds,omitempty"`
+
+	// ReuseExistingProfile Defaults to false when omitted.
+	ReuseExistingProfile *bool   `json:"reuseExistingProfile,omitempty"`
+	RunId                *string `json:"runId"`
 }
 
 // MicrosoftAuthorizeProbeResult defines model for MicrosoftAuthorizeProbeResult.
 type MicrosoftAuthorizeProbeResult struct {
-	Actions             []string                      `json:"actions"`
-	AuthorizeUrl        string                        `json:"authorizeUrl"`
-	BrowserState        *string                       `json:"browserState"`
-	BrowserTitle        *string                       `json:"browserTitle"`
-	CompletedAtUtc      time.Time                     `json:"completedAtUtc"`
-	Errors              []string                      `json:"errors"`
-	InPrivate           bool                          `json:"inPrivate"`
-	ObservedAtUtc       *time.Time                    `json:"observedAtUtc"`
-	ObservedCodePresent bool                          `json:"observedCodePresent"`
-	ObservedError       *string                       `json:"observedError"`
-	ObservedOrigin      *string                       `json:"observedOrigin"`
-	ObservedUrl         *string                       `json:"observedUrl"`
-	RunId               *string                       `json:"runId"`
-	Status              MicrosoftAuthorizeProbeStatus `json:"status"`
-	StatusPath          *string                       `json:"statusPath"`
-	Success             bool                          `json:"success"`
+	Actions             []string   `json:"actions"`
+	AuthorizeUrl        string     `json:"authorizeUrl"`
+	BrowserState        *string    `json:"browserState"`
+	BrowserTitle        *string    `json:"browserTitle"`
+	CompletedAtUtc      time.Time  `json:"completedAtUtc"`
+	Errors              []string   `json:"errors"`
+	InPrivate           bool       `json:"inPrivate"`
+	ObservedAtUtc       *time.Time `json:"observedAtUtc"`
+	ObservedCodePresent bool       `json:"observedCodePresent"`
+	ObservedError       *string    `json:"observedError"`
+	ObservedOrigin      *string    `json:"observedOrigin"`
+	ObservedUrl         *string    `json:"observedUrl"`
+	RunId               *string    `json:"runId"`
+
+	// Status Allowed values for MicrosoftAuthorizeProbeStatus.
+	Status  MicrosoftAuthorizeProbeStatus `json:"status"`
+	Success bool                          `json:"success"`
 }
 
-// MicrosoftAuthorizeProbeStatus defines model for MicrosoftAuthorizeProbeStatus.
+// MicrosoftAuthorizeProbeStatus Allowed values for MicrosoftAuthorizeProbeStatus.
 type MicrosoftAuthorizeProbeStatus string
 
 // MicrosoftDeviceLoginRequest defines model for MicrosoftDeviceLoginRequest.
 type MicrosoftDeviceLoginRequest struct {
-	DeviceCode              *string `json:"deviceCode,omitempty"`
-	DryRun                  *bool   `json:"dryRun,omitempty"`
-	InPrivate               *bool   `json:"inPrivate,omitempty"`
-	LoginUrl                *string `json:"loginUrl,omitempty"`
-	PageLoadSeconds         *int32  `json:"pageLoadSeconds,omitempty"`
-	ReuseExistingProfile    *bool   `json:"reuseExistingProfile,omitempty"`
-	RunId                   *string `json:"runId"`
-	VerificationWaitSeconds *int32  `json:"verificationWaitSeconds,omitempty"`
+	DeviceCode string `json:"deviceCode"`
+
+	// DryRun Defaults to false when omitted.
+	DryRun *bool `json:"dryRun,omitempty"`
+
+	// InPrivate Defaults to false when omitted.
+	InPrivate *bool `json:"inPrivate,omitempty"`
+
+	// LoginUrl Defaults to "https://microsoft.com/devicelogin" when omitted.
+	LoginUrl *string `json:"loginUrl,omitempty"`
+
+	// PageLoadSeconds Defaults to 6 when omitted.
+	PageLoadSeconds *int32 `json:"pageLoadSeconds,omitempty"`
+
+	// ReuseExistingProfile Defaults to false when omitted.
+	ReuseExistingProfile *bool   `json:"reuseExistingProfile,omitempty"`
+	RunId                *string `json:"runId"`
+
+	// VerificationWaitSeconds Defaults to 20 when omitted.
+	VerificationWaitSeconds *int32 `json:"verificationWaitSeconds,omitempty"`
 }
 
 // MicrosoftDeviceLoginResult defines model for MicrosoftDeviceLoginResult.
 type MicrosoftDeviceLoginResult struct {
-	Actions        []string                   `json:"actions"`
-	BrowserState   *string                    `json:"browserState"`
-	BrowserTitle   *string                    `json:"browserTitle"`
-	CompletedAtUtc time.Time                  `json:"completedAtUtc"`
-	Errors         []string                   `json:"errors"`
-	InPrivate      bool                       `json:"inPrivate"`
-	LoginUrl       string                     `json:"loginUrl"`
-	ObservedAtUtc  *time.Time                 `json:"observedAtUtc"`
-	RunId          *string                    `json:"runId"`
-	Status         MicrosoftDeviceLoginStatus `json:"status"`
-	StatusPath     *string                    `json:"statusPath"`
-	Success        bool                       `json:"success"`
+	Actions        []string   `json:"actions"`
+	BrowserState   *string    `json:"browserState"`
+	BrowserTitle   *string    `json:"browserTitle"`
+	CompletedAtUtc time.Time  `json:"completedAtUtc"`
+	Errors         []string   `json:"errors"`
+	InPrivate      bool       `json:"inPrivate"`
+	LoginUrl       string     `json:"loginUrl"`
+	ObservedAtUtc  *time.Time `json:"observedAtUtc"`
+	RunId          *string    `json:"runId"`
+
+	// Status Allowed values for MicrosoftDeviceLoginStatus.
+	Status  MicrosoftDeviceLoginStatus `json:"status"`
+	Success bool                       `json:"success"`
 }
 
-// MicrosoftDeviceLoginStatus defines model for MicrosoftDeviceLoginStatus.
+// MicrosoftDeviceLoginStatus Allowed values for MicrosoftDeviceLoginStatus.
 type MicrosoftDeviceLoginStatus string
 
 // OpenApiNamespaceDiscoveryResult defines model for OpenApiNamespaceDiscoveryResult.
@@ -609,19 +690,237 @@ type OpenApiNamespaceSummary struct {
 // OperatorError defines model for OperatorError.
 type OperatorError struct {
 	Category      *OperatorErrorCategory `json:"category"`
-	Code          *string                `json:"code,omitempty"`
+	Code          string                 `json:"code"`
 	CorrelationId *string                `json:"correlationId"`
 	Details       *map[string]string     `json:"details"`
-	Message       *string                `json:"message,omitempty"`
-	Remediation   *string                `json:"remediation,omitempty"`
+	Message       string                 `json:"message"`
+	Remediation   string                 `json:"remediation"`
 	Retryable     *bool                  `json:"retryable"`
 }
 
-// OperatorErrorCategory defines model for OperatorErrorCategory.
+// OperatorErrorCategory Allowed values for OperatorErrorCategory.
 type OperatorErrorCategory string
+
+// PowerAutomateMcpEdgeCleanupResult defines model for PowerAutomateMcpEdgeCleanupResult.
+type PowerAutomateMcpEdgeCleanupResult struct {
+	Actions           []string   `json:"actions"`
+	Alive             bool       `json:"alive"`
+	ClosedAtUtc       *time.Time `json:"closedAtUtc"`
+	Errors            []string   `json:"errors"`
+	Hwnd              *int64     `json:"hwnd"`
+	LastUsedAtUtc     *time.Time `json:"lastUsedAtUtc"`
+	LeaseExpiresAtUtc *time.Time `json:"leaseExpiresAtUtc"`
+	ObservedAtUtc     time.Time  `json:"observedAtUtc"`
+	ProcessId         *int32     `json:"processId"`
+
+	// ProfileMode Allowed values for BrowserEdgeProfileMode.
+	ProfileMode  BrowserEdgeProfileMode `json:"profileMode"`
+	StartedAtUtc *time.Time             `json:"startedAtUtc"`
+	Success      bool                   `json:"success"`
+	TtlSeconds   int32                  `json:"ttlSeconds"`
+	Url          *string                `json:"url"`
+	Warnings     []string               `json:"warnings"`
+}
+
+// PowerAutomateMcpEdgeRequest defines model for PowerAutomateMcpEdgeRequest.
+type PowerAutomateMcpEdgeRequest struct {
+	// DryRun Defaults to false when omitted.
+	DryRun         *bool   `json:"dryRun,omitempty"`
+	ExtensionPath  *string `json:"extensionPath"`
+	IdleTtlSeconds *int32  `json:"idleTtlSeconds"`
+
+	// PackageSpec Defaults to "@kaael1/mcp-power-automate@0.4.1" when omitted.
+	PackageSpec *string `json:"packageSpec,omitempty"`
+
+	// ProfileMode Defaults to "work" when omitted.
+	ProfileMode *BrowserEdgeProfileMode `json:"profileMode,omitempty"`
+
+	// Url Defaults to "https://make.powerautomate.com/" when omitted.
+	Url *string `json:"url,omitempty"`
+
+	// WaitSeconds Defaults to 4 when omitted.
+	WaitSeconds *int32 `json:"waitSeconds,omitempty"`
+}
+
+// PowerAutomateMcpEdgeResult defines model for PowerAutomateMcpEdgeResult.
+type PowerAutomateMcpEdgeResult struct {
+	Actions           []string   `json:"actions"`
+	Alive             bool       `json:"alive"`
+	ClosedAtUtc       *time.Time `json:"closedAtUtc"`
+	Errors            []string   `json:"errors"`
+	Hwnd              *int64     `json:"hwnd"`
+	LastUsedAtUtc     *time.Time `json:"lastUsedAtUtc"`
+	LeaseExpiresAtUtc *time.Time `json:"leaseExpiresAtUtc"`
+	ObservedAtUtc     time.Time  `json:"observedAtUtc"`
+	ProcessId         *int32     `json:"processId"`
+
+	// ProfileMode Allowed values for BrowserEdgeProfileMode.
+	ProfileMode  BrowserEdgeProfileMode `json:"profileMode"`
+	StartedAtUtc *time.Time             `json:"startedAtUtc"`
+	Success      bool                   `json:"success"`
+	TtlSeconds   int32                  `json:"ttlSeconds"`
+	Url          string                 `json:"url"`
+	Warnings     []string               `json:"warnings"`
+}
+
+// PowerAutomateMcpFlowReadRequest defines model for PowerAutomateMcpFlowReadRequest.
+type PowerAutomateMcpFlowReadRequest struct {
+	BridgeHost *string `json:"bridgeHost"`
+	BridgePort *int32  `json:"bridgePort"`
+	FlowId     *string `json:"flowId"`
+}
+
+// PowerAutomateMcpFlowReadResult defines model for PowerAutomateMcpFlowReadResult.
+type PowerAutomateMcpFlowReadResult struct {
+	Actions       []string                    `json:"actions"`
+	DisplayName   string                      `json:"displayName"`
+	EnvId         string                      `json:"envId"`
+	Errors        []string                    `json:"errors"`
+	FlowId        string                      `json:"flowId"`
+	FlowJson      string                      `json:"flowJson"`
+	ObservedAtUtc time.Time                   `json:"observedAtUtc"`
+	Source        string                      `json:"source"`
+	Success       bool                        `json:"success"`
+	Summary       PowerAutomateMcpFlowSummary `json:"summary"`
+	Warnings      []string                    `json:"warnings"`
+}
+
+// PowerAutomateMcpFlowSummary defines model for PowerAutomateMcpFlowSummary.
+type PowerAutomateMcpFlowSummary struct {
+	ActionCount  int32    `json:"actionCount"`
+	ActionNames  []string `json:"actionNames"`
+	TriggerCount int32    `json:"triggerCount"`
+	TriggerNames []string `json:"triggerNames"`
+}
+
+// PowerAutomateMcpFlowUpdateRequest defines model for PowerAutomateMcpFlowUpdateRequest.
+type PowerAutomateMcpFlowUpdateRequest struct {
+	BridgeHost *string `json:"bridgeHost"`
+	BridgePort *int32  `json:"bridgePort"`
+
+	// Create Defaults to false when omitted.
+	Create      *bool   `json:"create,omitempty"`
+	DisplayName *string `json:"displayName"`
+
+	// DryRun Defaults to false when omitted.
+	DryRun *bool   `json:"dryRun,omitempty"`
+	FlowId *string `json:"flowId"`
+
+	// FlowJson Defaults to "" when omitted.
+	FlowJson *string `json:"flowJson,omitempty"`
+
+	// ValidateAfter Defaults to false when omitted.
+	ValidateAfter *bool `json:"validateAfter,omitempty"`
+
+	// ValidateBefore Defaults to false when omitted.
+	ValidateBefore *bool `json:"validateBefore,omitempty"`
+}
+
+// PowerAutomateMcpFlowUpdateResult defines model for PowerAutomateMcpFlowUpdateResult.
+type PowerAutomateMcpFlowUpdateResult struct {
+	Actions          []string                              `json:"actions"`
+	After            PowerAutomateMcpFlowReadResult        `json:"after"`
+	AfterValidation  *PowerAutomateMcpFlowValidationResult `json:"afterValidation"`
+	Before           PowerAutomateMcpFlowReadResult        `json:"before"`
+	BeforeValidation *PowerAutomateMcpFlowValidationResult `json:"beforeValidation"`
+	DryRun           bool                                  `json:"dryRun"`
+	Errors           []string                              `json:"errors"`
+	ObservedAtUtc    time.Time                             `json:"observedAtUtc"`
+
+	// Status Allowed values for PowerAutomateMcpFlowUpdateStatus.
+	Status   PowerAutomateMcpFlowUpdateStatus `json:"status"`
+	Success  bool                             `json:"success"`
+	Warnings []string                         `json:"warnings"`
+}
+
+// PowerAutomateMcpFlowUpdateStatus Allowed values for PowerAutomateMcpFlowUpdateStatus.
+type PowerAutomateMcpFlowUpdateStatus string
+
+// PowerAutomateMcpFlowValidationResult defines model for PowerAutomateMcpFlowValidationResult.
+type PowerAutomateMcpFlowValidationResult struct {
+	Available    bool    `json:"available"`
+	ErrorCount   int32   `json:"errorCount"`
+	ErrorsJson   string  `json:"errorsJson"`
+	Message      *string `json:"message"`
+	Source       *string `json:"source"`
+	WarningCount int32   `json:"warningCount"`
+	WarningsJson string  `json:"warningsJson"`
+}
+
+// PowerAutomateMcpStartRequest defines model for PowerAutomateMcpStartRequest.
+type PowerAutomateMcpStartRequest struct {
+	// BridgeHost Defaults to "127.0.0.1" when omitted.
+	BridgeHost *string `json:"bridgeHost,omitempty"`
+
+	// BridgePort Defaults to 17373 when omitted.
+	BridgePort *int32 `json:"bridgePort,omitempty"`
+
+	// DryRun Defaults to false when omitted.
+	DryRun *bool `json:"dryRun,omitempty"`
+
+	// PackageSpec Defaults to "@kaael1/mcp-power-automate@0.4.1" when omitted.
+	PackageSpec *string `json:"packageSpec,omitempty"`
+
+	// ResolveExtensionPath Defaults to true when omitted.
+	ResolveExtensionPath *bool `json:"resolveExtensionPath,omitempty"`
+
+	// WaitSeconds Defaults to 10 when omitted.
+	WaitSeconds *int32 `json:"waitSeconds,omitempty"`
+}
+
+// PowerAutomateMcpStartResult defines model for PowerAutomateMcpStartResult.
+type PowerAutomateMcpStartResult struct {
+	Actions       []string                     `json:"actions"`
+	Errors        []string                     `json:"errors"`
+	ObservedAtUtc time.Time                    `json:"observedAtUtc"`
+	ProcessId     *int32                       `json:"processId"`
+	Status        PowerAutomateMcpStatusResult `json:"status"`
+	Success       bool                         `json:"success"`
+	Warnings      []string                     `json:"warnings"`
+}
+
+// PowerAutomateMcpStatusResult defines model for PowerAutomateMcpStatusResult.
+type PowerAutomateMcpStatusResult struct {
+	Actions               []string                `json:"actions"`
+	BridgeHealthy         bool                    `json:"bridgeHealthy"`
+	BridgeHost            string                  `json:"bridgeHost"`
+	BridgeListening       bool                    `json:"bridgeListening"`
+	BridgeMode            *string                 `json:"bridgeMode"`
+	BridgePort            int32                   `json:"bridgePort"`
+	BridgeProcessId       *int32                  `json:"bridgeProcessId"`
+	BridgeVersion         *string                 `json:"bridgeVersion"`
+	ContextAvailable      bool                    `json:"contextAvailable"`
+	EdgeClosedAtUtc       *time.Time              `json:"edgeClosedAtUtc"`
+	EdgeHwnd              *int64                  `json:"edgeHwnd"`
+	EdgeIdleTtlSeconds    int32                   `json:"edgeIdleTtlSeconds"`
+	EdgeLastUsedAtUtc     *time.Time              `json:"edgeLastUsedAtUtc"`
+	EdgeLeaseExpiresAtUtc *time.Time              `json:"edgeLeaseExpiresAtUtc"`
+	EdgeProcessId         *int32                  `json:"edgeProcessId"`
+	EdgeProfileMode       *BrowserEdgeProfileMode `json:"edgeProfileMode"`
+	EdgeSessionAlive      bool                    `json:"edgeSessionAlive"`
+	EdgeStartedAtUtc      *time.Time              `json:"edgeStartedAtUtc"`
+	EdgeUrl               *string                 `json:"edgeUrl"`
+	Errors                []string                `json:"errors"`
+	ExtensionPathResolved bool                    `json:"extensionPathResolved"`
+	NodeVersion           *string                 `json:"nodeVersion"`
+	NpmVersion            *string                 `json:"npmVersion"`
+	ObservedAtUtc         time.Time               `json:"observedAtUtc"`
+	PackageSpec           string                  `json:"packageSpec"`
+	Success               bool                    `json:"success"`
+	Warnings              []string                `json:"warnings"`
+}
 
 // PowerPointArtifactRef defines model for PowerPointArtifactRef.
 type PowerPointArtifactRef struct {
+	ArtifactId string     `json:"artifactId"`
+	ExpiresAt  *time.Time `json:"expiresAt"`
+	MediaType  string     `json:"mediaType"`
+	Sha256     *string    `json:"sha256"`
+	Url        *string    `json:"url"`
+}
+
+// PowerPointArtifactRefInput defines model for PowerPointArtifactRefInput.
+type PowerPointArtifactRefInput struct {
 	ArtifactId string     `json:"artifactId"`
 	ExpiresAt  *time.Time `json:"expiresAt"`
 	MediaType  string     `json:"mediaType"`
@@ -637,13 +936,20 @@ type PowerPointClaimJobRequest struct {
 
 // PowerPointDevScriptRequest defines model for PowerPointDevScriptRequest.
 type PowerPointDevScriptRequest struct {
+	// AllowDeckMutation Defaults to false when omitted.
 	AllowDeckMutation *bool              `json:"allowDeckMutation,omitempty"`
 	Args              *map[string]string `json:"args"`
-	CaptureScreenshot *bool              `json:"captureScreenshot,omitempty"`
-	Label             *string            `json:"label"`
-	RunId             *string            `json:"runId"`
-	ScriptId          *string            `json:"scriptId,omitempty"`
-	TimeoutSeconds    *int32             `json:"timeoutSeconds,omitempty"`
+
+	// CaptureScreenshot Defaults to false when omitted.
+	CaptureScreenshot *bool   `json:"captureScreenshot,omitempty"`
+	Label             *string `json:"label"`
+	RunId             *string `json:"runId"`
+
+	// ScriptId Defaults to "" when omitted.
+	ScriptId *string `json:"scriptId,omitempty"`
+
+	// TimeoutSeconds Defaults to 5 when omitted.
+	TimeoutSeconds *int32 `json:"timeoutSeconds,omitempty"`
 }
 
 // PowerPointDiscoveredTarget defines model for PowerPointDiscoveredTarget.
@@ -656,6 +962,18 @@ type PowerPointDiscoveredTarget struct {
 	Tagged    *bool   `json:"tagged"`
 	TargetId  string  `json:"targetId"`
 	Type      string  `json:"type"`
+}
+
+// PowerPointDiscoveredTargetInput defines model for PowerPointDiscoveredTargetInput.
+type PowerPointDiscoveredTargetInput struct {
+	Bound     *bool   `json:"bound"`
+	Editable  *bool   `json:"editable,omitempty"`
+	Message   *string `json:"message"`
+	ShapeName *string `json:"shapeName"`
+	Source    *string `json:"source"`
+	Tagged    *bool   `json:"tagged"`
+	TargetId  *string `json:"targetId,omitempty"`
+	Type      *string `json:"type,omitempty"`
 }
 
 // PowerPointJobRecord defines model for PowerPointJobRecord.
@@ -675,118 +993,155 @@ type PowerPointJobRecord struct {
 
 // PowerPointOnlineAddInCommandRequest defines model for PowerPointOnlineAddInCommandRequest.
 type PowerPointOnlineAddInCommandRequest struct {
-	Capture     *bool   `json:"capture,omitempty"`
-	Label       *string `json:"label"`
-	WaitSeconds *int32  `json:"waitSeconds,omitempty"`
+	// Capture Defaults to false when omitted.
+	Capture *bool   `json:"capture,omitempty"`
+	Label   *string `json:"label"`
+
+	// WaitSeconds Defaults to 2 when omitted.
+	WaitSeconds *int32 `json:"waitSeconds,omitempty"`
 }
 
 // PowerPointOnlineAddInProbeRequest defines model for PowerPointOnlineAddInProbeRequest.
 type PowerPointOnlineAddInProbeRequest struct {
-	ActivateIfNeeded         *bool   `json:"activateIfNeeded,omitempty"`
-	ActivationTimeoutSeconds *int32  `json:"activationTimeoutSeconds,omitempty"`
-	AddInBaseUrl             *string `json:"addInBaseUrl,omitempty"`
-	Capture                  *bool   `json:"capture,omitempty"`
-	HostTimeoutSeconds       *int32  `json:"hostTimeoutSeconds,omitempty"`
-	Label                    *string `json:"label"`
+	// ActivateIfNeeded Defaults to false when omitted.
+	ActivateIfNeeded *bool `json:"activateIfNeeded,omitempty"`
+
+	// ActivationTimeoutSeconds Defaults to 10 when omitted.
+	ActivationTimeoutSeconds *int32 `json:"activationTimeoutSeconds,omitempty"`
+
+	// AddInBaseUrl Defaults to "https://localhost:3003" when omitted.
+	AddInBaseUrl *string `json:"addInBaseUrl,omitempty"`
+
+	// Capture Defaults to true when omitted.
+	Capture *bool `json:"capture,omitempty"`
+
+	// HostTimeoutSeconds Defaults to 10 when omitted.
+	HostTimeoutSeconds *int32  `json:"hostTimeoutSeconds,omitempty"`
+	Label              *string `json:"label"`
 }
 
 // PowerPointOnlineAddInProbeResult defines model for PowerPointOnlineAddInProbeResult.
 type PowerPointOnlineAddInProbeResult struct {
-	Actions                []string                         `json:"actions"`
-	AddInBaseUrl           string                           `json:"addInBaseUrl"`
-	CommandVisible         bool                             `json:"commandVisible"`
-	Errors                 []OperatorError                  `json:"errors"`
-	Evidence               []DesktopScreenshotResult        `json:"evidence"`
-	HostReachable          bool                             `json:"hostReachable"`
-	ManifestDisplayName    *string                          `json:"manifestDisplayName"`
-	ManifestId             *string                          `json:"manifestId"`
-	ManifestReachable      bool                             `json:"manifestReachable"`
-	ManifestSourceLocation *string                          `json:"manifestSourceLocation"`
-	ManifestUrl            *string                          `json:"manifestUrl"`
-	ManifestVersion        *string                          `json:"manifestVersion"`
-	MatchedElements        []UiElementRef                   `json:"matchedElements"`
-	ObservedAtUtc          time.Time                        `json:"observedAtUtc"`
-	Session                PowerPointOnlineSessionResult    `json:"session"`
-	Status                 PowerPointOnlineAddInProbeStatus `json:"status"`
-	Success                bool                             `json:"success"`
-	TaskPaneReachable      bool                             `json:"taskPaneReachable"`
-	TaskPaneUrl            *string                          `json:"taskPaneUrl"`
-	TaskPaneVisible        bool                             `json:"taskPaneVisible"`
-	Warnings               []string                         `json:"warnings"`
+	Actions                []string                      `json:"actions"`
+	AddInBaseUrl           string                        `json:"addInBaseUrl"`
+	CommandVisible         bool                          `json:"commandVisible"`
+	Errors                 []OperatorError               `json:"errors"`
+	Evidence               []DesktopScreenshotResult     `json:"evidence"`
+	HostReachable          bool                          `json:"hostReachable"`
+	ManifestDisplayName    *string                       `json:"manifestDisplayName"`
+	ManifestId             *string                       `json:"manifestId"`
+	ManifestReachable      bool                          `json:"manifestReachable"`
+	ManifestSourceLocation *string                       `json:"manifestSourceLocation"`
+	ManifestUrl            *string                       `json:"manifestUrl"`
+	ManifestVersion        *string                       `json:"manifestVersion"`
+	MatchedElements        []UiElementRef                `json:"matchedElements"`
+	ObservedAtUtc          time.Time                     `json:"observedAtUtc"`
+	Session                PowerPointOnlineSessionResult `json:"session"`
+
+	// Status Allowed values for PowerPointOnlineAddInProbeStatus.
+	Status            PowerPointOnlineAddInProbeStatus `json:"status"`
+	Success           bool                             `json:"success"`
+	TaskPaneReachable bool                             `json:"taskPaneReachable"`
+	TaskPaneUrl       *string                          `json:"taskPaneUrl"`
+	TaskPaneVisible   bool                             `json:"taskPaneVisible"`
+	Warnings          []string                         `json:"warnings"`
 }
 
-// PowerPointOnlineAddInProbeStatus defines model for PowerPointOnlineAddInProbeStatus.
+// PowerPointOnlineAddInProbeStatus Allowed values for PowerPointOnlineAddInProbeStatus.
 type PowerPointOnlineAddInProbeStatus string
 
-// PowerPointOnlineSaveProofTier defines model for PowerPointOnlineSaveProofTier.
+// PowerPointOnlineSaveProofTier Allowed values for PowerPointOnlineSaveProofTier.
 type PowerPointOnlineSaveProofTier string
 
 // PowerPointOnlineSaveWaitRequest defines model for PowerPointOnlineSaveWaitRequest.
 type PowerPointOnlineSaveWaitRequest struct {
-	Capture        *bool   `json:"capture,omitempty"`
-	Label          *string `json:"label"`
-	PollSeconds    *int32  `json:"pollSeconds,omitempty"`
-	TimeoutSeconds *int32  `json:"timeoutSeconds,omitempty"`
+	// Capture Defaults to false when omitted.
+	Capture *bool   `json:"capture,omitempty"`
+	Label   *string `json:"label"`
+
+	// PollSeconds Defaults to 1 when omitted.
+	PollSeconds *int32 `json:"pollSeconds,omitempty"`
+
+	// TimeoutSeconds Defaults to 30 when omitted.
+	TimeoutSeconds *int32 `json:"timeoutSeconds,omitempty"`
 }
 
 // PowerPointOnlineSessionResult defines model for PowerPointOnlineSessionResult.
 type PowerPointOnlineSessionResult struct {
-	Actions          []string                      `json:"actions"`
-	ArtifactRoot     *WorkbenchRunRef              `json:"artifactRoot"`
-	BrowserSessionId *string                       `json:"browserSessionId"`
-	CanonicalUrl     *string                       `json:"canonicalUrl"`
-	CurrentSlide     *int32                        `json:"currentSlide"`
-	CurrentTitle     *string                       `json:"currentTitle"`
-	CurrentUrl       *string                       `json:"currentUrl"`
-	DeckUrl          string                        `json:"deckUrl"`
-	EditMode         *string                       `json:"editMode"`
-	Errors           []OperatorError               `json:"errors"`
-	Evidence         []DesktopScreenshotResult     `json:"evidence"`
-	Hwnd             *int64                        `json:"hwnd"`
-	ObservedAtUtc    time.Time                     `json:"observedAtUtc"`
-	SaveState        *string                       `json:"saveState"`
-	SessionId        string                        `json:"sessionId"`
-	SlideCount       *int32                        `json:"slideCount"`
-	Status           PowerPointOnlineSessionStatus `json:"status"`
-	Success          bool                          `json:"success"`
-	Warnings         []string                      `json:"warnings"`
+	Actions          []string                  `json:"actions"`
+	ArtifactRoot     *WorkbenchRunRef          `json:"artifactRoot"`
+	BrowserSessionId *string                   `json:"browserSessionId"`
+	CanonicalUrl     *string                   `json:"canonicalUrl"`
+	CurrentSlide     *int32                    `json:"currentSlide"`
+	CurrentTitle     *string                   `json:"currentTitle"`
+	CurrentUrl       *string                   `json:"currentUrl"`
+	DeckUrl          string                    `json:"deckUrl"`
+	EditMode         *string                   `json:"editMode"`
+	Errors           []OperatorError           `json:"errors"`
+	Evidence         []DesktopScreenshotResult `json:"evidence"`
+	Hwnd             *int64                    `json:"hwnd"`
+	ObservedAtUtc    time.Time                 `json:"observedAtUtc"`
+	SaveState        *string                   `json:"saveState"`
+	SessionId        string                    `json:"sessionId"`
+	SlideCount       *int32                    `json:"slideCount"`
+
+	// Status Allowed values for PowerPointOnlineSessionStatus.
+	Status   PowerPointOnlineSessionStatus `json:"status"`
+	Success  bool                          `json:"success"`
+	Warnings []string                      `json:"warnings"`
 }
 
 // PowerPointOnlineSessionScreenshotRequest defines model for PowerPointOnlineSessionScreenshotRequest.
 type PowerPointOnlineSessionScreenshotRequest struct {
+	// Format Defaults to "png" when omitted.
 	Format *ScreenshotFormat `json:"format,omitempty"`
 	Label  *string           `json:"label"`
 }
 
 // PowerPointOnlineSessionStartRequest defines model for PowerPointOnlineSessionStartRequest.
 type PowerPointOnlineSessionStartRequest struct {
-	Capture     *bool                   `json:"capture,omitempty"`
-	DeckUrl     *string                 `json:"deckUrl,omitempty"`
-	Label       *string                 `json:"label"`
+	// Capture Defaults to true when omitted.
+	Capture *bool   `json:"capture,omitempty"`
+	DeckUrl string  `json:"deckUrl"`
+	Label   *string `json:"label"`
+
+	// ProfileMode Defaults to "work" when omitted.
 	ProfileMode *BrowserEdgeProfileMode `json:"profileMode,omitempty"`
 	RunId       *string                 `json:"runId"`
 	SessionId   *string                 `json:"sessionId"`
-	WaitSeconds *int32                  `json:"waitSeconds,omitempty"`
+
+	// WaitSeconds Defaults to 30 when omitted.
+	WaitSeconds *int32 `json:"waitSeconds,omitempty"`
 }
 
-// PowerPointOnlineSessionStatus defines model for PowerPointOnlineSessionStatus.
+// PowerPointOnlineSessionStatus Allowed values for PowerPointOnlineSessionStatus.
 type PowerPointOnlineSessionStatus string
 
 // PowerPointOnlineSlideSelectRequest defines model for PowerPointOnlineSlideSelectRequest.
 type PowerPointOnlineSlideSelectRequest struct {
+	// Capture Defaults to true when omitted.
 	Capture     *bool   `json:"capture,omitempty"`
 	Label       *string `json:"label"`
-	SlideNumber *int32  `json:"slideNumber,omitempty"`
-	WaitSeconds *int32  `json:"waitSeconds,omitempty"`
+	SlideNumber int32   `json:"slideNumber"`
+
+	// WaitSeconds Defaults to 15 when omitted.
+	WaitSeconds *int32 `json:"waitSeconds,omitempty"`
 }
 
 // PowerPointOnlineTemplateRequest defines model for PowerPointOnlineTemplateRequest.
 type PowerPointOnlineTemplateRequest struct {
-	AllowDeckMutation *bool   `json:"allowDeckMutation,omitempty"`
-	Capture           *bool   `json:"capture,omitempty"`
-	Label             *string `json:"label"`
-	NamedOnly         *bool   `json:"namedOnly,omitempty"`
-	WaitSeconds       *int32  `json:"waitSeconds,omitempty"`
+	// AllowDeckMutation Defaults to false when omitted.
+	AllowDeckMutation *bool `json:"allowDeckMutation,omitempty"`
+
+	// Capture Defaults to false when omitted.
+	Capture *bool   `json:"capture,omitempty"`
+	Label   *string `json:"label"`
+
+	// NamedOnly Defaults to false when omitted.
+	NamedOnly *bool `json:"namedOnly,omitempty"`
+
+	// WaitSeconds Defaults to 2 when omitted.
+	WaitSeconds *int32 `json:"waitSeconds,omitempty"`
 }
 
 // PowerPointOnlineUpdatePhaseTimings defines model for PowerPointOnlineUpdatePhaseTimings.
@@ -805,58 +1160,175 @@ type PowerPointOnlineUpdatePhaseTimings struct {
 
 // PowerPointOnlineUpdateRequest defines model for PowerPointOnlineUpdateRequest.
 type PowerPointOnlineUpdateRequest struct {
-	AllowDeckMutation        *bool                `json:"allowDeckMutation,omitempty"`
-	Capture                  *bool                `json:"capture,omitempty"`
-	CleanupSession           *bool                `json:"cleanupSession,omitempty"`
-	CleanupTemplate          *bool                `json:"cleanupTemplate,omitempty"`
-	CleanupTemplateOnFailure *bool                `json:"cleanupTemplateOnFailure,omitempty"`
-	DeckUrl                  *string              `json:"deckUrl"`
-	EvidenceSlideNumber      *int32               `json:"evidenceSlideNumber"`
-	Job                      *PowerPointUpdateJob `json:"job,omitempty"`
-	JobTimeoutSeconds        *int32               `json:"jobTimeoutSeconds,omitempty"`
-	OpenWaitSeconds          *int32               `json:"openWaitSeconds,omitempty"`
-	PollSeconds              *int32               `json:"pollSeconds,omitempty"`
-	PrepareTemplate          *bool                `json:"prepareTemplate,omitempty"`
-	ReopenWaitSeconds        *int32               `json:"reopenWaitSeconds,omitempty"`
-	SavePollSeconds          *int32               `json:"savePollSeconds,omitempty"`
-	SaveTimeoutSeconds       *int32               `json:"saveTimeoutSeconds,omitempty"`
-	SessionId                *string              `json:"sessionId"`
-	TemplateWaitSeconds      *int32               `json:"templateWaitSeconds,omitempty"`
-	VerifyReopen             *bool                `json:"verifyReopen,omitempty"`
+	// AllowDeckMutation Defaults to false when omitted.
+	AllowDeckMutation *bool `json:"allowDeckMutation,omitempty"`
+
+	// Capture Defaults to true when omitted.
+	Capture *bool `json:"capture,omitempty"`
+
+	// CleanupSession Defaults to false when omitted.
+	CleanupSession *bool `json:"cleanupSession,omitempty"`
+
+	// CleanupTemplate Defaults to false when omitted.
+	CleanupTemplate *bool `json:"cleanupTemplate,omitempty"`
+
+	// CleanupTemplateOnFailure Defaults to true when omitted.
+	CleanupTemplateOnFailure *bool                    `json:"cleanupTemplateOnFailure,omitempty"`
+	DeckUrl                  *string                  `json:"deckUrl"`
+	EvidenceSlideNumber      *int32                   `json:"evidenceSlideNumber"`
+	Job                      PowerPointUpdateJobInput `json:"job"`
+
+	// JobTimeoutSeconds Defaults to 60 when omitted.
+	JobTimeoutSeconds *int32 `json:"jobTimeoutSeconds,omitempty"`
+
+	// OpenWaitSeconds Defaults to 30 when omitted.
+	OpenWaitSeconds *int32 `json:"openWaitSeconds,omitempty"`
+
+	// PollSeconds Defaults to 1 when omitted.
+	PollSeconds *int32 `json:"pollSeconds,omitempty"`
+
+	// PrepareTemplate Defaults to false when omitted.
+	PrepareTemplate *bool `json:"prepareTemplate,omitempty"`
+
+	// ReopenWaitSeconds Defaults to 30 when omitted.
+	ReopenWaitSeconds *int32 `json:"reopenWaitSeconds,omitempty"`
+
+	// SavePollSeconds Defaults to 1 when omitted.
+	SavePollSeconds *int32 `json:"savePollSeconds,omitempty"`
+
+	// SaveTimeoutSeconds Defaults to 30 when omitted.
+	SaveTimeoutSeconds *int32  `json:"saveTimeoutSeconds,omitempty"`
+	SessionId          *string `json:"sessionId"`
+
+	// TemplateWaitSeconds Defaults to 2 when omitted.
+	TemplateWaitSeconds *int32 `json:"templateWaitSeconds,omitempty"`
+
+	// VerifyReopen Defaults to false when omitted.
+	VerifyReopen *bool `json:"verifyReopen,omitempty"`
 }
 
 // PowerPointOnlineUpdateResult defines model for PowerPointOnlineUpdateResult.
 type PowerPointOnlineUpdateResult struct {
-	Actions                    []string                            `json:"actions"`
-	Errors                     []OperatorError                     `json:"errors"`
-	Evidence                   []DesktopScreenshotResult           `json:"evidence"`
-	JobRecord                  PowerPointJobRecord                 `json:"jobRecord"`
-	ObservedAtUtc              time.Time                           `json:"observedAtUtc"`
-	PhaseTimings               *PowerPointOnlineUpdatePhaseTimings `json:"phaseTimings"`
-	SaveProofTier              PowerPointOnlineSaveProofTier       `json:"saveProofTier"`
-	Session                    PowerPointOnlineSessionResult       `json:"session"`
-	SessionCleanupSession      *PowerPointOnlineSessionResult      `json:"sessionCleanupSession"`
-	Status                     PowerPointOnlineUpdateStatus        `json:"status"`
-	Success                    bool                                `json:"success"`
-	TemplateCleanupSession     *PowerPointOnlineSessionResult      `json:"templateCleanupSession"`
-	TemplatePreparationSession *PowerPointOnlineSessionResult      `json:"templatePreparationSession"`
-	VerificationSession        *PowerPointOnlineSessionResult      `json:"verificationSession"`
-	Warnings                   []string                            `json:"warnings"`
+	Actions       []string                            `json:"actions"`
+	Errors        []OperatorError                     `json:"errors"`
+	Evidence      []DesktopScreenshotResult           `json:"evidence"`
+	JobRecord     PowerPointJobRecord                 `json:"jobRecord"`
+	ObservedAtUtc time.Time                           `json:"observedAtUtc"`
+	PhaseTimings  *PowerPointOnlineUpdatePhaseTimings `json:"phaseTimings"`
+
+	// SaveProofTier Allowed values for PowerPointOnlineSaveProofTier.
+	SaveProofTier         PowerPointOnlineSaveProofTier  `json:"saveProofTier"`
+	Session               PowerPointOnlineSessionResult  `json:"session"`
+	SessionCleanupSession *PowerPointOnlineSessionResult `json:"sessionCleanupSession"`
+
+	// Status Allowed values for PowerPointOnlineUpdateStatus.
+	Status                     PowerPointOnlineUpdateStatus   `json:"status"`
+	Success                    bool                           `json:"success"`
+	TemplateCleanupSession     *PowerPointOnlineSessionResult `json:"templateCleanupSession"`
+	TemplatePreparationSession *PowerPointOnlineSessionResult `json:"templatePreparationSession"`
+	VerificationSession        *PowerPointOnlineSessionResult `json:"verificationSession"`
+	Warnings                   []string                       `json:"warnings"`
 }
 
-// PowerPointOnlineUpdateStatus defines model for PowerPointOnlineUpdateStatus.
+// PowerPointOnlineUpdateStatus Allowed values for PowerPointOnlineUpdateStatus.
 type PowerPointOnlineUpdateStatus string
+
+// PowerPointShapeBounds defines model for PowerPointShapeBounds.
+type PowerPointShapeBounds struct {
+	Height float64 `json:"height"`
+	Left   float64 `json:"left"`
+	Top    float64 `json:"top"`
+	Width  float64 `json:"width"`
+}
+
+// PowerPointShapeBoundsInput defines model for PowerPointShapeBoundsInput.
+type PowerPointShapeBoundsInput struct {
+	Height *float64 `json:"height,omitempty"`
+	Left   *float64 `json:"left,omitempty"`
+	Top    *float64 `json:"top,omitempty"`
+	Width  *float64 `json:"width,omitempty"`
+}
+
+// PowerPointTableGeometry defines model for PowerPointTableGeometry.
+type PowerPointTableGeometry struct {
+	Bounds  PowerPointShapeBounds           `json:"bounds"`
+	Columns []PowerPointTableGeometryColumn `json:"columns"`
+	Rows    []PowerPointTableGeometryRow    `json:"rows"`
+}
+
+// PowerPointTableGeometryColumn defines model for PowerPointTableGeometryColumn.
+type PowerPointTableGeometryColumn struct {
+	ColumnIndex int32   `json:"columnIndex"`
+	Left        float64 `json:"left"`
+	Right       float64 `json:"right"`
+	Width       float64 `json:"width"`
+}
+
+// PowerPointTableGeometryColumnInput defines model for PowerPointTableGeometryColumnInput.
+type PowerPointTableGeometryColumnInput struct {
+	ColumnIndex *int32   `json:"columnIndex,omitempty"`
+	Left        *float64 `json:"left,omitempty"`
+	Right       *float64 `json:"right,omitempty"`
+	Width       *float64 `json:"width,omitempty"`
+}
+
+// PowerPointTableGeometryInput defines model for PowerPointTableGeometryInput.
+type PowerPointTableGeometryInput struct {
+	Bounds  *PowerPointShapeBoundsInput           `json:"bounds,omitempty"`
+	Columns *[]PowerPointTableGeometryColumnInput `json:"columns,omitempty"`
+	Rows    *[]PowerPointTableGeometryRowInput    `json:"rows,omitempty"`
+}
+
+// PowerPointTableGeometryRow defines model for PowerPointTableGeometryRow.
+type PowerPointTableGeometryRow struct {
+	Bottom   float64 `json:"bottom"`
+	Height   float64 `json:"height"`
+	RowIndex int32   `json:"rowIndex"`
+	Top      float64 `json:"top"`
+}
+
+// PowerPointTableGeometryRowInput defines model for PowerPointTableGeometryRowInput.
+type PowerPointTableGeometryRowInput struct {
+	Bottom   *float64 `json:"bottom,omitempty"`
+	Height   *float64 `json:"height,omitempty"`
+	RowIndex *int32   `json:"rowIndex,omitempty"`
+	Top      *float64 `json:"top,omitempty"`
+}
+
+// PowerPointTableMatch defines model for PowerPointTableMatch.
+type PowerPointTableMatch struct {
+	ColumnIndex int32  `json:"columnIndex"`
+	RowIndex    int32  `json:"rowIndex"`
+	Text        string `json:"text"`
+}
+
+// PowerPointTableMatchInput defines model for PowerPointTableMatchInput.
+type PowerPointTableMatchInput struct {
+	ColumnIndex *int32  `json:"columnIndex,omitempty"`
+	RowIndex    *int32  `json:"rowIndex,omitempty"`
+	Text        *string `json:"text,omitempty"`
+}
 
 // PowerPointTableSnapshot defines model for PowerPointTableSnapshot.
 type PowerPointTableSnapshot struct {
-	ColumnCount int32      `json:"columnCount"`
-	RowCount    int32      `json:"rowCount"`
-	Values      [][]string `json:"values"`
+	ColumnCount int32                    `json:"columnCount"`
+	Geometry    *PowerPointTableGeometry `json:"geometry"`
+	RowCount    int32                    `json:"rowCount"`
+	Values      [][]string               `json:"values"`
+}
+
+// PowerPointTableSnapshotInput defines model for PowerPointTableSnapshotInput.
+type PowerPointTableSnapshotInput struct {
+	ColumnCount *int32                        `json:"columnCount,omitempty"`
+	Geometry    *PowerPointTableGeometryInput `json:"geometry"`
+	RowCount    *int32                        `json:"rowCount,omitempty"`
+	Values      *[][]string                   `json:"values,omitempty"`
 }
 
 // PowerPointTargetResult defines model for PowerPointTargetResult.
 type PowerPointTargetResult struct {
 	Bound         *bool                    `json:"bound"`
+	Bounds        *PowerPointShapeBounds   `json:"bounds"`
 	Editable      *bool                    `json:"editable"`
 	Error         *PowerPointUpdateError   `json:"error"`
 	Found         *bool                    `json:"found"`
@@ -866,9 +1338,29 @@ type PowerPointTargetResult struct {
 	Source        *string                  `json:"source"`
 	Status        string                   `json:"status"`
 	Table         *PowerPointTableSnapshot `json:"table"`
+	TableMatch    *PowerPointTableMatch    `json:"tableMatch"`
 	Tagged        *bool                    `json:"tagged"`
 	TargetId      string                   `json:"targetId"`
 	Type          *string                  `json:"type"`
+}
+
+// PowerPointTargetResultInput defines model for PowerPointTargetResultInput.
+type PowerPointTargetResultInput struct {
+	Bound         *bool                         `json:"bound"`
+	Bounds        *PowerPointShapeBoundsInput   `json:"bounds"`
+	Editable      *bool                         `json:"editable"`
+	Error         *PowerPointUpdateErrorInput   `json:"error"`
+	Found         *bool                         `json:"found"`
+	Message       *string                       `json:"message"`
+	OperationKind *string                       `json:"operationKind,omitempty"`
+	ShapeName     *string                       `json:"shapeName"`
+	Source        *string                       `json:"source"`
+	Status        *string                       `json:"status,omitempty"`
+	Table         *PowerPointTableSnapshotInput `json:"table"`
+	TableMatch    *PowerPointTableMatchInput    `json:"tableMatch"`
+	Tagged        *bool                         `json:"tagged"`
+	TargetId      *string                       `json:"targetId,omitempty"`
+	Type          *string                       `json:"type"`
 }
 
 // PowerPointUpdateError defines model for PowerPointUpdateError.
@@ -876,6 +1368,14 @@ type PowerPointUpdateError struct {
 	Code             string  `json:"code"`
 	OperatorMessage  string  `json:"operatorMessage"`
 	Retryable        bool    `json:"retryable"`
+	TechnicalMessage *string `json:"technicalMessage"`
+}
+
+// PowerPointUpdateErrorInput defines model for PowerPointUpdateErrorInput.
+type PowerPointUpdateErrorInput struct {
+	Code             *string `json:"code,omitempty"`
+	OperatorMessage  *string `json:"operatorMessage,omitempty"`
+	Retryable        *bool   `json:"retryable,omitempty"`
 	TechnicalMessage *string `json:"technicalMessage"`
 }
 
@@ -891,6 +1391,23 @@ type PowerPointUpdateJob struct {
 	ValidateOnly        bool                        `json:"validateOnly"`
 }
 
+// PowerPointUpdateJobInput defines model for PowerPointUpdateJobInput.
+type PowerPointUpdateJobInput struct {
+	// BindNamedTargets Defaults to false when omitted.
+	BindNamedTargets *bool      `json:"bindNamedTargets,omitempty"`
+	CreatedAt        *time.Time `json:"createdAt,omitempty"`
+
+	// DiscoverTargets Defaults to false when omitted.
+	DiscoverTargets     *bool                             `json:"discoverTargets,omitempty"`
+	ExpectedDocumentUrl *string                           `json:"expectedDocumentUrl"`
+	JobId               string                            `json:"jobId"`
+	Operations          *[]PowerPointUpdateOperationInput `json:"operations,omitempty"`
+	RequestedBy         string                            `json:"requestedBy"`
+
+	// ValidateOnly Defaults to false when omitted.
+	ValidateOnly *bool `json:"validateOnly,omitempty"`
+}
+
 // PowerPointUpdateOperation defines model for PowerPointUpdateOperation.
 type PowerPointUpdateOperation struct {
 	AllowEmpty       *bool                  `json:"allowEmpty"`
@@ -898,14 +1415,39 @@ type PowerPointUpdateOperation struct {
 	Artifact         *PowerPointArtifactRef `json:"artifact"`
 	ColumnIndex      *int32                 `json:"columnIndex"`
 	Fit              *string                `json:"fit"`
+	Height           *float64               `json:"height"`
 	Kind             string                 `json:"kind"`
+	Left             *float64               `json:"left"`
 	Mode             *string                `json:"mode"`
 	RowIndex         *int32                 `json:"rowIndex"`
 	StartColumnIndex *int32                 `json:"startColumnIndex"`
 	StartRowIndex    *int32                 `json:"startRowIndex"`
 	TargetId         string                 `json:"targetId"`
 	Text             *string                `json:"text"`
+	Top              *float64               `json:"top"`
 	Values           *[][]string            `json:"values"`
+	Width            *float64               `json:"width"`
+}
+
+// PowerPointUpdateOperationInput defines model for PowerPointUpdateOperationInput.
+type PowerPointUpdateOperationInput struct {
+	AllowEmpty       *bool                       `json:"allowEmpty"`
+	AltText          *string                     `json:"altText"`
+	Artifact         *PowerPointArtifactRefInput `json:"artifact"`
+	ColumnIndex      *int32                      `json:"columnIndex"`
+	Fit              *string                     `json:"fit"`
+	Height           *float64                    `json:"height"`
+	Kind             string                      `json:"kind"`
+	Left             *float64                    `json:"left"`
+	Mode             *string                     `json:"mode"`
+	RowIndex         *int32                      `json:"rowIndex"`
+	StartColumnIndex *int32                      `json:"startColumnIndex"`
+	StartRowIndex    *int32                      `json:"startRowIndex"`
+	TargetId         string                      `json:"targetId"`
+	Text             *string                     `json:"text"`
+	Top              *float64                    `json:"top"`
+	Values           *[][]string                 `json:"values"`
+	Width            *float64                    `json:"width"`
 }
 
 // PowerPointUpdateResult defines model for PowerPointUpdateResult.
@@ -918,14 +1460,32 @@ type PowerPointUpdateResult struct {
 	Targets           []PowerPointTargetResult      `json:"targets"`
 }
 
-// ScreenClickRequest defines model for ScreenClickRequest.
-type ScreenClickRequest struct {
-	DoubleClick *bool  `json:"doubleClick,omitempty"`
-	X           *int32 `json:"x,omitempty"`
-	Y           *int32 `json:"y,omitempty"`
+// PowerPointUpdateResultInput defines model for PowerPointUpdateResultInput.
+type PowerPointUpdateResultInput struct {
+	DiscoveredTargets *[]PowerPointDiscoveredTargetInput `json:"discoveredTargets"`
+	FinishedAt        time.Time                          `json:"finishedAt"`
+	JobId             string                             `json:"jobId"`
+	StartedAt         time.Time                          `json:"startedAt"`
+	Status            string                             `json:"status"`
+	Targets           *[]PowerPointTargetResultInput     `json:"targets,omitempty"`
 }
 
-// ScreenshotFormat defines model for ScreenshotFormat.
+// RuntimeBuildIdentity defines model for RuntimeBuildIdentity.
+type RuntimeBuildIdentity struct {
+	AssemblyVersion      string `json:"assemblyVersion"`
+	InformationalVersion string `json:"informationalVersion"`
+	SourceRevision       string `json:"sourceRevision"`
+}
+
+// ScreenClickRequest defines model for ScreenClickRequest.
+type ScreenClickRequest struct {
+	// DoubleClick Defaults to false when omitted.
+	DoubleClick *bool `json:"doubleClick,omitempty"`
+	X           int32 `json:"x"`
+	Y           int32 `json:"y"`
+}
+
+// ScreenshotFormat Allowed values for ScreenshotFormat.
 type ScreenshotFormat string
 
 // ScreenshotResult defines model for ScreenshotResult.
@@ -943,9 +1503,6 @@ type ScreenshotResult struct {
 	PixelWidth    int32        `json:"pixelWidth"`
 }
 
-// UInt32 defines model for UInt32.
-type UInt32 = map[string]interface{}
-
 // UiElementRef defines model for UiElementRef.
 type UiElementRef struct {
 	AutomationId string       `json:"automationId"`
@@ -957,28 +1514,36 @@ type UiElementRef struct {
 	RuntimeId    string       `json:"runtimeId"`
 }
 
-// UiQuery defines model for UiQuery.
-type UiQuery struct {
-	AutomationId     *string `json:"automationId"`
-	ControlType      *string `json:"controlType"`
-	IncludeOffscreen bool    `json:"includeOffscreen"`
-	MaxResults       int32   `json:"maxResults"`
-	Name             *string `json:"name"`
-	WindowHwnd       *int64  `json:"windowHwnd"`
+// UiQueryInput defines model for UiQueryInput.
+type UiQueryInput struct {
+	AutomationId *string `json:"automationId"`
+	ControlType  *string `json:"controlType"`
+
+	// IncludeOffscreen Defaults to false when omitted.
+	IncludeOffscreen *bool `json:"includeOffscreen,omitempty"`
+
+	// MaxResults Defaults to 25 when omitted.
+	MaxResults *int32  `json:"maxResults,omitempty"`
+	Name       *string `json:"name"`
+	WindowHwnd *int64  `json:"windowHwnd"`
 }
 
 // UiaClickRequest defines model for UiaClickRequest.
 type UiaClickRequest struct {
-	DoubleClick *bool    `json:"doubleClick,omitempty"`
-	Query       *UiQuery `json:"query,omitempty"`
+	// DoubleClick Defaults to false when omitted.
+	DoubleClick *bool        `json:"doubleClick,omitempty"`
+	Query       UiQueryInput `json:"query"`
 }
 
 // UiaTypeRequest defines model for UiaTypeRequest.
 type UiaTypeRequest struct {
-	Append *bool    `json:"append,omitempty"`
-	Query  *UiQuery `json:"query,omitempty"`
-	Submit *bool    `json:"submit,omitempty"`
-	Text   *string  `json:"text,omitempty"`
+	// Append Defaults to false when omitted.
+	Append *bool        `json:"append,omitempty"`
+	Query  UiQueryInput `json:"query"`
+
+	// Submit Defaults to false when omitted.
+	Submit *bool  `json:"submit,omitempty"`
+	Text   string `json:"text"`
 }
 
 // WindowBounds defines model for WindowBounds.
@@ -998,26 +1563,20 @@ type WindowRef struct {
 	Hwnd          int64        `json:"hwnd"`
 	IsForeground  bool         `json:"isForeground"`
 	IsMinimized   bool         `json:"isMinimized"`
-	ProcessId     UInt32       `json:"processId"`
+	ProcessId     int64        `json:"processId"`
 	Title         string       `json:"title"`
 }
 
 // WorkbenchArtifactRef defines model for WorkbenchArtifactRef.
 type WorkbenchArtifactRef struct {
-	Artifact     *ArtifactRef `json:"artifact"`
-	Bytes        int64        `json:"bytes"`
-	HostPath     string       `json:"hostPath"`
-	MediaType    string       `json:"mediaType"`
-	Path         string       `json:"path"`
-	RelativePath string       `json:"relativePath"`
+	Artifact  *ArtifactRef `json:"artifact"`
+	Bytes     int64        `json:"bytes"`
+	MediaType string       `json:"mediaType"`
 }
 
 // WorkbenchRunRef defines model for WorkbenchRunRef.
 type WorkbenchRunRef struct {
-	HostPath     string `json:"hostPath"`
-	Path         string `json:"path"`
-	RelativePath string `json:"relativePath"`
-	RunId        string `json:"runId"`
+	RunId string `json:"runId"`
 }
 
 // WorkbenchSessionCleanupResult defines model for WorkbenchSessionCleanupResult.
@@ -1050,7 +1609,6 @@ type WorkbenchSessionResult struct {
 	ObservedAtUtc   time.Time       `json:"observedAtUtc"`
 	OwnedProcessIds []int32         `json:"ownedProcessIds"`
 	SessionId       string          `json:"sessionId"`
-	StatePath       string          `json:"statePath"`
 	Success         bool            `json:"success"`
 	Title           *string         `json:"title"`
 	Url             *string         `json:"url"`
@@ -1100,12 +1658,6 @@ type CaptureEdgeBrowserSessionScreenshotJSONRequestBody = DesktopScreenshotReque
 // CaptureDesktopScreenshotJSONRequestBody defines body for CaptureDesktopScreenshot for application/json ContentType.
 type CaptureDesktopScreenshotJSONRequestBody = DesktopScreenshotRequest
 
-// EvaluateEdgeBrowserDevScriptJSONRequestBody defines body for EvaluateEdgeBrowserDevScript for application/json ContentType.
-type EvaluateEdgeBrowserDevScriptJSONRequestBody = BrowserEdgeDevEvalRequest
-
-// RunPowerPointOnlineDevScriptJSONRequestBody defines body for RunPowerPointOnlineDevScript for application/json ContentType.
-type RunPowerPointOnlineDevScriptJSONRequestBody = PowerPointDevScriptRequest
-
 // ClickScreenJSONRequestBody defines body for ClickScreen for application/json ContentType.
 type ClickScreenJSONRequestBody = ScreenClickRequest
 
@@ -1122,25 +1674,19 @@ type ListMailFoldersJSONRequestBody = MailListFoldersRequest
 type SearchMailMessagesJSONRequestBody = MailSearchRequest
 
 // EnqueuePowerPointJobJSONRequestBody defines body for EnqueuePowerPointJob for application/json ContentType.
-type EnqueuePowerPointJobJSONRequestBody = PowerPointUpdateJob
+type EnqueuePowerPointJobJSONRequestBody = PowerPointUpdateJobInput
 
 // ClaimPowerPointJobJSONRequestBody defines body for ClaimPowerPointJob for application/json ContentType.
 type ClaimPowerPointJobJSONRequestBody = PowerPointClaimJobRequest
 
 // CompletePowerPointJobJSONRequestBody defines body for CompletePowerPointJob for application/json ContentType.
-type CompletePowerPointJobJSONRequestBody = PowerPointUpdateResult
+type CompletePowerPointJobJSONRequestBody = PowerPointUpdateResultInput
 
 // FailPowerPointJobJSONRequestBody defines body for FailPowerPointJob for application/json ContentType.
-type FailPowerPointJobJSONRequestBody = PowerPointUpdateError
+type FailPowerPointJobJSONRequestBody = PowerPointUpdateErrorInput
 
 // StartPowerPointOnlineSessionJSONRequestBody defines body for StartPowerPointOnlineSession for application/json ContentType.
 type StartPowerPointOnlineSessionJSONRequestBody = PowerPointOnlineSessionStartRequest
-
-// ProbePowerPointOnlineAddInJSONRequestBody defines body for ProbePowerPointOnlineAddIn for application/json ContentType.
-type ProbePowerPointOnlineAddInJSONRequestBody = PowerPointOnlineAddInProbeRequest
-
-// RunPowerPointOnlinePendingJobJSONRequestBody defines body for RunPowerPointOnlinePendingJob for application/json ContentType.
-type RunPowerPointOnlinePendingJobJSONRequestBody = PowerPointOnlineAddInCommandRequest
 
 // WaitPowerPointOnlineSaveJSONRequestBody defines body for WaitPowerPointOnlineSave for application/json ContentType.
 type WaitPowerPointOnlineSaveJSONRequestBody = PowerPointOnlineSaveWaitRequest
@@ -1167,7 +1713,7 @@ type CaptureWorkbenchSessionScreenshotJSONRequestBody = DesktopScreenshotRequest
 type ClickUiJSONRequestBody = UiaClickRequest
 
 // QueryUiJSONRequestBody defines body for QueryUi for application/json ContentType.
-type QueryUiJSONRequestBody = UiQuery
+type QueryUiJSONRequestBody = UiQueryInput
 
 // TypeUiJSONRequestBody defines body for TypeUi for application/json ContentType.
 type TypeUiJSONRequestBody = UiaTypeRequest
@@ -1245,6 +1791,9 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+	// GetOpenApiDocument request
+	GetOpenApiDocument(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListOpenApiNamespaces request
 	ListOpenApiNamespaces(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1259,9 +1808,6 @@ type ClientInterface interface {
 
 	StartMicrosoftAuthorizeProbe(ctx context.Context, body StartMicrosoftAuthorizeProbeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetLatestMicrosoftAuthorizeProbeStatus request
-	GetLatestMicrosoftAuthorizeProbeStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// GetMicrosoftAuthorizeProbeStatus request
 	GetMicrosoftAuthorizeProbeStatus(ctx context.Context, runId string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1274,9 +1820,6 @@ type ClientInterface interface {
 	StartMicrosoftDeviceLoginWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	StartMicrosoftDeviceLogin(ctx context.Context, body StartMicrosoftDeviceLoginJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// GetLatestMicrosoftDeviceLoginStatus request
-	GetLatestMicrosoftDeviceLoginStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetMicrosoftDeviceLoginStatus request
 	GetMicrosoftDeviceLoginStatus(ctx context.Context, runId string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1335,16 +1878,6 @@ type ClientInterface interface {
 	CaptureDesktopScreenshotWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	CaptureDesktopScreenshot(ctx context.Context, body CaptureDesktopScreenshotJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// EvaluateEdgeBrowserDevScriptWithBody request with any body
-	EvaluateEdgeBrowserDevScriptWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	EvaluateEdgeBrowserDevScript(ctx context.Context, sessionId string, body EvaluateEdgeBrowserDevScriptJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// RunPowerPointOnlineDevScriptWithBody request with any body
-	RunPowerPointOnlineDevScriptWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	RunPowerPointOnlineDevScript(ctx context.Context, sessionId string, body RunPowerPointOnlineDevScriptJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetHealth request
 	GetHealth(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1413,16 +1946,6 @@ type ClientInterface interface {
 
 	// GetPowerPointOnlineSession request
 	GetPowerPointOnlineSession(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// ProbePowerPointOnlineAddInWithBody request with any body
-	ProbePowerPointOnlineAddInWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	ProbePowerPointOnlineAddIn(ctx context.Context, sessionId string, body ProbePowerPointOnlineAddInJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// RunPowerPointOnlinePendingJobWithBody request with any body
-	RunPowerPointOnlinePendingJobWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	RunPowerPointOnlinePendingJob(ctx context.Context, sessionId string, body RunPowerPointOnlinePendingJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CleanupPowerPointOnlineSession request
 	CleanupPowerPointOnlineSession(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1496,6 +2019,18 @@ type ClientInterface interface {
 	CaptureWindow(ctx context.Context, id int64, params *CaptureWindowParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
+func (c *Client) GetOpenApiDocument(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetOpenApiDocumentRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListOpenApiNamespaces(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListOpenApiNamespacesRequest(c.Server)
 	if err != nil {
@@ -1556,18 +2091,6 @@ func (c *Client) StartMicrosoftAuthorizeProbe(ctx context.Context, body StartMic
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetLatestMicrosoftAuthorizeProbeStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetLatestMicrosoftAuthorizeProbeStatusRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 func (c *Client) GetMicrosoftAuthorizeProbeStatus(ctx context.Context, runId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetMicrosoftAuthorizeProbeStatusRequest(c.Server, runId)
 	if err != nil {
@@ -1618,18 +2141,6 @@ func (c *Client) StartMicrosoftDeviceLoginWithBody(ctx context.Context, contentT
 
 func (c *Client) StartMicrosoftDeviceLogin(ctx context.Context, body StartMicrosoftDeviceLoginJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewStartMicrosoftDeviceLoginRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetLatestMicrosoftDeviceLoginStatus(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetLatestMicrosoftDeviceLoginStatusRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -1894,54 +2405,6 @@ func (c *Client) CaptureDesktopScreenshotWithBody(ctx context.Context, contentTy
 
 func (c *Client) CaptureDesktopScreenshot(ctx context.Context, body CaptureDesktopScreenshotJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCaptureDesktopScreenshotRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) EvaluateEdgeBrowserDevScriptWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewEvaluateEdgeBrowserDevScriptRequestWithBody(c.Server, sessionId, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) EvaluateEdgeBrowserDevScript(ctx context.Context, sessionId string, body EvaluateEdgeBrowserDevScriptJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewEvaluateEdgeBrowserDevScriptRequest(c.Server, sessionId, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) RunPowerPointOnlineDevScriptWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRunPowerPointOnlineDevScriptRequestWithBody(c.Server, sessionId, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) RunPowerPointOnlineDevScript(ctx context.Context, sessionId string, body RunPowerPointOnlineDevScriptJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRunPowerPointOnlineDevScriptRequest(c.Server, sessionId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2254,54 +2717,6 @@ func (c *Client) StartPowerPointOnlineSession(ctx context.Context, body StartPow
 
 func (c *Client) GetPowerPointOnlineSession(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetPowerPointOnlineSessionRequest(c.Server, sessionId)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) ProbePowerPointOnlineAddInWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewProbePowerPointOnlineAddInRequestWithBody(c.Server, sessionId, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) ProbePowerPointOnlineAddIn(ctx context.Context, sessionId string, body ProbePowerPointOnlineAddInJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewProbePowerPointOnlineAddInRequest(c.Server, sessionId, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) RunPowerPointOnlinePendingJobWithBody(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRunPowerPointOnlinePendingJobRequestWithBody(c.Server, sessionId, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) RunPowerPointOnlinePendingJob(ctx context.Context, sessionId string, body RunPowerPointOnlinePendingJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRunPowerPointOnlinePendingJobRequest(c.Server, sessionId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2636,6 +3051,33 @@ func (c *Client) CaptureWindow(ctx context.Context, id int64, params *CaptureWin
 	return c.Client.Do(req)
 }
 
+// NewGetOpenApiDocumentRequest generates requests for GetOpenApiDocument
+func NewGetOpenApiDocumentRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/openapi.json")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListOpenApiNamespacesRequest generates requests for ListOpenApiNamespaces
 func NewListOpenApiNamespacesRequest(server string) (*http.Request, error) {
 	var err error
@@ -2793,33 +3235,6 @@ func NewStartMicrosoftAuthorizeProbeRequestWithBody(server string, contentType s
 	return req, nil
 }
 
-// NewGetLatestMicrosoftAuthorizeProbeStatusRequest generates requests for GetLatestMicrosoftAuthorizeProbeStatus
-func NewGetLatestMicrosoftAuthorizeProbeStatusRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/v1/auth/microsoft/authorize-probe/status/latest")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
 // NewGetMicrosoftAuthorizeProbeStatusRequest generates requests for GetMicrosoftAuthorizeProbeStatus
 func NewGetMicrosoftAuthorizeProbeStatusRequest(server string, runId string) (*http.Request, error) {
 	var err error
@@ -2930,33 +3345,6 @@ func NewStartMicrosoftDeviceLoginRequestWithBody(server string, contentType stri
 	}
 
 	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewGetLatestMicrosoftDeviceLoginStatusRequest generates requests for GetLatestMicrosoftDeviceLoginStatus
-func NewGetLatestMicrosoftDeviceLoginStatusRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/v1/auth/microsoft/device-login/status/latest")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
 
 	return req, nil
 }
@@ -3480,100 +3868,6 @@ func NewCaptureDesktopScreenshotRequestWithBody(server string, contentType strin
 	}
 
 	operationPath := fmt.Sprintf("/v1/desktop/screenshot")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewEvaluateEdgeBrowserDevScriptRequest calls the generic EvaluateEdgeBrowserDevScript builder with application/json body
-func NewEvaluateEdgeBrowserDevScriptRequest(server string, sessionId string, body EvaluateEdgeBrowserDevScriptJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewEvaluateEdgeBrowserDevScriptRequestWithBody(server, sessionId, "application/json", bodyReader)
-}
-
-// NewEvaluateEdgeBrowserDevScriptRequestWithBody generates requests for EvaluateEdgeBrowserDevScript with any type of body
-func NewEvaluateEdgeBrowserDevScriptRequestWithBody(server string, sessionId string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sessionId", runtime.ParamLocationPath, sessionId)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/v1/dev/browser/edge/sessions/%s/eval", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewRunPowerPointOnlineDevScriptRequest calls the generic RunPowerPointOnlineDevScript builder with application/json body
-func NewRunPowerPointOnlineDevScriptRequest(server string, sessionId string, body RunPowerPointOnlineDevScriptJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewRunPowerPointOnlineDevScriptRequestWithBody(server, sessionId, "application/json", bodyReader)
-}
-
-// NewRunPowerPointOnlineDevScriptRequestWithBody generates requests for RunPowerPointOnlineDevScript with any type of body
-func NewRunPowerPointOnlineDevScriptRequestWithBody(server string, sessionId string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sessionId", runtime.ParamLocationPath, sessionId)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/v1/dev/powerpoint/online/sessions/%s/script", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -4200,100 +4494,6 @@ func NewGetPowerPointOnlineSessionRequest(server string, sessionId string) (*htt
 	if err != nil {
 		return nil, err
 	}
-
-	return req, nil
-}
-
-// NewProbePowerPointOnlineAddInRequest calls the generic ProbePowerPointOnlineAddIn builder with application/json body
-func NewProbePowerPointOnlineAddInRequest(server string, sessionId string, body ProbePowerPointOnlineAddInJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewProbePowerPointOnlineAddInRequestWithBody(server, sessionId, "application/json", bodyReader)
-}
-
-// NewProbePowerPointOnlineAddInRequestWithBody generates requests for ProbePowerPointOnlineAddIn with any type of body
-func NewProbePowerPointOnlineAddInRequestWithBody(server string, sessionId string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sessionId", runtime.ParamLocationPath, sessionId)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/v1/powerpoint/online/sessions/%s/addin/probe", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewRunPowerPointOnlinePendingJobRequest calls the generic RunPowerPointOnlinePendingJob builder with application/json body
-func NewRunPowerPointOnlinePendingJobRequest(server string, sessionId string, body RunPowerPointOnlinePendingJobJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewRunPowerPointOnlinePendingJobRequestWithBody(server, sessionId, "application/json", bodyReader)
-}
-
-// NewRunPowerPointOnlinePendingJobRequestWithBody generates requests for RunPowerPointOnlinePendingJob with any type of body
-func NewRunPowerPointOnlinePendingJobRequestWithBody(server string, sessionId string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "sessionId", runtime.ParamLocationPath, sessionId)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/v1/powerpoint/online/sessions/%s/addin/run-pending-job", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -5036,6 +5236,9 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
+	// GetOpenApiDocumentWithResponse request
+	GetOpenApiDocumentWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetOpenApiDocumentResponse, error)
+
 	// ListOpenApiNamespacesWithResponse request
 	ListOpenApiNamespacesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListOpenApiNamespacesResponse, error)
 
@@ -5050,9 +5253,6 @@ type ClientWithResponsesInterface interface {
 
 	StartMicrosoftAuthorizeProbeWithResponse(ctx context.Context, body StartMicrosoftAuthorizeProbeJSONRequestBody, reqEditors ...RequestEditorFn) (*StartMicrosoftAuthorizeProbeResponse, error)
 
-	// GetLatestMicrosoftAuthorizeProbeStatusWithResponse request
-	GetLatestMicrosoftAuthorizeProbeStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetLatestMicrosoftAuthorizeProbeStatusResponse, error)
-
 	// GetMicrosoftAuthorizeProbeStatusWithResponse request
 	GetMicrosoftAuthorizeProbeStatusWithResponse(ctx context.Context, runId string, reqEditors ...RequestEditorFn) (*GetMicrosoftAuthorizeProbeStatusResponse, error)
 
@@ -5065,9 +5265,6 @@ type ClientWithResponsesInterface interface {
 	StartMicrosoftDeviceLoginWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartMicrosoftDeviceLoginResponse, error)
 
 	StartMicrosoftDeviceLoginWithResponse(ctx context.Context, body StartMicrosoftDeviceLoginJSONRequestBody, reqEditors ...RequestEditorFn) (*StartMicrosoftDeviceLoginResponse, error)
-
-	// GetLatestMicrosoftDeviceLoginStatusWithResponse request
-	GetLatestMicrosoftDeviceLoginStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetLatestMicrosoftDeviceLoginStatusResponse, error)
 
 	// GetMicrosoftDeviceLoginStatusWithResponse request
 	GetMicrosoftDeviceLoginStatusWithResponse(ctx context.Context, runId string, reqEditors ...RequestEditorFn) (*GetMicrosoftDeviceLoginStatusResponse, error)
@@ -5126,16 +5323,6 @@ type ClientWithResponsesInterface interface {
 	CaptureDesktopScreenshotWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CaptureDesktopScreenshotResponse, error)
 
 	CaptureDesktopScreenshotWithResponse(ctx context.Context, body CaptureDesktopScreenshotJSONRequestBody, reqEditors ...RequestEditorFn) (*CaptureDesktopScreenshotResponse, error)
-
-	// EvaluateEdgeBrowserDevScriptWithBodyWithResponse request with any body
-	EvaluateEdgeBrowserDevScriptWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EvaluateEdgeBrowserDevScriptResponse, error)
-
-	EvaluateEdgeBrowserDevScriptWithResponse(ctx context.Context, sessionId string, body EvaluateEdgeBrowserDevScriptJSONRequestBody, reqEditors ...RequestEditorFn) (*EvaluateEdgeBrowserDevScriptResponse, error)
-
-	// RunPowerPointOnlineDevScriptWithBodyWithResponse request with any body
-	RunPowerPointOnlineDevScriptWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RunPowerPointOnlineDevScriptResponse, error)
-
-	RunPowerPointOnlineDevScriptWithResponse(ctx context.Context, sessionId string, body RunPowerPointOnlineDevScriptJSONRequestBody, reqEditors ...RequestEditorFn) (*RunPowerPointOnlineDevScriptResponse, error)
 
 	// GetHealthWithResponse request
 	GetHealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetHealthResponse, error)
@@ -5204,16 +5391,6 @@ type ClientWithResponsesInterface interface {
 
 	// GetPowerPointOnlineSessionWithResponse request
 	GetPowerPointOnlineSessionWithResponse(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*GetPowerPointOnlineSessionResponse, error)
-
-	// ProbePowerPointOnlineAddInWithBodyWithResponse request with any body
-	ProbePowerPointOnlineAddInWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ProbePowerPointOnlineAddInResponse, error)
-
-	ProbePowerPointOnlineAddInWithResponse(ctx context.Context, sessionId string, body ProbePowerPointOnlineAddInJSONRequestBody, reqEditors ...RequestEditorFn) (*ProbePowerPointOnlineAddInResponse, error)
-
-	// RunPowerPointOnlinePendingJobWithBodyWithResponse request with any body
-	RunPowerPointOnlinePendingJobWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RunPowerPointOnlinePendingJobResponse, error)
-
-	RunPowerPointOnlinePendingJobWithResponse(ctx context.Context, sessionId string, body RunPowerPointOnlinePendingJobJSONRequestBody, reqEditors ...RequestEditorFn) (*RunPowerPointOnlinePendingJobResponse, error)
 
 	// CleanupPowerPointOnlineSessionWithResponse request
 	CleanupPowerPointOnlineSessionWithResponse(ctx context.Context, sessionId string, reqEditors ...RequestEditorFn) (*CleanupPowerPointOnlineSessionResponse, error)
@@ -5285,6 +5462,30 @@ type ClientWithResponsesInterface interface {
 
 	// CaptureWindowWithResponse request
 	CaptureWindowWithResponse(ctx context.Context, id int64, params *CaptureWindowParams, reqEditors ...RequestEditorFn) (*CaptureWindowResponse, error)
+}
+
+type GetOpenApiDocumentResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *map[string]interface{}
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetOpenApiDocumentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetOpenApiDocumentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
 }
 
 type ListOpenApiNamespacesResponse struct {
@@ -5383,30 +5584,6 @@ func (r StartMicrosoftAuthorizeProbeResponse) StatusCode() int {
 	return 0
 }
 
-type GetLatestMicrosoftAuthorizeProbeStatusResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *MicrosoftAuthorizeProbeResult
-	JSON4XX      *OperatorError
-	JSON5XX      *OperatorError
-}
-
-// Status returns HTTPResponse.Status
-func (r GetLatestMicrosoftAuthorizeProbeStatusResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetLatestMicrosoftAuthorizeProbeStatusResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
 type GetMicrosoftAuthorizeProbeStatusResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -5473,30 +5650,6 @@ func (r StartMicrosoftDeviceLoginResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r StartMicrosoftDeviceLoginResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type GetLatestMicrosoftDeviceLoginStatusResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *MicrosoftDeviceLoginResult
-	JSON4XX      *OperatorError
-	JSON5XX      *OperatorError
-}
-
-// Status returns HTTPResponse.Status
-func (r GetLatestMicrosoftDeviceLoginStatusResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetLatestMicrosoftDeviceLoginStatusResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -5833,54 +5986,6 @@ func (r CaptureDesktopScreenshotResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r CaptureDesktopScreenshotResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type EvaluateEdgeBrowserDevScriptResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *DevScriptResult
-	JSON4XX      *OperatorError
-	JSON5XX      *OperatorError
-}
-
-// Status returns HTTPResponse.Status
-func (r EvaluateEdgeBrowserDevScriptResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r EvaluateEdgeBrowserDevScriptResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type RunPowerPointOnlineDevScriptResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *DevScriptResult
-	JSON4XX      *OperatorError
-	JSON5XX      *OperatorError
-}
-
-// Status returns HTTPResponse.Status
-func (r RunPowerPointOnlineDevScriptResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r RunPowerPointOnlineDevScriptResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -6265,54 +6370,6 @@ func (r GetPowerPointOnlineSessionResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetPowerPointOnlineSessionResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type ProbePowerPointOnlineAddInResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *PowerPointOnlineAddInProbeResult
-	JSON4XX      *OperatorError
-	JSON5XX      *OperatorError
-}
-
-// Status returns HTTPResponse.Status
-func (r ProbePowerPointOnlineAddInResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ProbePowerPointOnlineAddInResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type RunPowerPointOnlinePendingJobResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *PowerPointOnlineSessionResult
-	JSON4XX      *OperatorError
-	JSON5XX      *OperatorError
-}
-
-// Status returns HTTPResponse.Status
-func (r RunPowerPointOnlinePendingJobResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r RunPowerPointOnlinePendingJobResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -6727,6 +6784,15 @@ func (r CaptureWindowResponse) StatusCode() int {
 	return 0
 }
 
+// GetOpenApiDocumentWithResponse request returning *GetOpenApiDocumentResponse
+func (c *ClientWithResponses) GetOpenApiDocumentWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetOpenApiDocumentResponse, error) {
+	rsp, err := c.GetOpenApiDocument(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetOpenApiDocumentResponse(rsp)
+}
+
 // ListOpenApiNamespacesWithResponse request returning *ListOpenApiNamespacesResponse
 func (c *ClientWithResponses) ListOpenApiNamespacesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListOpenApiNamespacesResponse, error) {
 	rsp, err := c.ListOpenApiNamespaces(ctx, reqEditors...)
@@ -6771,15 +6837,6 @@ func (c *ClientWithResponses) StartMicrosoftAuthorizeProbeWithResponse(ctx conte
 	return ParseStartMicrosoftAuthorizeProbeResponse(rsp)
 }
 
-// GetLatestMicrosoftAuthorizeProbeStatusWithResponse request returning *GetLatestMicrosoftAuthorizeProbeStatusResponse
-func (c *ClientWithResponses) GetLatestMicrosoftAuthorizeProbeStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetLatestMicrosoftAuthorizeProbeStatusResponse, error) {
-	rsp, err := c.GetLatestMicrosoftAuthorizeProbeStatus(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetLatestMicrosoftAuthorizeProbeStatusResponse(rsp)
-}
-
 // GetMicrosoftAuthorizeProbeStatusWithResponse request returning *GetMicrosoftAuthorizeProbeStatusResponse
 func (c *ClientWithResponses) GetMicrosoftAuthorizeProbeStatusWithResponse(ctx context.Context, runId string, reqEditors ...RequestEditorFn) (*GetMicrosoftAuthorizeProbeStatusResponse, error) {
 	rsp, err := c.GetMicrosoftAuthorizeProbeStatus(ctx, runId, reqEditors...)
@@ -6821,15 +6878,6 @@ func (c *ClientWithResponses) StartMicrosoftDeviceLoginWithResponse(ctx context.
 		return nil, err
 	}
 	return ParseStartMicrosoftDeviceLoginResponse(rsp)
-}
-
-// GetLatestMicrosoftDeviceLoginStatusWithResponse request returning *GetLatestMicrosoftDeviceLoginStatusResponse
-func (c *ClientWithResponses) GetLatestMicrosoftDeviceLoginStatusWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetLatestMicrosoftDeviceLoginStatusResponse, error) {
-	rsp, err := c.GetLatestMicrosoftDeviceLoginStatus(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetLatestMicrosoftDeviceLoginStatusResponse(rsp)
 }
 
 // GetMicrosoftDeviceLoginStatusWithResponse request returning *GetMicrosoftDeviceLoginStatusResponse
@@ -7020,40 +7068,6 @@ func (c *ClientWithResponses) CaptureDesktopScreenshotWithResponse(ctx context.C
 		return nil, err
 	}
 	return ParseCaptureDesktopScreenshotResponse(rsp)
-}
-
-// EvaluateEdgeBrowserDevScriptWithBodyWithResponse request with arbitrary body returning *EvaluateEdgeBrowserDevScriptResponse
-func (c *ClientWithResponses) EvaluateEdgeBrowserDevScriptWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EvaluateEdgeBrowserDevScriptResponse, error) {
-	rsp, err := c.EvaluateEdgeBrowserDevScriptWithBody(ctx, sessionId, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseEvaluateEdgeBrowserDevScriptResponse(rsp)
-}
-
-func (c *ClientWithResponses) EvaluateEdgeBrowserDevScriptWithResponse(ctx context.Context, sessionId string, body EvaluateEdgeBrowserDevScriptJSONRequestBody, reqEditors ...RequestEditorFn) (*EvaluateEdgeBrowserDevScriptResponse, error) {
-	rsp, err := c.EvaluateEdgeBrowserDevScript(ctx, sessionId, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseEvaluateEdgeBrowserDevScriptResponse(rsp)
-}
-
-// RunPowerPointOnlineDevScriptWithBodyWithResponse request with arbitrary body returning *RunPowerPointOnlineDevScriptResponse
-func (c *ClientWithResponses) RunPowerPointOnlineDevScriptWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RunPowerPointOnlineDevScriptResponse, error) {
-	rsp, err := c.RunPowerPointOnlineDevScriptWithBody(ctx, sessionId, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseRunPowerPointOnlineDevScriptResponse(rsp)
-}
-
-func (c *ClientWithResponses) RunPowerPointOnlineDevScriptWithResponse(ctx context.Context, sessionId string, body RunPowerPointOnlineDevScriptJSONRequestBody, reqEditors ...RequestEditorFn) (*RunPowerPointOnlineDevScriptResponse, error) {
-	rsp, err := c.RunPowerPointOnlineDevScript(ctx, sessionId, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseRunPowerPointOnlineDevScriptResponse(rsp)
 }
 
 // GetHealthWithResponse request returning *GetHealthResponse
@@ -7278,40 +7292,6 @@ func (c *ClientWithResponses) GetPowerPointOnlineSessionWithResponse(ctx context
 		return nil, err
 	}
 	return ParseGetPowerPointOnlineSessionResponse(rsp)
-}
-
-// ProbePowerPointOnlineAddInWithBodyWithResponse request with arbitrary body returning *ProbePowerPointOnlineAddInResponse
-func (c *ClientWithResponses) ProbePowerPointOnlineAddInWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ProbePowerPointOnlineAddInResponse, error) {
-	rsp, err := c.ProbePowerPointOnlineAddInWithBody(ctx, sessionId, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseProbePowerPointOnlineAddInResponse(rsp)
-}
-
-func (c *ClientWithResponses) ProbePowerPointOnlineAddInWithResponse(ctx context.Context, sessionId string, body ProbePowerPointOnlineAddInJSONRequestBody, reqEditors ...RequestEditorFn) (*ProbePowerPointOnlineAddInResponse, error) {
-	rsp, err := c.ProbePowerPointOnlineAddIn(ctx, sessionId, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseProbePowerPointOnlineAddInResponse(rsp)
-}
-
-// RunPowerPointOnlinePendingJobWithBodyWithResponse request with arbitrary body returning *RunPowerPointOnlinePendingJobResponse
-func (c *ClientWithResponses) RunPowerPointOnlinePendingJobWithBodyWithResponse(ctx context.Context, sessionId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RunPowerPointOnlinePendingJobResponse, error) {
-	rsp, err := c.RunPowerPointOnlinePendingJobWithBody(ctx, sessionId, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseRunPowerPointOnlinePendingJobResponse(rsp)
-}
-
-func (c *ClientWithResponses) RunPowerPointOnlinePendingJobWithResponse(ctx context.Context, sessionId string, body RunPowerPointOnlinePendingJobJSONRequestBody, reqEditors ...RequestEditorFn) (*RunPowerPointOnlinePendingJobResponse, error) {
-	rsp, err := c.RunPowerPointOnlinePendingJob(ctx, sessionId, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseRunPowerPointOnlinePendingJobResponse(rsp)
 }
 
 // CleanupPowerPointOnlineSessionWithResponse request returning *CleanupPowerPointOnlineSessionResponse
@@ -7547,6 +7527,46 @@ func (c *ClientWithResponses) CaptureWindowWithResponse(ctx context.Context, id 
 	return ParseCaptureWindowResponse(rsp)
 }
 
+// ParseGetOpenApiDocumentResponse parses an HTTP response from a GetOpenApiDocumentWithResponse call
+func ParseGetOpenApiDocumentResponse(rsp *http.Response) (*GetOpenApiDocumentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetOpenApiDocumentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest map[string]interface{}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListOpenApiNamespacesResponse parses an HTTP response from a ListOpenApiNamespacesWithResponse call
 func ParseListOpenApiNamespacesResponse(rsp *http.Response) (*ListOpenApiNamespacesResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -7710,46 +7730,6 @@ func ParseStartMicrosoftAuthorizeProbeResponse(rsp *http.Response) (*StartMicros
 	return response, nil
 }
 
-// ParseGetLatestMicrosoftAuthorizeProbeStatusResponse parses an HTTP response from a GetLatestMicrosoftAuthorizeProbeStatusWithResponse call
-func ParseGetLatestMicrosoftAuthorizeProbeStatusResponse(rsp *http.Response) (*GetLatestMicrosoftAuthorizeProbeStatusResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetLatestMicrosoftAuthorizeProbeStatusResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest MicrosoftAuthorizeProbeResult
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
-		var dest OperatorError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON4XX = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
-		var dest OperatorError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON5XX = &dest
-
-	}
-
-	return response, nil
-}
-
 // ParseGetMicrosoftAuthorizeProbeStatusResponse parses an HTTP response from a GetMicrosoftAuthorizeProbeStatusWithResponse call
 func ParseGetMicrosoftAuthorizeProbeStatusResponse(rsp *http.Response) (*GetMicrosoftAuthorizeProbeStatusResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -7839,46 +7819,6 @@ func ParseStartMicrosoftDeviceLoginResponse(rsp *http.Response) (*StartMicrosoft
 	}
 
 	response := &StartMicrosoftDeviceLoginResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest MicrosoftDeviceLoginResult
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
-		var dest OperatorError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON4XX = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
-		var dest OperatorError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON5XX = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetLatestMicrosoftDeviceLoginStatusResponse parses an HTTP response from a GetLatestMicrosoftDeviceLoginStatusWithResponse call
-func ParseGetLatestMicrosoftDeviceLoginStatusResponse(rsp *http.Response) (*GetLatestMicrosoftDeviceLoginStatusResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetLatestMicrosoftDeviceLoginStatusResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -8446,86 +8386,6 @@ func ParseCaptureDesktopScreenshotResponse(rsp *http.Response) (*CaptureDesktopS
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest DesktopScreenshotResult
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
-		var dest OperatorError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON4XX = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
-		var dest OperatorError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON5XX = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseEvaluateEdgeBrowserDevScriptResponse parses an HTTP response from a EvaluateEdgeBrowserDevScriptWithResponse call
-func ParseEvaluateEdgeBrowserDevScriptResponse(rsp *http.Response) (*EvaluateEdgeBrowserDevScriptResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &EvaluateEdgeBrowserDevScriptResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest DevScriptResult
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
-		var dest OperatorError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON4XX = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
-		var dest OperatorError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON5XX = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseRunPowerPointOnlineDevScriptResponse parses an HTTP response from a RunPowerPointOnlineDevScriptWithResponse call
-func ParseRunPowerPointOnlineDevScriptResponse(rsp *http.Response) (*RunPowerPointOnlineDevScriptResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &RunPowerPointOnlineDevScriptResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest DevScriptResult
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -9162,86 +9022,6 @@ func ParseGetPowerPointOnlineSessionResponse(rsp *http.Response) (*GetPowerPoint
 	}
 
 	response := &GetPowerPointOnlineSessionResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest PowerPointOnlineSessionResult
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
-		var dest OperatorError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON4XX = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
-		var dest OperatorError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON5XX = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseProbePowerPointOnlineAddInResponse parses an HTTP response from a ProbePowerPointOnlineAddInWithResponse call
-func ParseProbePowerPointOnlineAddInResponse(rsp *http.Response) (*ProbePowerPointOnlineAddInResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ProbePowerPointOnlineAddInResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest PowerPointOnlineAddInProbeResult
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
-		var dest OperatorError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON4XX = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
-		var dest OperatorError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON5XX = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseRunPowerPointOnlinePendingJobResponse parses an HTTP response from a RunPowerPointOnlinePendingJobWithResponse call
-func ParseRunPowerPointOnlinePendingJobResponse(rsp *http.Response) (*RunPowerPointOnlinePendingJobResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &RunPowerPointOnlinePendingJobResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

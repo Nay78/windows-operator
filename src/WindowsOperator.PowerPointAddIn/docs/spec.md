@@ -93,7 +93,7 @@ Response: staged `image/png` or `image/jpeg` bytes.
 - `validateOnly`: optional. Defaults `false`. When `true`, add-in inspects stable target ids only and does not mutate slides.
 - `requestedBy`: caller label.
 - `createdAt`: caller timestamp.
-- `operations`: one or more `replaceText`, `replaceImage`, `readTable`, `replaceTableCell`, or `replaceTableRange` operations.
+- `operations`: one or more `replaceText`, `replaceImage`, `readShapeBounds`, `setShapeBounds`, `readTable`, `readTableGeometry`, `findTableColumn`, `replaceTableCell`, or `replaceTableRange` operations.
 
 `jobId` and artifact ids must use lowercase ASCII letters, digits, `_`, `-`, or interior dots. They cannot start or end with `.`, and cannot use Windows device names like `con` or `lpt1`.
 
@@ -137,11 +137,37 @@ Named-template mode:
 - `altText`: optional.
 - `fit`: optional `cover` or `contain`.
 
+`readShapeBounds`
+
+- `kind`: `readShapeBounds`.
+- `targetId`: Office binding/tag target id for an existing shape.
+- Non-mutating. Returns `targets[].bounds` with absolute slide-point `left`, `top`, `width`, and `height`.
+
+`setShapeBounds`
+
+- `kind`: `setShapeBounds`.
+- `targetId`: Office binding/tag target id for an existing shape.
+- `left`, `top`, `width`, `height`: absolute slide-point bounds. Required for executable jobs. `left` and `top` must be zero or greater; `width` and `height` must be greater than zero.
+
 `readTable`
 
 - `kind`: `readTable`.
 - `targetId`: Office binding/tag target id for a table shape.
 - Non-mutating. Returns `targets[].table` with `rowCount`, `columnCount`, and `values`.
+
+`readTableGeometry`
+
+- `kind`: `readTableGeometry`.
+- `targetId`: Office binding/tag target id for a table shape.
+- Non-mutating. Returns `targets[].table` with values plus `geometry.bounds`, `geometry.columns[]`, and `geometry.rows[]`.
+
+`findTableColumn`
+
+- `kind`: `findTableColumn`.
+- `targetId`: Office binding/tag target id for a table shape.
+- `rowIndex`: zero-based row index to search.
+- `text`: exact normalized cell text to match. Normalization trims, collapses whitespace, and lowercases.
+- Non-mutating. Returns `targets[].tableMatch` with `rowIndex`, `columnIndex`, and matched `text`; zero or duplicate matches fail the target.
 
 `replaceTableCell`
 

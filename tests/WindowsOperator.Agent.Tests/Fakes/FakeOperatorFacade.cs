@@ -5,8 +5,20 @@ namespace WindowsOperator.Agent.Tests.Fakes;
 
 internal sealed class FakeOperatorFacade : IOperatorFacade
 {
+    private readonly Exception? _healthException;
+
+    public FakeOperatorFacade()
+    {
+    }
+
+    public FakeOperatorFacade(Exception healthException)
+    {
+        _healthException = healthException;
+    }
+
     public Task<HealthResult> GetHealthAsync(CancellationToken cancellationToken) =>
-        Task.FromResult(
+        _healthException is null
+            ? Task.FromResult(
             new HealthResult(
                 "ok",
                 "interactive-user",
@@ -15,11 +27,13 @@ internal sealed class FakeOperatorFacade : IOperatorFacade
                 "Fake.UIA3",
                 new[] { "Synthetic" },
                 true,
-                DateTimeOffset.UtcNow));
+                DateTimeOffset.UtcNow))
+            : Task.FromException<HealthResult>(_healthException);
 
     public Task<CapabilitiesResult> GetCapabilitiesAsync(CancellationToken cancellationToken) =>
         Task.FromResult(new CapabilitiesResult(
             "0.1.0",
+            new RuntimeBuildIdentity("1.0.0", "1.0.0.0", "unavailable"),
             new CapabilityHost("ok", "interactive-user", "http://127.0.0.1:43117", "ok"),
             new Dictionary<string, CapabilityFeature>(StringComparer.Ordinal),
             DateTimeOffset.UtcNow));

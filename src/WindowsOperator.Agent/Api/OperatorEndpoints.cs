@@ -197,6 +197,46 @@ public static class OperatorEndpoints
             await OperatorHttp.ExecuteAsync(
                 () => devAutomation.EvaluateEdgeBrowserSessionAsync(sessionId, request, cancellationToken)));
 
+        group.MapGet("/power-automate/mcp/status", async Task<Results<Ok<PowerAutomateMcpStatusResult>, JsonHttpResult<OperatorError>>> (
+            IPowerAutomateMcpService powerAutomateMcp,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => powerAutomateMcp.GetStatusAsync(cancellationToken)));
+
+        group.MapPost("/power-automate/mcp/start", async Task<Results<Ok<PowerAutomateMcpStartResult>, JsonHttpResult<OperatorError>>> (
+            PowerAutomateMcpStartRequest request,
+            IPowerAutomateMcpService powerAutomateMcp,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => powerAutomateMcp.StartBridgeAsync(request, cancellationToken)));
+
+        group.MapPost("/power-automate/mcp/edge", async Task<Results<Ok<PowerAutomateMcpEdgeResult>, JsonHttpResult<OperatorError>>> (
+            PowerAutomateMcpEdgeRequest request,
+            IPowerAutomateMcpService powerAutomateMcp,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => powerAutomateMcp.OpenEdgeAsync(request, cancellationToken)));
+
+        group.MapPost("/power-automate/mcp/edge/cleanup", async Task<Results<Ok<PowerAutomateMcpEdgeCleanupResult>, JsonHttpResult<OperatorError>>> (
+            IPowerAutomateMcpService powerAutomateMcp,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => powerAutomateMcp.CleanupEdgeAsync(cancellationToken)));
+
+        group.MapPost("/power-automate/mcp/flows/read", async Task<Results<Ok<PowerAutomateMcpFlowReadResult>, JsonHttpResult<OperatorError>>> (
+            PowerAutomateMcpFlowReadRequest request,
+            IPowerAutomateMcpService powerAutomateMcp,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => powerAutomateMcp.ReadFlowAsync(request, cancellationToken)));
+
+        group.MapPost("/power-automate/mcp/flows/update", async Task<Results<Ok<PowerAutomateMcpFlowUpdateResult>, JsonHttpResult<OperatorError>>> (
+            PowerAutomateMcpFlowUpdateRequest request,
+            IPowerAutomateMcpService powerAutomateMcp,
+            CancellationToken cancellationToken) =>
+            await OperatorHttp.ExecuteAsync(
+                () => powerAutomateMcp.UpdateFlowAsync(request, cancellationToken)));
+
         group.MapPost("/powerpoint/online/sessions", async Task<Results<Ok<PowerPointOnlineSessionResult>, JsonHttpResult<OperatorError>>> (
             PowerPointOnlineSessionStartRequest request,
             IPowerPointOnlineService powerpointOnline,
@@ -389,6 +429,13 @@ public static class OperatorEndpoints
             return null;
         }
 
-        return Enum.Parse<ScreenshotFormat>(raw, true);
+        if (Enum.TryParse<ScreenshotFormat>(raw, true, out var format) &&
+            Enum.IsDefined(format))
+        {
+            return format;
+        }
+
+        throw new OperatorFailureException(
+            OperatorErrors.InvalidRequest("Screenshot format must be 'jpeg' or 'png'."));
     }
 }

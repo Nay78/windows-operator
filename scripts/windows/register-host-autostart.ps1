@@ -108,21 +108,50 @@ function Stop-ExistingHost {
 
     $task = Get-ScheduledTask -TaskName "WindowsOperator.Host" -ErrorAction SilentlyContinue
     if ($task) {
-        Write-Step "Stopping existing WindowsOperator.Host task."
+        Write-Step "Stopping existing WindowsOperator.Host task. state=$($task.State)"
+        Disable-ScheduledTask -TaskName "WindowsOperator.Host" -ErrorAction SilentlyContinue | Out-Null
         Stop-ScheduledTask -TaskName "WindowsOperator.Host" -ErrorAction SilentlyContinue
+
+        $deadline = (Get-Date).AddSeconds(10)
+        do {
+            Start-Sleep -Milliseconds 250
+            $task = Get-ScheduledTask -TaskName "WindowsOperator.Host" -ErrorAction SilentlyContinue
+        } while ($task -and $task.State -eq "Running" -and (Get-Date) -lt $deadline)
     }
 
     $escapedHostRoot = [System.Management.Automation.WildcardPattern]::Escape($HostRoot)
-    $hostProcesses = Get-CimInstance Win32_Process |
+    $hostProcesses = @(Get-CimInstance Win32_Process |
         Where-Object {
             $_.CommandLine -and
-            $_.CommandLine -like "*$escapedHostRoot*" -and
-            $_.CommandLine -like "*WindowsOperator.Host.dll*"
-        }
+            (
+                (
+                    $_.CommandLine -like "*$escapedHostRoot*" -and
+                    $_.CommandLine -like "*WindowsOperator.Host.dll*"
+                ) -or
+                $_.CommandLine -like "*WindowsOperator.Host.exe*"
+            )
+        })
 
-    foreach ($process in $hostProcesses) {
+    $listener = Get-NetTCPConnection -State Listen -LocalPort 43117 -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if ($listener) {
+        Write-Step "Found port 43117 listener owner PID=$($listener.OwningProcess)."
+        $listenerProcess = Get-CimInstance Win32_Process -Filter "ProcessId = $($listener.OwningProcess)" -ErrorAction SilentlyContinue
+        if ($listenerProcess) {
+            $hostProcesses += $listenerProcess
+        }
+    }
+
+    foreach ($process in $hostProcesses | Sort-Object ProcessId -Unique) {
         Write-Step "Stopping existing WindowsOperator.Host process PID=$($process.ProcessId)."
         Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
+        Wait-Process -Id $process.ProcessId -Timeout 10 -ErrorAction SilentlyContinue
+    }
+
+    $remainingListener = Get-NetTCPConnection -State Listen -LocalPort 43117 -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if ($remainingListener) {
+        throw "WindowsOperator.Host listener PID=$($remainingListener.OwningProcess) did not stop."
     }
 }
 

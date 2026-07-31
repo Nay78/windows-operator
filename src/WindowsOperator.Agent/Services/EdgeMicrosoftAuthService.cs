@@ -7,7 +7,11 @@ using System.Text.RegularExpressions;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using FlaUI.Core.AutomationElements;
+using FlaUI.Core.Definitions;
+using FlaUI.Core.Input;
+using FlaUI.Core.WindowsAPI;
 using FlaUI.UIA3;
+using WindowsOperator.Automation.Services;
 using WindowsOperator.Core;
 using WindowsOperator.Core.Contracts;
 using WindowsOperator.Core.Json;
@@ -19,7 +23,9 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
 {
     private readonly StaComDispatcher _dispatcher = new();
     private readonly Dictionary<string, EdgeBrowserSessionMetadata> _browserSessions = new(StringComparer.Ordinal);
+    private static readonly IWindowCatalogService WindowCatalogService = new Win32WindowCatalogService();
     private static readonly HttpClient DevToolsHttpClient = new() { Timeout = TimeSpan.FromSeconds(2) };
+    private const int SwMaximize = 3;
     private const uint WmClose = 0x0010;
 
     public Task<MicrosoftAuthCleanupResult> CleanupAuthWindowsAsync(
@@ -40,7 +46,7 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
     public Task<MicrosoftDeviceLoginResult> StartDeviceLoginAsync(
         MicrosoftDeviceLoginRequest request,
         CancellationToken cancellationToken) =>
-        _dispatcher.InvokeAsync(() => StartDeviceLoginCore(request), cancellationToken);
+        _dispatcher.InvokeAsync(() => StartDeviceLoginCore(request, cancellationToken), cancellationToken);
 
     public Task<MicrosoftDeviceLoginResult> GetDeviceLoginStatusAsync(
         string runId,
@@ -156,8 +162,9 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
                 edge.Id,
                 startedAfterUtc,
                 reuseExistingProfile,
-                TimeSpan.FromSeconds(Math.Max(1, pageLoadSeconds)));
-            if (edgeWindow is null || !TryActivateEdge(shell, edgeWindow.Value.ProcessId, edgeWindow.Value.Title, actions))
+                TimeSpan.FromSeconds(Math.Max(1, pageLoadSeconds)),
+                actions);
+            if (edgeWindow is null || !TryActivateEdge(shell, edgeWindow.Value, actions))
             {
                 status = MicrosoftAuthorizeProbeStatus.Failed;
                 errors.Add("Edge authorize window was not visible or could not be activated.");
@@ -244,7 +251,9 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
         return result;
     }
 
-    private static MicrosoftDeviceLoginResult StartDeviceLoginCore(MicrosoftDeviceLoginRequest request)
+    private static MicrosoftDeviceLoginResult StartDeviceLoginCore(
+        MicrosoftDeviceLoginRequest request,
+        CancellationToken cancellationToken)
     {
         var runId = SafeFileName(request.RunId, $"{DateTimeOffset.UtcNow:yyyyMMddTHHmmssfffZ}-{Guid.NewGuid():N}");
         var runRoot = RunRoot(runId);
@@ -255,7 +264,7 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
         var errors = new List<string>();
         var loginUrl = NormalizeLoginUrl(request.LoginUrl);
         var pageLoadSeconds = Math.Clamp(request.PageLoadSeconds, 1, 30);
-        var verificationWaitSeconds = Math.Clamp(request.VerificationWaitSeconds, 0, 120);
+        var verificationWaitSeconds = Math.Clamp(request.VerificationWaitSeconds, 0, 600);
         var reuseExistingProfile = request.ReuseExistingProfile;
         string? browserTitle = null;
         string? browserState = null;
@@ -278,6 +287,7 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
 
         try
         {
+            cancellationToken.ThrowIfCancellationRequested();
             Trace("start");
             var preCleanup = CleanupAuthWindows(
                 new MicrosoftAuthCleanupRequest { DryRun = request.DryRun },
@@ -338,15 +348,16 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
                 loginUrl,
                 devToolsPort);
             actions.Add("edge_opened");
-            Thread.Sleep(TimeSpan.FromSeconds(pageLoadSeconds));
+            DelayWithCancellation(TimeSpan.FromSeconds(pageLoadSeconds), cancellationToken);
 
             var shell = CreateWScriptShell();
             var edgeWindow = FindAuthorizeWindow(
                 edge.Id,
                 startedAfterUtc,
                 reuseExistingProfile,
-                TimeSpan.FromSeconds(Math.Max(1, pageLoadSeconds)));
-            if (edgeWindow is null || !TryActivateEdge(shell, edgeWindow.Value.ProcessId, edgeWindow.Value.Title, actions))
+                TimeSpan.FromSeconds(Math.Max(1, pageLoadSeconds)),
+                actions);
+            if (edgeWindow is null || !TryActivateEdge(shell, edgeWindow.Value, actions))
             {
                 status = MicrosoftDeviceLoginStatus.Failed;
                 errors.Add("Edge login window was not visible or could not be activated.");
@@ -369,22 +380,57 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
                 return failedResult;
             }
 
-            var submittedWithDevTools = TrySubmitDeviceCodeWithDevTools(
-                devToolsPort,
-                loginUrl,
-                request.DeviceCode,
-                TimeSpan.FromSeconds(Math.Max(5, pageLoadSeconds)),
-                actions);
+            var devToolsPorts = new[] { devToolsPort };
+            int? selectedDevToolsPort = null;
+            var submittedWithDevTools = false;
+            foreach (var candidatePort in devToolsPorts)
+            {
+                actions.Add($"device_code_submit_devtools_port:{candidatePort}");
+                if (!TrySubmitDeviceCodeWithDevTools(
+                        candidatePort,
+                        loginUrl,
+                        request.DeviceCode,
+                        TimeSpan.FromSeconds(Math.Max(5, pageLoadSeconds)),
+                        actions))
+                {
+                    continue;
+                }
+
+                selectedDevToolsPort = candidatePort;
+                submittedWithDevTools = true;
+                break;
+            }
+
             if (submittedWithDevTools)
             {
                 actions.Add("device_code_submitted:devtools");
             }
             else
             {
-                shell.SendKeys(request.DeviceCode);
-                Thread.Sleep(500);
-                shell.SendKeys("{ENTER}");
-                actions.Add("device_code_submitted:sendkeys");
+                if (edgeWindow is null || !TrySubmitDeviceCodeWithUia(edgeWindow.Value, request.DeviceCode, actions))
+                {
+                    status = MicrosoftDeviceLoginStatus.Failed;
+                    errors.Add("Edge login window was visible, but the device-code field could not be targeted with DevTools or UIA.");
+                    browserState = "uia_device_code_submit_unavailable";
+                    browserTitle = edgeWindow?.Title;
+                    Trace("uia_device_code_submit_unavailable");
+                    var failedResult = Result(
+                        false,
+                        runId,
+                        loginUrl,
+                        request.InPrivate,
+                        status,
+                        browserState,
+                        browserTitle,
+                        actions,
+                        errors,
+                        DateTimeOffset.UtcNow,
+                        statusPath);
+                    WriteResult(runId, failedResult);
+                    return failedResult;
+                }
+
+                actions.Add("device_code_submitted:uia");
             }
 
             actions.Add("device_code_submitted");
@@ -395,9 +441,10 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
                 edge.Id,
                 reuseExistingProfile,
                 TimeSpan.FromSeconds(verificationWaitSeconds),
-                devToolsPort,
+                selectedDevToolsPort,
                 loginUrl,
-                actions);
+                actions,
+                cancellationToken);
             browserState = observation.State;
             browserTitle = observation.Title;
             observedAtUtc = observation.ObservedAtUtc;
@@ -409,6 +456,11 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
                 var postCleanup = CleanupAuthWindows(new MicrosoftAuthCleanupRequest(), actions, null);
                 Trace($"post_cleanup_closed:{postCleanup.ClosedWindows}");
             }
+        }
+        catch (OperationCanceledException)
+        {
+            Trace("cancelled");
+            throw;
         }
         catch (OperatorFailureException)
         {
@@ -795,17 +847,27 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
                 OperatorErrors.AuthUnavailable("Unable to create WScript.Shell COM object."));
     }
 
-    private static bool TryActivateEdge(dynamic shell, int processId, string? title, List<string> actions)
+    private static bool TryActivateEdge(dynamic shell, BrowserWindow window, List<string> actions)
     {
         try
         {
-            if (shell.AppActivate(processId))
+            if (window.Hwnd != IntPtr.Zero)
+            {
+                _ = ShowWindowAsync(window.Hwnd, SwMaximize);
+                if (SetForegroundWindow(window.Hwnd))
+                {
+                    actions.Add("edge_activated:hwnd");
+                    return true;
+                }
+            }
+
+            if (shell.AppActivate(window.ProcessId))
             {
                 actions.Add("edge_activated:process");
                 return true;
             }
 
-            foreach (var candidate in new[] { title, "Microsoft Edge", "Sign in to your account", "Enter code" }
+            foreach (var candidate in new[] { window.Title, "Microsoft Edge", "Sign in to your account", "Enter code" }
                 .Where(value => !string.IsNullOrWhiteSpace(value)))
             {
                 if (!shell.AppActivate(candidate))
@@ -882,19 +944,33 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
         int startedProcessId,
         DateTimeOffset startedAfterUtc,
         bool reuseExistingProfile,
-        TimeSpan timeout)
+        TimeSpan timeout,
+        List<string>? actions = null)
     {
         var deadline = DateTimeOffset.UtcNow + timeout;
-        while (DateTimeOffset.UtcNow <= deadline)
+        var firstAttempt = true;
+        while (firstAttempt || DateTimeOffset.UtcNow <= deadline)
         {
+            firstAttempt = false;
             var match = EdgeWindows()
                 .Where(window => reuseExistingProfile || window.ProcessId == startedProcessId || window.StartedAtUtc >= startedAfterUtc)
-                .OrderByDescending(window => ScoreAuthorizeWindow(window, startedProcessId, startedAfterUtc, reuseExistingProfile))
-                .ThenByDescending(window => window.StartedAtUtc)
+                .Select(window =>
+                {
+                    var text = ReadWindowText(window.Hwnd);
+                    return new
+                    {
+                        Window = window,
+                        Score = ScoreAuthorizeWindow(window, startedProcessId, startedAfterUtc, reuseExistingProfile, text),
+                    };
+                })
+                .OrderByDescending(candidate => candidate.Score)
+                .ThenByDescending(candidate => candidate.Window.StartedAtUtc)
+                .Select(candidate => (candidate.Window, candidate.Score))
                 .FirstOrDefault();
-            if (match.ProcessId != 0)
+            if (match.Window.ProcessId != 0)
             {
-                return match;
+                actions?.Add(FormatAuthWindowSelectedAction(match.Window, match.Score));
+                return match.Window;
             }
 
             Thread.Sleep(250);
@@ -903,43 +979,75 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
         return null;
     }
 
-    private static int ScoreAuthorizeWindow(
+    internal static int ScoreAuthorizeWindow(
         BrowserWindow window,
         int startedProcessId,
         DateTimeOffset startedAfterUtc,
-        bool reuseExistingProfile)
+        bool reuseExistingProfile,
+        string? text = null)
     {
         var score = 0;
+        var title = window.Title ?? string.Empty;
+        var combined = $"{title} {text ?? string.Empty}";
+        var isAuthWindow = LooksLikeMicrosoftAuthWindow(title, text);
+        var looksLikePowerAutomate = ContainsAny(
+            combined.ToLowerInvariant(),
+            "power automate",
+            "edit your flow",
+            "make.powerautomate.com");
+
+        if (isAuthWindow)
+        {
+            score += 2500;
+        }
+
         if (window.ProcessId == startedProcessId)
-        {
-            score += 1000;
-        }
-
-        if (window.StartedAtUtc >= startedAfterUtc)
-        {
-            score += 400;
-        }
-
-        if (reuseExistingProfile && window.Hwnd == GetForegroundWindow())
         {
             score += 800;
         }
 
-        var title = window.Title ?? string.Empty;
-        if (title.Contains("Sign in", StringComparison.OrdinalIgnoreCase) ||
-            title.Contains("Iniciar", StringComparison.OrdinalIgnoreCase) ||
-            title.Contains("Microsoft", StringComparison.OrdinalIgnoreCase))
+        if (window.StartedAtUtc >= startedAfterUtc)
         {
-            score += 200;
+            score += 600;
         }
 
-        if (title.Contains("Work", StringComparison.OrdinalIgnoreCase))
+        if (window.IsForeground && isAuthWindow)
         {
-            score += 100;
+            score += 350;
+        }
+
+        if (window.IsForeground && reuseExistingProfile && !isAuthWindow)
+        {
+            score -= 500;
+        }
+
+        if (ContainsAny(
+            combined.ToLowerInvariant(),
+            "sign in",
+            "iniciar",
+            "enter code",
+            "escriba el código",
+            "escriba el codigo",
+            "microsoft"))
+        {
+            score += isAuthWindow ? 400 : 80;
+        }
+
+        if (looksLikePowerAutomate && !isAuthWindow)
+        {
+            score -= 800;
+        }
+
+        if (window.IsMinimized)
+        {
+            score -= 200;
         }
 
         return score;
     }
+
+    private static string FormatAuthWindowSelectedAction(BrowserWindow window, int score) =>
+        $"auth_window_selected:hwnd={window.Hwnd.ToInt64()};pid={window.ProcessId};score={score};title={TrimValue(window.Title, 120)}";
 
     private static BrowserObservation ObserveBrowserState(
         DateTimeOffset startedAfterUtc,
@@ -948,13 +1056,16 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
         TimeSpan timeout,
         int? devToolsPort = null,
         string? preferredUrl = null,
-        List<string>? actions = null)
+        List<string>? actions = null,
+        CancellationToken cancellationToken = default)
     {
         var deadline = DateTimeOffset.UtcNow + timeout;
         BrowserObservation? last = null;
         var advanceAttempts = 0;
+        var waitStatesRecorded = new HashSet<string>(StringComparer.Ordinal);
         do
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (devToolsPort is { } port)
             {
                 var target = TryReadEdgeTarget(port, preferredUrl);
@@ -966,19 +1077,27 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
                     var text = snapshot?.BodyText ?? string.Empty;
                     var classification = ClassifyBrowserState(title, text);
                     last = new BrowserObservation(classification.Status, classification.State, title, observedAtUtc);
-                    if (classification.Status is MicrosoftDeviceLoginStatus.BrowserAccepted or MicrosoftDeviceLoginStatus.InvalidCode)
+                    if (classification.Status is MicrosoftDeviceLoginStatus.BrowserAccepted or MicrosoftDeviceLoginStatus.InvalidCode or MicrosoftDeviceLoginStatus.Failed)
                     {
                         return last.Value;
                     }
 
                     if (classification.Status is MicrosoftDeviceLoginStatus.NeedsUserAction &&
+                        IsHardUserActionState(classification.State))
+                    {
+                        if (waitStatesRecorded.Add(classification.State))
+                        {
+                            actions?.Add($"browser_waiting_for_user_action:{classification.State}");
+                        }
+                    }
+                    else if (classification.Status is MicrosoftDeviceLoginStatus.NeedsUserAction &&
                         target is not null &&
                         advanceAttempts < 5)
                     {
                         advanceAttempts++;
                         if (TryAdvanceDeviceLoginWithDevTools(target.Value, actions))
                         {
-                            Thread.Sleep(1500);
+                            DelayWithCancellation(TimeSpan.FromMilliseconds(1500), cancellationToken);
                             continue;
                         }
                     }
@@ -1001,22 +1120,136 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
                 var text = ReadWindowText(window.Value.Hwnd);
                 var classification = ClassifyBrowserState(window.Value.Title, text);
                 last = new BrowserObservation(classification.Status, classification.State, window.Value.Title, observedAtUtc);
-                if (classification.Status is MicrosoftDeviceLoginStatus.BrowserAccepted or MicrosoftDeviceLoginStatus.InvalidCode)
+                if (classification.Status is MicrosoftDeviceLoginStatus.BrowserAccepted or MicrosoftDeviceLoginStatus.InvalidCode or MicrosoftDeviceLoginStatus.Failed)
                 {
                     return last.Value;
                 }
+
+                if (classification.Status is MicrosoftDeviceLoginStatus.NeedsUserAction)
+                {
+                    if (IsHardUserActionState(classification.State))
+                    {
+                        if (waitStatesRecorded.Add(classification.State))
+                        {
+                            actions?.Add($"browser_waiting_for_user_action:{classification.State}");
+                        }
+                    }
+                    else if (advanceAttempts < 5)
+                    {
+                        advanceAttempts++;
+                        if (TryAdvanceDeviceLoginWithUia(window.Value, classification.State, actions))
+                        {
+                            DelayWithCancellation(TimeSpan.FromMilliseconds(1500), cancellationToken);
+                            continue;
+                        }
+                    }
+                }
             }
 
-            Thread.Sleep(500);
+            DelayWithCancellation(TimeSpan.FromMilliseconds(500), cancellationToken);
         }
         while (DateTimeOffset.UtcNow <= deadline);
 
         return last ?? new BrowserObservation(
             timeout == TimeSpan.Zero ? MicrosoftDeviceLoginStatus.Submitted : MicrosoftDeviceLoginStatus.TimedOut,
-            "browser_state_not_observed",
+            "browser_window_not_observed",
             null,
             DateTimeOffset.UtcNow);
     }
+
+    private static IReadOnlyList<int> ResolveDeviceLoginDevToolsPorts(
+        int requestedPort,
+        string loginUrl,
+        List<string> actions)
+    {
+        var ports = new List<int> { requestedPort };
+        var seen = new HashSet<int> { requestedPort };
+        AddDevToolsPortProbeAction(requestedPort, loginUrl, "requested", actions);
+
+        foreach (var port in DiscoverPersistedEdgeDevToolsPorts())
+        {
+            if (!seen.Add(port))
+            {
+                continue;
+            }
+
+            var probe = AddDevToolsPortProbeAction(port, loginUrl, "existing", actions);
+            if (probe.Status != DevToolsProbeStatus.Ready)
+            {
+                continue;
+            }
+
+            ports.Add(port);
+        }
+
+        return ports;
+    }
+
+    private static DevToolsCapabilityProbe AddDevToolsPortProbeAction(
+        int port,
+        string loginUrl,
+        string scope,
+        List<string> actions)
+    {
+        var probe = ProbeDevToolsCapability(port, loginUrl);
+        actions.Add($"devtools_port_status:{scope}:{port}:{FormatDevToolsStatus(probe.Status)}");
+        if (probe.Target is { } target)
+        {
+            actions.Add($"devtools_target_selected:{scope}:{FormatDevToolsTarget(target)}");
+        }
+
+        return probe;
+    }
+
+    private static IEnumerable<int> DiscoverPersistedEdgeDevToolsPorts()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            yield break;
+        }
+
+        var root = BrowserSessionRoot();
+        if (!Directory.Exists(root))
+        {
+            yield break;
+        }
+
+        foreach (var path in Directory.EnumerateFiles(root, "session.json", SearchOption.AllDirectories))
+        {
+            EdgeBrowserSessionMetadata? metadata;
+            try
+            {
+                metadata = JsonSerializer.Deserialize<EdgeBrowserSessionMetadata>(
+                    File.ReadAllText(path),
+                    OperatorJson.SerializerOptions);
+            }
+            catch
+            {
+                continue;
+            }
+
+            if (metadata is null ||
+                metadata.DevToolsPort <= 0 ||
+                !IsProcessAlive(metadata.ProcessId))
+            {
+                continue;
+            }
+
+            yield return metadata.DevToolsPort;
+        }
+    }
+
+    private static string FormatDevToolsStatus(DevToolsProbeStatus status) =>
+        status switch
+        {
+            DevToolsProbeStatus.Ready => "ready",
+            DevToolsProbeStatus.TargetUnavailable => "target_unavailable",
+            DevToolsProbeStatus.PortClosed => "port_closed",
+            _ => "unknown",
+        };
+
+    private static string FormatDevToolsTarget(EdgePageTarget target) =>
+        $"id={TrimValue(target.TargetId, 60)};url={TrimValue(target.Url, 120)};title={TrimValue(target.Title, 120)}";
 
     private static bool TrySubmitDeviceCodeWithDevTools(
         int devToolsPort,
@@ -1027,11 +1260,18 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
     {
         var deadline = DateTimeOffset.UtcNow + timeout;
         DomActionPayload? payload = null;
+        EdgePageTarget? selectedTarget = null;
         do
         {
             var target = TryReadEdgeTarget(devToolsPort, loginUrl);
             if (target is not null)
             {
+                if (selectedTarget is null)
+                {
+                    selectedTarget = target.Value;
+                    actions.Add($"devtools_target_selected:submit:{FormatDevToolsTarget(target.Value)}");
+                }
+
                 payload = EvaluateJson<DomActionPayload>(
                     target.Value.WebSocketDebuggerUrl,
                     BuildDeviceCodeSubmitExpression(deviceCode));
@@ -1083,6 +1323,468 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
 
         actions?.Add($"device_login_advance_unavailable:missing_click_point:{TrimValue(matched, 80)}");
         return false;
+    }
+
+    private static bool TrySubmitDeviceCodeWithUia(
+        BrowserWindow window,
+        string deviceCode,
+        List<string> actions)
+    {
+        actions.Add($"uia_fallback_used:device_code_submit;hwnd={window.Hwnd.ToInt64()}");
+        try
+        {
+            _ = ShowWindowAsync(window.Hwnd, SwMaximize);
+            _ = SetForegroundWindow(window.Hwnd);
+            Thread.Sleep(500);
+            using var automation = new UIA3Automation();
+            var root = automation.FromHandle(window.Hwnd);
+            if (root is null)
+            {
+                actions.Add("uia_device_code_input_unavailable:no_root");
+                return false;
+            }
+
+            var input = FindDeviceCodeInput(root);
+            if (input is null)
+            {
+                actions.Add("uia_device_code_input_unavailable:not_found");
+                return false;
+            }
+
+            actions.Add($"uia_device_code_input_selected:{TrimValue(SafeName(input), 80)}");
+            if (!TrySetUiaText(input, deviceCode))
+            {
+                actions.Add("uia_device_code_input_unavailable:set_failed");
+                return false;
+            }
+
+            if (TryClickWhitelistedMicrosoftAuthAction(root, "deviceCodeSubmit", actions))
+            {
+                return WaitForDeviceCodePromptToClear(window, actions);
+            }
+
+            input.Focus();
+            Keyboard.Type(VirtualKeyShort.RETURN);
+            actions.Add("uia_auth_action_attempted:deviceCodeSubmit:enter");
+            return WaitForDeviceCodePromptToClear(window, actions);
+        }
+        catch (Exception ex)
+        {
+            actions.Add($"uia_device_code_submit_failed:{ex.GetType().Name}");
+            return false;
+        }
+    }
+
+    private static bool TryAdvanceDeviceLoginWithUia(
+        BrowserWindow window,
+        string browserState,
+        List<string>? actions)
+    {
+        if (IsHardUserActionState(browserState))
+        {
+            actions?.Add($"uia_advance_blocked:{browserState}");
+            return false;
+        }
+
+        if (browserState == "browser_needs_device_code")
+        {
+            actions?.Add("uia_advance_blocked:device_code_required");
+            return false;
+        }
+
+        actions?.Add($"uia_fallback_used:advance;hwnd={window.Hwnd.ToInt64()}");
+        try
+        {
+            _ = ShowWindowAsync(window.Hwnd, SwMaximize);
+            _ = SetForegroundWindow(window.Hwnd);
+            Thread.Sleep(500);
+            using var automation = new UIA3Automation();
+            var root = automation.FromHandle(window.Hwnd);
+            if (root is null)
+            {
+                actions?.Add("uia_advance_unavailable:no_root");
+                return false;
+            }
+
+            if (HasEditableAuthInput(root))
+            {
+                actions?.Add("uia_advance_blocked:identity_or_credential_input_required");
+                return false;
+            }
+
+            return TryClickWhitelistedMicrosoftAuthAction(root, browserState, actions);
+        }
+        catch (Exception ex)
+        {
+            actions?.Add($"uia_advance_unavailable:{ex.GetType().Name}");
+            return false;
+        }
+    }
+
+    private static AutomationElement? FindDeviceCodeInput(AutomationElement root)
+    {
+        return SafeDescendants(root)
+            .Where(IsEnabledOnscreen)
+            .Where(element => SafeControlType(element) == ControlType.Edit)
+            .OrderByDescending(ScoreDeviceCodeInput)
+            .FirstOrDefault();
+    }
+
+    private static bool HasEditableAuthInput(AutomationElement root)
+    {
+        return SafeDescendants(root)
+            .Where(IsEnabledOnscreen)
+            .Where(element => SafeControlType(element) == ControlType.Edit)
+            .Any(element =>
+            {
+                var normalized = NormalizeUiaText($"{SafeName(element)} {SafeAutomationId(element)}");
+                return !ContainsAny(normalized, "address", "search", "url", "dirección", "direccion", "buscar");
+            });
+    }
+
+    private static int ScoreDeviceCodeInput(AutomationElement element)
+    {
+        var normalized = NormalizeUiaText($"{SafeName(element)} {SafeAutomationId(element)}");
+        var score = 0;
+        if (ContainsAny(normalized, "code", "código", "codigo"))
+        {
+            score += 1000;
+        }
+
+        if (ContainsAny(normalized, "email", "correo", "password", "contraseña", "contrasena"))
+        {
+            score -= 500;
+        }
+
+        if (ContainsAny(normalized, "address", "search", "url", "dirección", "direccion", "buscar"))
+        {
+            score -= 800;
+        }
+
+        if (HasUsefulBounds(element))
+        {
+            score += 50;
+        }
+
+        return score;
+    }
+
+    private static bool TrySetUiaText(AutomationElement element, string text)
+    {
+        try
+        {
+            element.Focus();
+        }
+        catch
+        {
+            return false;
+        }
+
+        try
+        {
+            Keyboard.Press(VirtualKeyShort.CONTROL);
+            Keyboard.Type(VirtualKeyShort.KEY_A);
+            Keyboard.Release(VirtualKeyShort.CONTROL);
+            Keyboard.Type(text);
+            return true;
+        }
+        catch
+        {
+            try
+            {
+                Keyboard.Release(VirtualKeyShort.CONTROL);
+            }
+            catch
+            {
+                // Best effort cleanup.
+            }
+        }
+
+        try
+        {
+            if (element.Patterns.Value.IsSupported)
+            {
+                element.Patterns.Value.Pattern.SetValue(text);
+                return true;
+            }
+        }
+        catch
+        {
+            // No remaining input fallback.
+        }
+
+        return false;
+    }
+
+    private static bool TryClickWhitelistedMicrosoftAuthAction(
+        AutomationElement root,
+        string state,
+        List<string>? actions)
+    {
+        var action = SafeDescendants(root)
+            .Where(IsEnabledOnscreen)
+            .Where(IsClickableUiaControl)
+            .Where(element => IsAllowedUiaActionControl(element, state))
+            .Select(element => new
+            {
+                Element = element,
+                Text = NormalizeUiaText($"{SafeName(element)} {SafeAutomationId(element)}"),
+                RawText = TrimValue(SafeName(element), 80),
+            })
+            .Where(candidate => !string.IsNullOrWhiteSpace(candidate.Text))
+            .Where(candidate => IsWhitelistedMicrosoftAuthAction(candidate.Text, state))
+            .OrderByDescending(candidate => ScoreUiaAuthAction(candidate.Text, state))
+            .FirstOrDefault();
+        if (action is null)
+        {
+            actions?.Add($"uia_advance_unavailable:no_safe_action:{state}");
+            return false;
+        }
+
+        if (!TryClickUiaElement(action.Element))
+        {
+            actions?.Add($"uia_advance_unavailable:click_failed:{state}:{action.RawText}");
+            return false;
+        }
+
+        actions?.Add($"uia_auth_action_clicked:{state}:{action.RawText}");
+        return true;
+    }
+
+    private static bool IsWhitelistedMicrosoftAuthAction(string text, string state)
+    {
+        if (ContainsAny(text, "back", "atrás", "atras", "use another account", "usar otra cuenta", "cancel", "cancelar"))
+        {
+            return false;
+        }
+
+        if (state == "browser_needs_account_selection")
+        {
+            return ContainsAny(text, "connected to windows", "conectado a windows", "@");
+        }
+
+        if (state == "deviceCodeSubmit")
+        {
+            return text == "next" ||
+                text == "siguiente" ||
+                ContainsAny(text, "continue", "continuar", "submit", "verify", "verificar");
+        }
+
+        return text == "yes" ||
+            text == "si" ||
+            text == "sí" ||
+            ContainsAny(
+                text,
+                "next",
+                "siguiente",
+                "continue",
+                "continuar",
+                "submit",
+                "verify",
+                "verificar",
+                "sign in",
+                "iniciar sesión",
+                "iniciar sesion",
+                "accept",
+                "aceptar",
+                "allow",
+                "permitir",
+                "approve",
+                "aprobar",
+                "connected to windows",
+                "conectado a windows");
+    }
+
+    private static int ScoreUiaAuthAction(string text, string state)
+    {
+        var score = 0;
+        if (state == "browser_needs_account_selection" &&
+            ContainsAny(text, "connected to windows", "conectado a windows"))
+        {
+            score += 1000;
+        }
+
+        if (ContainsAny(text, "next", "siguiente", "continue", "continuar", "yes", "sí", "si"))
+        {
+            score += 400;
+        }
+
+        if (ContainsAny(text, "accept", "allow", "approve", "aceptar", "permitir", "aprobar"))
+        {
+            score += 300;
+        }
+
+        if (text.Contains("@", StringComparison.Ordinal))
+        {
+            score += 200;
+        }
+
+        return score;
+    }
+
+    private static bool IsAllowedUiaActionControl(AutomationElement element, string state)
+    {
+        if (state != "deviceCodeSubmit")
+        {
+            if (state == "browser_needs_account_selection")
+            {
+                return true;
+            }
+
+            var text = NormalizeUiaText($"{SafeName(element)} {SafeAutomationId(element)}");
+            if (text.Contains("@", StringComparison.Ordinal) &&
+                ContainsAny(text, "sign in with", "connected to windows", "conectado a windows"))
+            {
+                return true;
+            }
+
+            var authControlType = SafeControlType(element);
+            return authControlType is ControlType.Button or
+                ControlType.Hyperlink or
+                ControlType.ListItem or
+                ControlType.MenuItem;
+        }
+
+        var controlType = SafeControlType(element);
+        return controlType is ControlType.Button or ControlType.Hyperlink or ControlType.MenuItem;
+    }
+
+    private static bool TryClickUiaElement(AutomationElement element)
+    {
+        try
+        {
+            element.Focus();
+        }
+        catch
+        {
+            // Clickable point may still work.
+        }
+
+        try
+        {
+            Mouse.MoveTo(element.GetClickablePoint());
+            Mouse.Click();
+            return true;
+        }
+        catch
+        {
+            // Fall back to UI Automation invocation.
+        }
+
+        try
+        {
+            if (element.Patterns.Invoke.IsSupported)
+            {
+                element.Patterns.Invoke.Pattern.Invoke();
+                return true;
+            }
+        }
+        catch
+        {
+            // No remaining click fallback.
+        }
+
+        return false;
+    }
+
+    private static bool WaitForDeviceCodePromptToClear(BrowserWindow window, List<string> actions)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(5);
+        do
+        {
+            Thread.Sleep(250);
+            var text = ReadWindowText(window.Hwnd);
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                continue;
+            }
+
+            var classification = ClassifyBrowserState(window.Title, text);
+            if (classification.State != "browser_needs_device_code")
+            {
+                actions.Add($"uia_device_code_submit_verified:{classification.State}");
+                return true;
+            }
+        }
+        while (DateTimeOffset.UtcNow <= deadline);
+
+        actions.Add("uia_device_code_submit_unverified:prompt_unchanged");
+        return false;
+    }
+
+    private static bool IsClickableUiaControl(AutomationElement element)
+    {
+        var controlType = SafeControlType(element);
+        return controlType is ControlType.Button or
+            ControlType.Hyperlink or
+            ControlType.ListItem or
+            ControlType.MenuItem or
+            ControlType.Text or
+            ControlType.Custom or
+            ControlType.Pane;
+    }
+
+    private static bool IsEnabledOnscreen(AutomationElement element) =>
+        SafeRead(element, candidate => candidate.IsEnabled, false) &&
+        !SafeRead(element, candidate => candidate.IsOffscreen, true);
+
+    private static IReadOnlyList<AutomationElement> SafeDescendants(AutomationElement root)
+    {
+        try
+        {
+            return root.FindAllDescendants().Take(500).ToArray();
+        }
+        catch
+        {
+            return Array.Empty<AutomationElement>();
+        }
+    }
+
+    private static ControlType SafeControlType(AutomationElement element) =>
+        SafeRead(element, candidate => candidate.ControlType, ControlType.Custom);
+
+    private static string SafeAutomationId(AutomationElement element) =>
+        SafeRead(element, candidate => candidate.AutomationId ?? string.Empty, string.Empty);
+
+    private static bool HasUsefulBounds(AutomationElement element)
+    {
+        try
+        {
+            var rect = element.BoundingRectangle;
+            return rect.Width > 50 && rect.Height > 10;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static T SafeRead<T>(AutomationElement element, Func<AutomationElement, T> read, T fallback)
+    {
+        try
+        {
+            return read(element);
+        }
+        catch
+        {
+            return fallback;
+        }
+    }
+
+    private static string NormalizeUiaText(string? value) =>
+        Regex.Replace(value ?? string.Empty, "\\s+", " ").Trim().ToLowerInvariant();
+
+    private static bool IsHardUserActionState(string state) =>
+        state is "browser_needs_password" or
+            "browser_needs_admin_approval" or
+            "browser_needs_mfa";
+
+    private static void DelayWithCancellation(TimeSpan delay, CancellationToken cancellationToken)
+    {
+        if (cancellationToken.WaitHandle.WaitOne(delay))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+        }
     }
 
     private static string BuildDeviceCodeSubmitExpression(string deviceCode)
@@ -1277,6 +1979,18 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
         clickY: clickPoint?.y
       });
     }
+  }
+
+  const unresolvedInput = Array.from(document.querySelectorAll("input,textarea"))
+    .filter(isVisible)
+    .find(element => {
+      const type = normalize(element.getAttribute("type"));
+      return !element.disabled &&
+        !element.readOnly &&
+        (!type || ["text", "tel", "email", "password"].includes(type));
+    });
+  if (unresolvedInput) {
+    return JSON.stringify({ success: false, message: "Identity or credential input required." });
   }
 
   const actionCandidates = Array.from(document.querySelectorAll("button,input[type='submit'],input[type='button'],a,[role='button'],[role='option'],[role='menuitem'],[tabindex]"))
@@ -1677,6 +2391,16 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
         var normalized = value.ToLowerInvariant();
         if (ContainsAny(
             normalized,
+            "an error occurred during authentication",
+            "authentication failed",
+            "se produjo un error durante la autenticación",
+            "se produjo un error durante la autenticacion"))
+        {
+            return (MicrosoftDeviceLoginStatus.Failed, "browser_authentication_failed");
+        }
+
+        if (ContainsAny(
+            normalized,
             "code didn't work",
             "code does not exist",
             "code doesn't exist",
@@ -1691,6 +2415,49 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
 
         if (ContainsAny(
             normalized,
+            "need admin approval",
+            "approval required",
+            "requires approval",
+            "consent on behalf of your organization"))
+        {
+            return (MicrosoftDeviceLoginStatus.NeedsUserAction, "browser_needs_admin_approval");
+        }
+
+        if (ContainsAny(
+            normalized,
+            "authenticator",
+            "multi-factor",
+            "multifactor",
+            "two-step verification",
+            "we sent a notification",
+            "approve sign in request",
+            "approve the request",
+            "enter the code displayed in the app",
+            "confirme la solicitud de autenticación",
+            "confirme la solicitud de autenticacion",
+            "solicitud de autenticación que aparece en su aplicación móvil",
+            "solicitud de autenticacion que aparece en su aplicacion movil",
+            "código de verificación",
+            "codigo de verificacion"))
+        {
+            return (MicrosoftDeviceLoginStatus.NeedsUserAction, "browser_needs_mfa");
+        }
+
+        if (ContainsAny(
+            normalized,
+            "please enter your password",
+            "enter password",
+            "forgot my password",
+            "escriba la contraseña",
+            "escriba la contrasena",
+            "olvidé mi contraseña",
+            "olvide mi contrasena"))
+        {
+            return (MicrosoftDeviceLoginStatus.NeedsUserAction, "browser_needs_password");
+        }
+
+        if (ContainsAny(
+            normalized,
             "stay signed in",
             "keep me signed in",
             "mantener la sesión",
@@ -1698,16 +2465,27 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
             "permanecer conectado",
             "seguir conectado"))
         {
-            return (MicrosoftDeviceLoginStatus.NeedsUserAction, "browser_needs_user_action");
+            return (MicrosoftDeviceLoginStatus.NeedsUserAction, "browser_needs_stay_signed_in");
         }
 
         if (ContainsAny(
             normalized,
-            "please enter your password",
-            "escriba la contraseña",
-            "escriba la contrasena"))
+            "pick an account",
+            "sign in with",
+            "connected to windows",
+            "elige una cuenta",
+            "seleccionar una cuenta"))
         {
-            return (MicrosoftDeviceLoginStatus.NeedsUserAction, "browser_needs_password");
+            return (MicrosoftDeviceLoginStatus.NeedsUserAction, "browser_needs_account_selection");
+        }
+
+        if (ContainsAny(
+            normalized,
+            "permissions requested",
+            "accept on behalf of your organization",
+            "permisos solicitados"))
+        {
+            return (MicrosoftDeviceLoginStatus.NeedsUserAction, "browser_needs_consent");
         }
 
         if (ContainsAny(
@@ -1745,6 +2523,11 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
             "permisos solicitados",
             "mantener la sesión"))
         {
+            if (ContainsAny(normalized, "enter code", "escriba el código", "escriba el codigo"))
+            {
+                return (MicrosoftDeviceLoginStatus.NeedsUserAction, "browser_needs_device_code");
+            }
+
             return (MicrosoftDeviceLoginStatus.NeedsUserAction, "browser_needs_user_action");
         }
 
@@ -1904,13 +2687,92 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
         return !IsWindow(window.Hwnd);
     }
 
-    private static IEnumerable<BrowserWindow> EdgeWindows()
+    private static IReadOnlyList<BrowserWindow> EdgeWindows()
     {
+        if (!OperatingSystem.IsWindows())
+        {
+            return Array.Empty<BrowserWindow>();
+        }
+
+        try
+        {
+            var windows = WindowCatalogService.ListAsync(CancellationToken.None).GetAwaiter().GetResult();
+            var mapped = MapEdgeWindowsFromCatalog(windows, TryGetEdgeProcessStartTime);
+            return mapped.Count > 0 ? mapped : EdgeMainWindowsFallback();
+        }
+        catch
+        {
+            return EdgeMainWindowsFallback();
+        }
+    }
+
+    internal static IReadOnlyList<BrowserWindow> MapEdgeWindowsFromCatalogForTest(
+        IEnumerable<WindowRef> windows,
+        IReadOnlyDictionary<uint, DateTimeOffset> edgeProcessStartTimes) =>
+        MapEdgeWindowsFromCatalog(
+            windows,
+            processId => edgeProcessStartTimes.TryGetValue(processId, out var startedAtUtc)
+                ? startedAtUtc
+                : null);
+
+    private static IReadOnlyList<BrowserWindow> MapEdgeWindowsFromCatalog(
+        IEnumerable<WindowRef> windows,
+        Func<uint, DateTimeOffset?> edgeProcessStartTime)
+    {
+        var mapped = new List<BrowserWindow>();
+        foreach (var window in windows)
+        {
+            if (window.Hwnd <= 0)
+            {
+                continue;
+            }
+
+            var startedAtUtc = edgeProcessStartTime(window.ProcessId);
+            if (startedAtUtc is null)
+            {
+                continue;
+            }
+
+            mapped.Add(new BrowserWindow(
+                checked((int)window.ProcessId),
+                new IntPtr(window.Hwnd),
+                window.Title,
+                startedAtUtc.Value,
+                window.IsForeground,
+                window.IsMinimized));
+        }
+
+        return mapped;
+    }
+
+    private static DateTimeOffset? TryGetEdgeProcessStartTime(uint processId)
+    {
+        try
+        {
+            using var process = Process.GetProcessById(checked((int)processId));
+            process.Refresh();
+            if (process.HasExited ||
+                !string.Equals(process.ProcessName, "msedge", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            return new DateTimeOffset(process.StartTime.ToUniversalTime());
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static IReadOnlyList<BrowserWindow> EdgeMainWindowsFallback()
+    {
+        var foreground = GetForegroundWindow();
+        var windows = new List<BrowserWindow>();
         foreach (var process in Process.GetProcessesByName("msedge"))
         {
             using (process)
             {
-                BrowserWindow? window = null;
                 try
                 {
                     process.Refresh();
@@ -1919,20 +2781,22 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
                         continue;
                     }
 
-                    window = new BrowserWindow(
+                    windows.Add(new BrowserWindow(
                         process.Id,
                         process.MainWindowHandle,
                         process.MainWindowTitle,
-                        new DateTimeOffset(process.StartTime.ToUniversalTime()));
+                        new DateTimeOffset(process.StartTime.ToUniversalTime()),
+                        process.MainWindowHandle == foreground,
+                        false));
                 }
                 catch
                 {
                     continue;
                 }
-
-                yield return window.Value;
             }
         }
+
+        return windows;
     }
 
     private static MicrosoftDeviceLoginResult ReadResult(string runId)
@@ -1950,7 +2814,7 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
         if (!File.Exists(path))
         {
             throw new OperatorFailureException(
-                OperatorErrors.AuthUnavailable($"Microsoft device login result was not found: {normalized}"));
+                OperatorErrors.AuthRunNotFound($"Microsoft device login result was not found: {normalized}"));
         }
 
         return JsonSerializer.Deserialize<MicrosoftDeviceLoginResult>(
@@ -1975,7 +2839,7 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
         if (!File.Exists(path))
         {
             throw new OperatorFailureException(
-                OperatorErrors.AuthUnavailable($"Microsoft authorize probe result was not found: {normalized}"));
+                OperatorErrors.AuthRunNotFound($"Microsoft authorize probe result was not found: {normalized}"));
         }
 
         return JsonSerializer.Deserialize<MicrosoftAuthorizeProbeResult>(
@@ -2051,6 +2915,14 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
     [DllImport("user32.dll")]
     private static extern IntPtr GetForegroundWindow();
 
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetForegroundWindow(IntPtr hwnd);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool ShowWindowAsync(IntPtr hwnd, int command);
+
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool IsWindow(IntPtr hwnd);
@@ -2070,7 +2942,13 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
         return value.Length > 180 ? value[..180] : value;
     }
 
-    private readonly record struct BrowserWindow(int ProcessId, IntPtr Hwnd, string? Title, DateTimeOffset StartedAtUtc);
+    internal readonly record struct BrowserWindow(
+        int ProcessId,
+        IntPtr Hwnd,
+        string? Title,
+        DateTimeOffset StartedAtUtc,
+        bool IsForeground,
+        bool IsMinimized);
 
     private readonly record struct EdgeProfileSelection(string? UserDataDir, string? ProfileDirectory)
     {

@@ -2,6 +2,6 @@ namespace WindowsOperator.Core.Contracts;
 
 public sealed record WorkbenchRunRef(
     string RunId,
-    string Path,
-    string RelativePath,
-    string HostPath);
+    [property: OperatorInternal] string Path,
+    [property: OperatorInternal] string RelativePath,
+    [property: OperatorInternal] string HostPath);

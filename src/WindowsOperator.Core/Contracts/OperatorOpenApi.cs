@@ -16,6 +16,12 @@ public static class OperatorOpenApi
         "/v1/powerpoint/online/sessions/{sessionId}/addin/run-pending-job",
         "/v1/auth/microsoft/authorize-probe/status/latest",
         "/v1/auth/microsoft/device-login/status/latest",
+        "/v1/power-automate/mcp/status",
+        "/v1/power-automate/mcp/start",
+        "/v1/power-automate/mcp/edge",
+        "/v1/power-automate/mcp/edge/cleanup",
+        "/v1/power-automate/mcp/flows/read",
+        "/v1/power-automate/mcp/flows/update",
     ];
     private static readonly IReadOnlyList<OpenApiNamespaceDefinition> NamespaceDefinitions =
     [
@@ -26,6 +32,7 @@ public static class OperatorOpenApi
         new("input", "Input", "Screen coordinate and hotkey input operations."),
         new("browser.edge", "Edge Browser", "Microsoft Edge session and DOM automation."),
         new("auth.microsoft", "Microsoft Auth", "Microsoft browser handoff and status operations."),
+        new("power-automate.mcp", "Power Automate MCP", "Local browser-backed Power Automate MCP bridge operations."),
         new("powerpoint.online", "PowerPoint Online", "PowerPoint Online session and update orchestration."),
         new("powerpoint.jobs", "PowerPoint Jobs", "PowerPoint update job queue operations."),
         new("artifacts", "Artifacts", "Opaque artifact listing and download operations."),
@@ -90,6 +97,8 @@ public static class OperatorOpenApi
         var schema = new OperatorJsonSchema.Registry("#/components/schemas/");
         var paths = new Dictionary<string, object>
         {
+            ["/openapi.json"] = Path(
+                Get("getOpenApiDocument", "Read the complete Windows Operator OpenAPI document.", Primitive("object"))),
             ["/openapi/namespaces"] = Path(
                 Get("listOpenApiNamespaces", "List bounded OpenAPI discovery namespaces.", schema.Ref<OpenApiNamespaceDiscoveryResult>())),
             ["/openapi/namespaces/{namespace}.json"] = Path(
@@ -102,17 +111,17 @@ public static class OperatorOpenApi
             ["/v1/health"] = Path(
                 Get("getHealth", "Operator health.", schema.Ref<HealthResult>())),
             ["/v1/capabilities"] = Path(
-                Get("getCapabilities", "Discover Host contract and feature availability.", schema.Ref<CapabilitiesResult>())),
+                Get("getCapabilities", "Discover Host contract, executable build identity, and feature availability.", schema.Ref<CapabilitiesResult>())),
             ["/v1/windows"] = Path(
                 Get("listWindows", "List visible top-level windows.", schema.ArrayOf<WindowRef>())),
             ["/v1/desktop/foreground"] = Path(
                 Get("getDesktopForeground", "Read the current foreground desktop window.", schema.Ref<WindowRef>())),
             ["/v1/desktop/screenshot"] = Path(
-                Post("captureDesktopScreenshot", "Capture a desktop window screenshot and write it to exchange artifacts.", schema.Ref<DesktopScreenshotRequest>(), schema.Ref<DesktopScreenshotResult>())),
+                Post("captureDesktopScreenshot", "Capture a desktop window screenshot and write it to exchange artifacts.", schema.Input<DesktopScreenshotRequest>(), schema.Ref<DesktopScreenshotResult>())),
             ["/v1/sessions/{sessionId}"] = Path(
                 Get("getWorkbenchSession", "Read an owned workbench session.", schema.Ref<WorkbenchSessionResult>(), PathParam("sessionId", "string"))),
             ["/v1/sessions/{sessionId}/screenshot"] = Path(
-                Post("captureWorkbenchSessionScreenshot", "Capture an owned workbench session screenshot and write it to exchange artifacts.", schema.Ref<DesktopScreenshotRequest>(), schema.Ref<DesktopScreenshotResult>(), PathParam("sessionId", "string"))),
+                Post("captureWorkbenchSessionScreenshot", "Capture an owned workbench session screenshot and write it to exchange artifacts.", schema.Input<DesktopScreenshotRequest>(), schema.Ref<DesktopScreenshotResult>(), PathParam("sessionId", "string"))),
             ["/v1/sessions/{sessionId}/cleanup"] = Path(
                 Post("cleanupWorkbenchSession", "Close an owned workbench session.", null, schema.Ref<WorkbenchSessionCleanupResult>(), PathParam("sessionId", "string"))),
             ["/v1/windows/{id}/activate"] = Path(
@@ -125,42 +134,77 @@ public static class OperatorOpenApi
                     PathParam("id", "integer", "int64"),
                     QueryParam("format", schema.Ref<ScreenshotFormat>()))),
             ["/v1/uia/query"] = Path(
-                Post("queryUi", "Query UI Automation elements.", schema.Ref<UiQuery>(), schema.ArrayOf<UiElementRef>())),
+                Post("queryUi", "Query UI Automation elements.", schema.Input<UiQuery>(), schema.ArrayOf<UiElementRef>())),
             ["/v1/uia/click"] = Path(
-                Post("clickUi", "Click a UI Automation element.", schema.Ref<UiaClickRequest>(), schema.Ref<ActionResult>())),
+                Post("clickUi", "Click a UI Automation element.", schema.Input<UiaClickRequest>(), schema.Ref<ActionResult>())),
             ["/v1/uia/type"] = Path(
-                Post("typeUi", "Type into a UI Automation element.", schema.Ref<UiaTypeRequest>(), schema.Ref<ActionResult>())),
+                Post("typeUi", "Type into a UI Automation element.", schema.Input<UiaTypeRequest>(), schema.Ref<ActionResult>())),
             ["/v1/input/click"] = Path(
-                Post("clickScreen", "Click a screen coordinate.", schema.Ref<ScreenClickRequest>(), schema.Ref<ActionResult>())),
+                Post("clickScreen", "Click a screen coordinate.", schema.Input<ScreenClickRequest>(), schema.Ref<ActionResult>())),
             ["/v1/input/hotkey"] = Path(
-                Post("sendHotkey", "Send a hotkey chord.", schema.Ref<HotkeyRequest>(), schema.Ref<ActionResult>())),
+                Post("sendHotkey", "Send a hotkey chord.", schema.Input<HotkeyRequest>(), schema.Ref<ActionResult>())),
             ["/v1/browser/edge/reset"] = Path(
-                Post("resetEdgeBrowser", "Hard-reset all Edge browser processes.", schema.Ref<BrowserEdgeResetRequest>(), schema.Ref<BrowserEdgeResetResult>())),
+                Post("resetEdgeBrowser", "Hard-reset all Edge browser processes.", schema.Input<BrowserEdgeResetRequest>(), schema.Ref<BrowserEdgeResetResult>())),
             ["/v1/browser/edge/session/start"] = Path(
-                Post("startEdgeBrowserSession", "Start an Edge browser session with DevTools enabled.", schema.Ref<BrowserEdgeSessionStartRequest>(), schema.Ref<BrowserEdgeSessionStateResult>())),
+                Post("startEdgeBrowserSession", "Start an Edge browser session with DevTools enabled.", schema.Input<BrowserEdgeSessionStartRequest>(), schema.Ref<BrowserEdgeSessionStateResult>())),
             ["/v1/browser/edge/open-url"] = Path(
-                Post("openEdgeUrl", "Open a URL in a new owned Edge session and optionally capture a screenshot.", schema.Ref<BrowserEdgeOpenUrlRequest>(), schema.Ref<BrowserEdgeOpenUrlResult>())),
+                Post("openEdgeUrl", "Open a URL in a new owned Edge session and optionally capture a screenshot.", schema.Input<BrowserEdgeOpenUrlRequest>(), schema.Ref<BrowserEdgeOpenUrlResult>())),
             ["/v1/browser/edge/session/{sessionId}/state"] = Path(
                 Get("getEdgeBrowserSessionState", "Read live Edge browser session state.", schema.Ref<BrowserEdgeSessionStateResult>(), PathParam("sessionId", "string"))),
             ["/v1/browser/edge/session/{sessionId}/navigate"] = Path(
-                Post("navigateEdgeBrowserSession", "Navigate an Edge browser session to a URL.", schema.Ref<BrowserEdgeSessionNavigateRequest>(), schema.Ref<BrowserEdgeSessionStateResult>(), PathParam("sessionId", "string"))),
+                Post("navigateEdgeBrowserSession", "Navigate an Edge browser session to a URL.", schema.Input<BrowserEdgeSessionNavigateRequest>(), schema.Ref<BrowserEdgeSessionStateResult>(), PathParam("sessionId", "string"))),
             ["/v1/browser/edge/session/{sessionId}/dom/click"] = Path(
-                Post("clickEdgeBrowserDom", "Click a DOM element inside an Edge browser session.", schema.Ref<BrowserEdgeSessionDomClickRequest>(), schema.Ref<BrowserEdgeSessionDomActionResult>(), PathParam("sessionId", "string"))),
+                Post("clickEdgeBrowserDom", "Click a DOM element inside an Edge browser session.", schema.Input<BrowserEdgeSessionDomClickRequest>(), schema.Ref<BrowserEdgeSessionDomActionResult>(), PathParam("sessionId", "string"))),
             ["/v1/browser/edge/session/{sessionId}/dom/fill"] = Path(
-                Post("fillEdgeBrowserDom", "Fill a DOM element inside an Edge browser session.", schema.Ref<BrowserEdgeSessionDomFillRequest>(), schema.Ref<BrowserEdgeSessionDomActionResult>(), PathParam("sessionId", "string"))),
+                Post("fillEdgeBrowserDom", "Fill a DOM element inside an Edge browser session.", schema.Input<BrowserEdgeSessionDomFillRequest>(), schema.Ref<BrowserEdgeSessionDomActionResult>(), PathParam("sessionId", "string"))),
             ["/v1/browser/edge/session/{sessionId}/close"] = Path(
                 Post("closeEdgeBrowserSession", "Close an Edge browser session.", null, schema.Ref<BrowserEdgeSessionStateResult>(), PathParam("sessionId", "string"))),
             ["/v1/browser/edge/session/{sessionId}/screenshot"] = Path(
-                Post("captureEdgeBrowserSessionScreenshot", "Capture an owned Edge session window screenshot and write it to exchange artifacts.", schema.Ref<DesktopScreenshotRequest>(), schema.Ref<DesktopScreenshotResult>(), PathParam("sessionId", "string"))),
+                Post("captureEdgeBrowserSessionScreenshot", "Capture an owned Edge session window screenshot and write it to exchange artifacts.", schema.Input<DesktopScreenshotRequest>(), schema.Ref<DesktopScreenshotResult>(), PathParam("sessionId", "string"))),
             ["/v1/browser/edge/session/{sessionId}/cleanup"] = Path(
                 Post("cleanupEdgeBrowserSession", "Close an owned Edge session.", null, schema.Ref<BrowserEdgeSessionStateResult>(), PathParam("sessionId", "string"))),
             ["/v1/dev/browser/edge/sessions/{sessionId}/eval"] = Path(
-                Post("evaluateEdgeBrowserDevScript", "Run raw gated JavaScript in an Edge browser session for development diagnostics.", schema.Ref<BrowserEdgeDevEvalRequest>(), schema.Ref<DevScriptResult>(), PathParam("sessionId", "string"))),
+                Post("evaluateEdgeBrowserDevScript", "Run raw gated JavaScript in an Edge browser session for development diagnostics.", schema.Input<BrowserEdgeDevEvalRequest>(), schema.Ref<DevScriptResult>(), PathParam("sessionId", "string"))),
+            ["/v1/power-automate/mcp/status"] = Path(
+                Get(
+                    "getPowerAutomateMcpStatus",
+                    "Read local Power Automate MCP bridge dependency and health state.",
+                    schema.Ref<PowerAutomateMcpStatusResult>())),
+            ["/v1/power-automate/mcp/start"] = Path(
+                Post(
+                    "startPowerAutomateMcpBridge",
+                    "Start the local Power Automate MCP bridge in the Windows desktop user context.",
+                    schema.Input<PowerAutomateMcpStartRequest>(),
+                    schema.Ref<PowerAutomateMcpStartResult>())),
+            ["/v1/power-automate/mcp/edge"] = Path(
+                Post(
+                    "openPowerAutomateMcpEdge",
+                    "Open Edge with the local Power Automate MCP extension.",
+                    schema.Input<PowerAutomateMcpEdgeRequest>(),
+                    schema.Ref<PowerAutomateMcpEdgeResult>())),
+            ["/v1/power-automate/mcp/edge/cleanup"] = Path(
+                Post(
+                    "cleanupPowerAutomateMcpEdge",
+                    "Close the operator-owned Power Automate MCP Edge lease without touching untracked Edge windows.",
+                    null,
+                    schema.Ref<PowerAutomateMcpEdgeCleanupResult>())),
+            ["/v1/power-automate/mcp/flows/read"] = Path(
+                Post(
+                    "readPowerAutomateMcpFlow",
+                    "Read the selected Power Automate flow through captured browser tokens and backend APIs.",
+                    schema.Input<PowerAutomateMcpFlowReadRequest>(),
+                    schema.Ref<PowerAutomateMcpFlowReadResult>())),
+            ["/v1/power-automate/mcp/flows/update"] = Path(
+                Post(
+                    "updatePowerAutomateMcpFlow",
+                    "Update the selected Power Automate flow, or create one when create is true, through captured browser tokens and backend APIs.",
+                    schema.Input<PowerAutomateMcpFlowUpdateRequest>(),
+                    schema.Ref<PowerAutomateMcpFlowUpdateResult>())),
             ["/v1/powerpoint/online/sessions"] = Path(
                 Post(
                     "startPowerPointOnlineSession",
                     "Open or reuse a PowerPoint Online browser session for a deck URL.",
-                    schema.Ref<PowerPointOnlineSessionStartRequest>(),
+                    schema.Input<PowerPointOnlineSessionStartRequest>(),
                     schema.Ref<PowerPointOnlineSessionResult>())),
             ["/v1/powerpoint/online/sessions/{sessionId}"] = Path(
                 Get(
@@ -172,49 +216,49 @@ public static class OperatorOpenApi
                 Post(
                     "selectPowerPointOnlineSlide",
                     "Select a slide in an existing PowerPoint Online session.",
-                    schema.Ref<PowerPointOnlineSlideSelectRequest>(),
+                    schema.Input<PowerPointOnlineSlideSelectRequest>(),
                     schema.Ref<PowerPointOnlineSessionResult>(),
                     PathParam("sessionId", "string"))),
             ["/v1/powerpoint/online/sessions/{sessionId}/addin/probe"] = Path(
                 Post(
                     "probePowerPointOnlineAddIn",
                     "Probe PowerPoint Online add-in readiness and activation evidence.",
-                    schema.Ref<PowerPointOnlineAddInProbeRequest>(),
+                    schema.Input<PowerPointOnlineAddInProbeRequest>(),
                     schema.Ref<PowerPointOnlineAddInProbeResult>(),
                     PathParam("sessionId", "string"))),
             ["/v1/powerpoint/online/sessions/{sessionId}/save/wait"] = Path(
                 Post(
                     "waitPowerPointOnlineSave",
                     "Wait for PowerPoint Online save state to reach saved.",
-                    schema.Ref<PowerPointOnlineSaveWaitRequest>(),
+                    schema.Input<PowerPointOnlineSaveWaitRequest>(),
                     schema.Ref<PowerPointOnlineSessionResult>(),
                     PathParam("sessionId", "string"))),
             ["/v1/powerpoint/online/sessions/{sessionId}/template/prepare"] = Path(
                 Post(
                     "preparePowerPointOnlineTemplate",
                     "Click the PowerPoint add-in template setup command in an existing session.",
-                    schema.Ref<PowerPointOnlineTemplateRequest>(),
+                    schema.Input<PowerPointOnlineTemplateRequest>(),
                     schema.Ref<PowerPointOnlineSessionResult>(),
                     PathParam("sessionId", "string"))),
             ["/v1/powerpoint/online/sessions/{sessionId}/template/cleanup"] = Path(
                 Post(
                     "cleanupPowerPointOnlineTemplate",
                     "Click the PowerPoint add-in template cleanup command in an existing session.",
-                    schema.Ref<PowerPointOnlineTemplateRequest>(),
+                    schema.Input<PowerPointOnlineTemplateRequest>(),
                     schema.Ref<PowerPointOnlineSessionResult>(),
                     PathParam("sessionId", "string"))),
             ["/v1/powerpoint/online/sessions/{sessionId}/addin/run-pending-job"] = Path(
                 Post(
                     "runPowerPointOnlinePendingJob",
                     "Click the PowerPoint add-in run pending job command in an existing session.",
-                    schema.Ref<PowerPointOnlineAddInCommandRequest>(),
+                    schema.Input<PowerPointOnlineAddInCommandRequest>(),
                     schema.Ref<PowerPointOnlineSessionResult>(),
                     PathParam("sessionId", "string"))),
             ["/v1/powerpoint/online/sessions/{sessionId}/screenshot"] = Path(
                 Post(
                     "capturePowerPointOnlineSessionScreenshot",
                     "Capture PowerPoint Online session evidence through the workbench artifact path.",
-                    schema.Ref<PowerPointOnlineSessionScreenshotRequest>(),
+                    schema.Input<PowerPointOnlineSessionScreenshotRequest>(),
                     schema.Ref<PowerPointOnlineSessionResult>(),
                     PathParam("sessionId", "string"))),
             ["/v1/powerpoint/online/sessions/{sessionId}/cleanup"] = Path(
@@ -228,26 +272,26 @@ public static class OperatorOpenApi
                 Post(
                     "runPowerPointOnlineDevScript",
                     "Run a named gated PowerPoint Online development script in an Edge session.",
-                    schema.Ref<PowerPointDevScriptRequest>(),
+                    schema.Input<PowerPointDevScriptRequest>(),
                     schema.Ref<DevScriptResult>(),
                     PathParam("sessionId", "string"))),
             ["/v1/powerpoint/online/updates"] = Path(
                 Post(
                     "updatePowerPointOnlinePresentation",
                     "Run an Office.js PowerPoint update job against a PowerPoint Online session.",
-                    schema.Ref<PowerPointOnlineUpdateRequest>(),
+                    schema.Input<PowerPointOnlineUpdateRequest>(),
                     schema.Ref<PowerPointOnlineUpdateResult>())),
             ["/v1/auth/microsoft/cleanup"] = Path(
                 Post(
                     "cleanupMicrosoftAuthWindows",
                     "Close stale Edge Microsoft-auth windows.",
-                    schema.Ref<MicrosoftAuthCleanupRequest>(),
+                    schema.Input<MicrosoftAuthCleanupRequest>(),
                     schema.Ref<MicrosoftAuthCleanupResult>())),
             ["/v1/auth/microsoft/authorize-probe"] = Path(
                 Post(
                     "startMicrosoftAuthorizeProbe",
                     "Open a Microsoft authorize URL in Edge and observe the resulting redirect state.",
-                    schema.Ref<MicrosoftAuthorizeProbeRequest>(),
+                    schema.Input<MicrosoftAuthorizeProbeRequest>(),
                     schema.Ref<MicrosoftAuthorizeProbeResult>())),
             ["/v1/auth/microsoft/authorize-probe/status/latest"] = Path(
                 Get(
@@ -264,7 +308,7 @@ public static class OperatorOpenApi
                 Post(
                     "startMicrosoftDeviceLogin",
                     "Open Microsoft device-code login in Edge and submit the code.",
-                    schema.Ref<MicrosoftDeviceLoginRequest>(),
+                    schema.Input<MicrosoftDeviceLoginRequest>(),
                     schema.Ref<MicrosoftDeviceLoginResult>())),
             ["/v1/auth/microsoft/device-login/status/latest"] = Path(
                 Get(
@@ -281,26 +325,26 @@ public static class OperatorOpenApi
                 Post(
                     "enqueuePowerPointJob",
                     "Queue an Office.js PowerPoint update job for the active presentation.",
-                    schema.Ref<PowerPointUpdateJob>(),
+                    schema.Input<PowerPointUpdateJob>(),
                     schema.Ref<PowerPointJobRecord>())),
             ["/v1/powerpoint/jobs/claim"] = Path(
-                Post(
+                PostWithNoContent(
                     "claimPowerPointJob",
                     "Claim the next queued Office.js PowerPoint update job.",
-                    schema.Ref<PowerPointClaimJobRequest>(),
+                    schema.Input<PowerPointClaimJobRequest>(),
                     schema.Ref<PowerPointUpdateJob>())),
             ["/v1/powerpoint/jobs/{jobId}/complete"] = Path(
                 Post(
                     "completePowerPointJob",
                     "Mark an Office.js PowerPoint update job complete.",
-                    schema.Ref<PowerPointUpdateResult>(),
+                    schema.Input<PowerPointUpdateResult>(),
                     schema.Ref<PowerPointJobRecord>(),
                     PathParam("jobId", "string"))),
             ["/v1/powerpoint/jobs/{jobId}/fail"] = Path(
                 Post(
                     "failPowerPointJob",
                     "Mark an Office.js PowerPoint update job failed.",
-                    schema.Ref<PowerPointUpdateError>(),
+                    schema.Input<PowerPointUpdateError>(),
                     schema.Ref<PowerPointJobRecord>(),
                     PathParam("jobId", "string"))),
             ["/v1/powerpoint/jobs/{jobId}"] = Path(
@@ -330,7 +374,7 @@ public static class OperatorOpenApi
                 Post(
                     "listMailFolders",
                     "List Outlook mailbox folders with automatic refresh/recovery policy.",
-                    schema.Ref<MailListFoldersRequest>(),
+                    schema.Input<MailListFoldersRequest>(),
                     schema.Ref<MailFoldersResult>())),
             ["/v1/mail/status"] = Path(
                 Get("getMailStatus", "Return Outlook mail worker and process status.", schema.Ref<MailStatusResult>())),
@@ -338,13 +382,13 @@ public static class OperatorOpenApi
                 Post(
                     "searchMailMessages",
                     "Search Outlook messages with automatic refresh/recovery policy.",
-                    schema.Ref<MailSearchRequest>(),
+                    schema.Input<MailSearchRequest>(),
                     schema.Ref<MailSearchResult>())),
             ["/v1/mail/attachments/download"] = Path(
                 Post(
                     "downloadMailAttachments",
                     "Download Outlook attachments with automatic refresh/recovery policy.",
-                    schema.Ref<MailDownloadRequest>(),
+                    schema.Input<MailDownloadRequest>(),
                     schema.Ref<MailDownloadResult>())),
             ["/v1/mail/runs/{runId}"] = Path(
                 Get(
@@ -413,7 +457,8 @@ public static class OperatorOpenApi
 
     private static string ClassifyNamespace(string path)
     {
-        if (path.StartsWith("/openapi/", StringComparison.Ordinal) ||
+        if (path is "/openapi.json" ||
+            path.StartsWith("/openapi/", StringComparison.Ordinal) ||
             path is "/v1/health" or "/v1/capabilities")
         {
             return "system";
@@ -439,6 +484,11 @@ public static class OperatorOpenApi
         if (path.StartsWith("/v1/auth/microsoft/", StringComparison.Ordinal))
         {
             return "auth.microsoft";
+        }
+
+        if (path.StartsWith("/v1/power-automate/mcp/", StringComparison.Ordinal))
+        {
+            return "power-automate.mcp";
         }
 
         if (path.StartsWith("/v1/mail/", StringComparison.Ordinal))
@@ -612,6 +662,27 @@ public static class OperatorOpenApi
         object responseSchema,
         params object[] parameters) =>
         ("post", Operation(operationId, summary, requestSchema, responseSchema, parameters));
+
+    private static (string Method, object Operation) PostWithNoContent(
+        string operationId,
+        string summary,
+        object? requestSchema,
+        object responseSchema,
+        params object[] parameters)
+    {
+        var operation = (Dictionary<string, object?>)Operation(
+            operationId,
+            summary,
+            requestSchema,
+            responseSchema,
+            parameters);
+        var responses = (Dictionary<string, object?>)operation["responses"]!;
+        responses["204"] = new Dictionary<string, object?>
+        {
+            ["description"] = "No queued job is available.",
+        };
+        return ("post", operation);
+    }
 
     private static object Operation(
         string operationId,

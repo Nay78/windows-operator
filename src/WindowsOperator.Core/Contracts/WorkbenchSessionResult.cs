@@ -10,7 +10,7 @@ public sealed record WorkbenchSessionResult(
     IReadOnlyList<long> Hwnds,
     string? Title,
     string? Url,
-    string StatePath,
+    [property: OperatorInternal] string StatePath,
     IReadOnlyList<string> Actions,
     IReadOnlyList<string> Warnings,
     IReadOnlyList<string> Errors,

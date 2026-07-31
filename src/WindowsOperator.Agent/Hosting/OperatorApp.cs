@@ -22,6 +22,7 @@ public static class OperatorApp
         var builder = WebApplication.CreateBuilder(args);
         Configure(builder, overrideServices, useTestServer);
         var app = builder.Build();
+        app.UseOperatorErrorHandling();
         app.MapOperatorEndpoints();
         app.MapMcpHttpEndpoint();
         return app;
@@ -33,12 +34,16 @@ public static class OperatorApp
         bool useTestServer = false)
     {
         AddLocalStateOverrides(builder);
-        builder.Services.Configure<JsonOptions>(options => OperatorJson.Configure(options.SerializerOptions));
+        builder.Services.Configure<JsonOptions>(options => OperatorJson.ConfigureHttp(options.SerializerOptions));
         builder.Services.Configure<OperatorOptions>(builder.Configuration.GetSection(OperatorOptions.SectionName));
         builder.Services.Configure<WorkbenchOptions>(builder.Configuration.GetSection(WorkbenchOptions.SectionName));
         builder.Services.Configure<DevAutomationOptions>(builder.Configuration.GetSection(DevAutomationOptions.SectionName));
+        builder.Services.Configure<PowerAutomateMcpOptions>(builder.Configuration.GetSection(PowerAutomateMcpOptions.SectionName));
         builder.Services.PostConfigure<WorkbenchOptions>(ApplyWorkbenchEnvironmentOverrides);
         builder.Services.PostConfigure<DevAutomationOptions>(ApplyDevAutomationEnvironmentOverrides);
+        builder.Services.PostConfigure<PowerAutomateMcpOptions>(ApplyPowerAutomateMcpEnvironmentOverrides);
+        builder.Services.AddSingleton(
+            RuntimeBuildIdentityReader.Read(typeof(OperatorApp).Assembly));
 
         var options = builder.Configuration.GetSection(OperatorOptions.SectionName).Get<OperatorOptions>() ?? new OperatorOptions();
         builder.WebHost.UseUrls(options.RestBaseUrl);
@@ -55,6 +60,9 @@ public static class OperatorApp
         builder.Services.AddSingleton<IEdgeBrowserService>(services => services.GetRequiredService<EdgeMicrosoftAuthService>());
         builder.Services.AddSingleton<IEdgeDevToolsService, EdgeDevToolsService>();
         builder.Services.AddSingleton<IPowerPointDevScriptCatalog, PowerPointDevScriptCatalog>();
+        builder.Services.AddSingleton<PowerAutomateMcpService>();
+        builder.Services.AddSingleton<IPowerAutomateMcpService>(services => services.GetRequiredService<PowerAutomateMcpService>());
+        builder.Services.AddHostedService(services => services.GetRequiredService<PowerAutomateMcpService>());
         builder.Services.AddSingleton<WorkbenchRunStore>();
         builder.Services.AddSingleton<OwnedSessionRegistry>();
         builder.Services.AddSingleton<IWorkbenchService, WorkbenchService>();
@@ -112,6 +120,19 @@ public static class OperatorApp
         if (IsEnabled(Environment.GetEnvironmentVariable("WINDOWS_OPERATOR_DEV_RAW_JS")))
         {
             options.AllowRawJs = true;
+        }
+    }
+
+    private static void ApplyPowerAutomateMcpEnvironmentOverrides(PowerAutomateMcpOptions options)
+    {
+        var rawTtl = Environment.GetEnvironmentVariable("WINDOWS_OPERATOR_POWER_AUTOMATE_EDGE_IDLE_TTL_SECONDS");
+        if (!string.IsNullOrWhiteSpace(rawTtl) && int.TryParse(rawTtl, out var ttlSeconds))
+        {
+            options.EdgeIdleTtlSeconds = Math.Clamp(ttlSeconds, 0, 3600);
+        }
+        else
+        {
+            options.EdgeIdleTtlSeconds = Math.Clamp(options.EdgeIdleTtlSeconds, 0, 3600);
         }
     }
 

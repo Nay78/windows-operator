@@ -12,11 +12,13 @@ using WindowsOperator.Mcp.Protocol;
 var builder = WebApplication.CreateBuilder(args);
 
 AddLocalStateOverrides(builder);
-builder.Services.Configure<JsonOptions>(options => OperatorJson.Configure(options.SerializerOptions));
+builder.Services.Configure<JsonOptions>(options => OperatorJson.ConfigureHttp(options.SerializerOptions));
 builder.Services.Configure<OperatorOptions>(builder.Configuration.GetSection(OperatorOptions.SectionName));
 builder.Services.Configure<DesktopAgentOptions>(builder.Configuration.GetSection(DesktopAgentOptions.SectionName));
 builder.Services.Configure<PowerPointAddInOptions>(builder.Configuration.GetSection(PowerPointAddInOptions.SectionName));
 builder.Services.Configure<WorkbenchOptions>(builder.Configuration.GetSection(WorkbenchOptions.SectionName));
+builder.Services.AddSingleton(
+    RuntimeBuildIdentityReader.Read(typeof(HostOperatorFacade).Assembly));
 
 var options = builder.Configuration.GetSection(OperatorOptions.SectionName).Get<OperatorOptions>() ?? new OperatorOptions();
 var addInOptions = builder.Configuration.GetSection(PowerPointAddInOptions.SectionName).Get<PowerPointAddInOptions>() ?? new PowerPointAddInOptions();
@@ -30,12 +32,13 @@ builder.WebHost.UseUrls(urls.Distinct(StringComparer.OrdinalIgnoreCase).ToArray(
 
 builder.Services.AddHttpClient<DesktopAgentClient>(client =>
 {
-    client.Timeout = TimeSpan.FromSeconds(240);
+    client.Timeout = TimeSpan.FromMinutes(11);
 });
 builder.Services.AddHttpClient("powerpoint-artifacts");
 builder.Services.AddTransient<IWorkbenchService>(services => services.GetRequiredService<DesktopAgentClient>());
 builder.Services.AddTransient<IPowerPointOnlineService>(services => services.GetRequiredService<DesktopAgentClient>());
 builder.Services.AddTransient<IDevAutomationService>(services => services.GetRequiredService<DesktopAgentClient>());
+builder.Services.AddTransient<IPowerAutomateMcpService>(services => services.GetRequiredService<DesktopAgentClient>());
 builder.Services.AddTransient<IPowerPointOnlineUpdateService>(services =>
     new PowerPointOnlineUpdateService(
         services.GetRequiredService<IPowerPointOnlineService>(),
@@ -50,6 +53,7 @@ builder.Services.AddSingleton<IOperatorFacade, HostOperatorFacade>();
 builder.Services.AddOperatorMcp(hostStdioServer: true);
 
 var app = builder.Build();
+app.UseHostOperatorErrorHandling();
 MapPowerPointAddInStaticFiles(app);
 app.MapHostOperatorEndpoints();
 app.MapMcpHttpEndpoint();

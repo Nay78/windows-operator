@@ -91,9 +91,12 @@ mock names and removes matching repaired bindings when present. On a newly
 reopened verification session, activate/probe the add-in task pane before
 clicking cleanup.
 
-Supported operation kinds are `replaceText`, `replaceImage`, `readTable`,
-`replaceTableCell`, and `replaceTableRange`. Table reads return a structured
-snapshot; table writes address zero-based cells or rectangular ranges.
+Supported operation kinds are `replaceText`, `replaceImage`, `readShapeBounds`,
+`setShapeBounds`, `readTable`, `readTableGeometry`, `findTableColumn`,
+`replaceTableCell`, and `replaceTableRange`. Geometry reads return absolute
+slide-point bounds; table geometry reads return column/row bounds for
+client-side composition; table writes address zero-based cells or rectangular
+ranges.
 
 `Cleanup Template` deletes only bound shapes carrying the matching `TARGET_ID`
 tag, then removes their bindings. Existing authored shapes are skipped.

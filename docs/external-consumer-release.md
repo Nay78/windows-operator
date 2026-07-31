@@ -1,9 +1,9 @@
 # External Consumer Release Checklist
 
-First external contract tag:
+First comprehensive external contract tag:
 
 ```text
-v0.1.0
+v1.0.0
 ```
 
 The Go module path is:
@@ -18,6 +18,7 @@ Run from repo root:
 
 ```bash
 scripts/check-openapi-contract.sh
+python3 scripts/check-operation-policy.py
 scripts/check-readme-route-inventory.sh
 scripts/generate-go-client.sh
 cd clients/go && go test ./...
@@ -28,6 +29,10 @@ dotnet test tests/WindowsOperator.Host.Tests/WindowsOperator.Host.Tests.csproj -
 git diff --check
 git status --short
 ```
+
+The operation policy must report `verified=67`, `pending=0`, and `blocked=0`.
+Mocks, compile results, namespace samples, dry runs, and negative-only evidence
+cannot close an operation row.
 
 When a previous release tag exists, wire a breaking-change checker through:
 
@@ -69,8 +74,8 @@ WINDOWS_OPERATOR_SMOKE_RUN_ID=<run-id> scripts/external-consumer-smoke.sh
 
 ## Fresh Consumer Proof
 
-Use the commit SHA for a pre-tag dry run, then rerun with `v0.1.0` after the
-tag is pushed:
+Use the frozen `v1.0.0-rc.1` tag for the release-candidate proof, then rerun
+with `v1.0.0` after the final tag is pushed:
 
 ```bash
 tmpdir="$(mktemp -d)"
@@ -96,7 +101,9 @@ staged PowerShell, or Windows-local paths.
 
 ## Tag
 
+Tag/push requires explicit operator approval after every gate above passes.
+
 ```bash
-git tag -a v0.1.0 -m "Windows Operator external contract v0.1.0"
-git push origin v0.1.0
+git tag -a v1.0.0 -m "Windows Operator external contract v1.0.0"
+git push origin v1.0.0
 ```

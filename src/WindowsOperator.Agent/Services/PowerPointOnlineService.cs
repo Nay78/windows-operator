@@ -1254,7 +1254,7 @@ public sealed class PowerPointOnlineService : IPowerPointOnlineService
     private PowerPointOnlineSessionMetadata RequireSessionMetadata(string sessionId) =>
         TryReadSessionMetadata(sessionId)
         ?? throw new OperatorFailureException(
-            OperatorErrors.PowerPointUnavailable($"PowerPoint Online session was not found: {sessionId}"));
+            OperatorErrors.PowerPointSessionNotFound($"PowerPoint Online session was not found: {sessionId}"));
 
     private PowerPointOnlineSessionMetadata? TryReadSessionMetadata(string sessionId)
     {

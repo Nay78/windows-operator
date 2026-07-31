@@ -3,9 +3,11 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using WindowsOperator.Agent.Hosting;
 using WindowsOperator.Core.Configuration;
+using WindowsOperator.Core.Contracts;
 
 namespace WindowsOperator.Agent.Tests;
 
+[Collection(ProcessEnvironmentCollection.Name)]
 public sealed class ConfigurationTests
 {
     [Fact]
@@ -60,5 +62,17 @@ public sealed class ConfigurationTests
             Environment.SetEnvironmentVariable("WINDOWS_OPERATOR_LOCAL_STATE_ROOT", previousStateRoot);
             stateRoot.Delete(recursive: true);
         }
+    }
+
+    [Fact]
+    public async Task OperatorApp_RegistersAgentBuildIdentity()
+    {
+        await using var app = OperatorApp.Build(Array.Empty<string>(), useTestServer: true);
+
+        var identity = app.Services.GetRequiredService<RuntimeBuildIdentity>();
+
+        Assert.NotEqual("unavailable", identity.InformationalVersion);
+        Assert.NotEqual("unavailable", identity.AssemblyVersion);
+        Assert.False(string.IsNullOrWhiteSpace(identity.SourceRevision));
     }
 }

@@ -26,6 +26,10 @@ export function expectedTargetTypeForOperation(operation: UpdateOperation): Targ
     return "image";
   }
 
+  if (operation.kind === "readShapeBounds" || operation.kind === "setShapeBounds") {
+    return "shape";
+  }
+
   return "table";
 }
 
@@ -46,7 +50,7 @@ export function inferTargetTypeFromName(targetId: string): TargetType {
 }
 
 export function inferTargetTypeFromShape(shapeType?: string, taggedKind?: string, targetId?: string): TargetType {
-  if (taggedKind === "text" || taggedKind === "image" || taggedKind === "table") {
+  if (taggedKind === "text" || taggedKind === "image" || taggedKind === "table" || taggedKind === "shape") {
     return taggedKind;
   }
 
@@ -72,6 +76,10 @@ export function isShapeCompatibleWithTargetType(shapeType: string | undefined, e
 
   if (expectedType === "table") {
     return shapeType === "Table";
+  }
+
+  if (expectedType === "shape") {
+    return Boolean(shapeType && shapeType !== "Unsupported");
   }
 
   if (expectedType === "text") {

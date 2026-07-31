@@ -178,7 +178,8 @@ public sealed class OwnedSessionRegistry
 
     private OwnedSessionRecord RequireRecord(string sessionId) =>
         TryReadRecord(sessionId)
-        ?? throw new OperatorFailureException(OperatorErrors.AuthUnavailable($"Workbench session was not found: {sessionId}"));
+        ?? throw new OperatorFailureException(
+            OperatorErrors.WorkbenchSessionNotFound($"Workbench session was not found: {sessionId}"));
 
     private OwnedSessionRecord? TryReadRecord(string sessionId)
     {

@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
@@ -9,7 +10,11 @@ namespace WindowsOperator.Core.Contracts;
 
 public static class OperatorJsonSchema
 {
-    public static JsonObject For<T>() => BuildStandalone(new Registry("#/$defs/"), registry => registry.Ref<T>());
+    public static JsonObject For<T>() =>
+        BuildStandalone(new Registry("#/$defs/"), registry => registry.Ref<T>());
+
+    public static JsonObject InputFor<T>() =>
+        BuildStandalone(new Registry("#/$defs/"), registry => registry.Input<T>());
 
     public static JsonObject ArrayFor<T>() => BuildStandalone(new Registry("#/$defs/"), registry => registry.ArrayOf<T>());
 
@@ -28,8 +33,8 @@ public static class OperatorJsonSchema
     public sealed class Registry
     {
         private readonly string _refPrefix;
-        private readonly Dictionary<Type, string> _names = new();
-        private readonly HashSet<Type> _building = new();
+        private readonly Dictionary<(Type Type, SchemaDirection Direction), string> _names = new();
+        private readonly HashSet<(Type Type, SchemaDirection Direction)> _building = new();
 
         public Registry(string refPrefix)
         {
@@ -38,7 +43,9 @@ public static class OperatorJsonSchema
 
         public Dictionary<string, object?> Schemas { get; } = new(StringComparer.Ordinal);
 
-        public object Ref<T>() => SchemaFor(typeof(T));
+        public object Ref<T>() => SchemaFor(typeof(T), SchemaDirection.Output);
+
+        public object Input<T>() => SchemaFor(typeof(T), SchemaDirection.Input);
 
         public object ArrayOf<T>() =>
             new Dictionary<string, object?>
@@ -47,7 +54,7 @@ public static class OperatorJsonSchema
                 ["items"] = Ref<T>(),
             };
 
-        private object SchemaFor(Type rawType)
+        private object SchemaFor(Type rawType, SchemaDirection direction)
         {
             var type = Nullable.GetUnderlyingType(rawType) ?? rawType;
             if (type == typeof(string))
@@ -60,9 +67,18 @@ public static class OperatorJsonSchema
                 return Primitive("boolean");
             }
 
-            if (type == typeof(int) || type == typeof(long) || type == typeof(short))
+            if (type == typeof(int) || type == typeof(long) || type == typeof(short) || type == typeof(sbyte))
             {
                 return Primitive("integer", type == typeof(long) ? "int64" : "int32");
+            }
+
+            if (type == typeof(uint) || type == typeof(ulong) || type == typeof(ushort) || type == typeof(byte))
+            {
+                var schema = Primitive(
+                    "integer",
+                    type == typeof(ushort) ? "int32" : "int64");
+                schema["minimum"] = 0;
+                return schema;
             }
 
             if (type == typeof(float) || type == typeof(double) || type == typeof(decimal))
@@ -77,13 +93,14 @@ public static class OperatorJsonSchema
 
             if (type.IsEnum)
             {
-                var name = Register(type);
+                var name = Register(type, SchemaDirection.Output);
                 if (!Schemas.ContainsKey(name))
                 {
                     Schemas[name] = new Dictionary<string, object?>
                     {
                         ["type"] = "string",
                         ["enum"] = Enum.GetNames(type).Select(CamelCase).ToArray(),
+                        ["description"] = $"Allowed values for {type.Name}.",
                     };
                 }
 
@@ -95,7 +112,7 @@ public static class OperatorJsonSchema
                 return new Dictionary<string, object?>
                 {
                     ["type"] = "object",
-                    ["additionalProperties"] = SchemaFor(valueType),
+                    ["additionalProperties"] = SchemaFor(valueType, direction),
                 };
             }
 
@@ -104,41 +121,56 @@ public static class OperatorJsonSchema
                 return new Dictionary<string, object?>
                 {
                     ["type"] = "array",
-                    ["items"] = SchemaFor(elementType),
+                    ["items"] = SchemaFor(elementType, direction),
                 };
             }
 
-            var schemaName = Register(type);
-            BuildObjectSchema(type, schemaName);
+            var schemaName = Register(type, direction);
+            BuildObjectSchema(type, schemaName, direction);
             return Ref(schemaName);
         }
 
-        private string Register(Type type)
+        private string Register(Type type, SchemaDirection direction)
         {
-            if (_names.TryGetValue(type, out var existing))
+            var key = (type, direction);
+            if (_names.TryGetValue(key, out var existing))
             {
                 return existing;
             }
 
-            var name = type.Name;
-            _names[type] = name;
+            var isRequest = type.Name.EndsWith("Request", StringComparison.Ordinal);
+            var name = direction switch
+            {
+                SchemaDirection.Input when isRequest => type.Name,
+                SchemaDirection.Input => $"{type.Name}Input",
+                SchemaDirection.Output when isRequest => $"{type.Name}Output",
+                _ => type.Name,
+            };
+            _names[key] = name;
             return name;
         }
 
-        private void BuildObjectSchema(Type type, string schemaName)
+        private void BuildObjectSchema(Type type, string schemaName, SchemaDirection direction)
         {
-            if (Schemas.ContainsKey(schemaName) || !_building.Add(type))
+            var key = (type, direction);
+            if (Schemas.ContainsKey(schemaName) || !_building.Add(key))
             {
                 return;
             }
 
             var properties = type.GetProperties(BindingFlags.Instance | BindingFlags.Public)
-                .Where(property => property.GetMethod is not null && property.GetIndexParameters().Length == 0)
+                .Where(property =>
+                    property.GetMethod is not null &&
+                    property.GetIndexParameters().Length == 0 &&
+                    !property.IsDefined(typeof(OperatorInternalAttribute), inherit: true))
                 .ToArray();
             var required = properties
-                .Where(property => IsRequired(type, property))
+                .Where(property => IsRequired(property, direction))
                 .Select(JsonName)
                 .ToArray();
+            var defaultInstance = direction == SchemaDirection.Input
+                ? CreateDefaultInstance(type)
+                : null;
 
             Schemas[schemaName] = new Dictionary<string, object?>
             {
@@ -146,7 +178,7 @@ public static class OperatorJsonSchema
                 ["additionalProperties"] = false,
                 ["properties"] = properties.ToDictionary(
                     JsonName,
-                    PropertySchema,
+                    property => PropertySchema(property, direction, defaultInstance),
                     StringComparer.Ordinal),
             };
 
@@ -155,46 +187,107 @@ public static class OperatorJsonSchema
                 ((Dictionary<string, object?>)Schemas[schemaName]!)["required"] = required;
             }
 
-            _building.Remove(type);
+            _building.Remove(key);
         }
 
-        private object PropertySchema(PropertyInfo property)
+        private object PropertySchema(
+            PropertyInfo property,
+            SchemaDirection direction,
+            object? defaultInstance)
         {
-            var schema = SchemaFor(property.PropertyType);
-            if (IsNullable(property) && schema is Dictionary<string, object?> dict && !dict.ContainsKey("$ref"))
-            {
-                dict = new Dictionary<string, object?>(dict, StringComparer.Ordinal)
-                {
-                    ["nullable"] = true,
-                };
-                return dict;
-            }
+            var schema = (Dictionary<string, object?>)SchemaFor(property.PropertyType, direction);
+            var nullable = IsNullable(property);
+            object? defaultValue = null;
+            var hasDefault = direction == SchemaDirection.Input &&
+                !IsRequired(property, direction) &&
+                TryGetScalarDefault(property, defaultInstance, out defaultValue);
 
-            if (IsNullable(property) && schema is Dictionary<string, object?> refDict && refDict.ContainsKey("$ref"))
+            Dictionary<string, object?> result;
+            if (schema.ContainsKey("$ref") && (nullable || hasDefault))
             {
-                return new Dictionary<string, object?>
+                result = new Dictionary<string, object?>
                 {
-                    ["allOf"] = new[] { refDict },
-                    ["nullable"] = true,
+                    ["allOf"] = new[] { schema },
                 };
             }
+            else
+            {
+                result = new Dictionary<string, object?>(schema, StringComparer.Ordinal);
+            }
 
-            return schema;
+            if (nullable)
+            {
+                result["nullable"] = true;
+            }
+
+            if (hasDefault)
+            {
+                result["default"] = defaultValue;
+                result["description"] = $"Defaults to {SerializeDefault(defaultValue)} when omitted.";
+            }
+
+            return result;
         }
 
         private object Ref(string name) =>
             new Dictionary<string, object?> { ["$ref"] = $"{_refPrefix}{name}" };
 
-        private static bool IsRequired(Type declaringType, PropertyInfo property)
+        private static bool IsRequired(PropertyInfo property, SchemaDirection direction) =>
+            direction == SchemaDirection.Input
+                ? property.IsDefined(typeof(RequiredMemberAttribute), inherit: true)
+                : !IsNullable(property);
+
+        private static object? CreateDefaultInstance(Type type)
         {
-            if (declaringType.Name.EndsWith("Request", StringComparison.Ordinal) ||
-                declaringType == typeof(OperatorError))
+            try
+            {
+                return Activator.CreateInstance(type);
+            }
+            catch (Exception exception) when (
+                exception is MissingMethodException or
+                MemberAccessException or
+                TargetInvocationException)
+            {
+                return null;
+            }
+        }
+
+        private static bool TryGetScalarDefault(
+            PropertyInfo property,
+            object? defaultInstance,
+            out object? value)
+        {
+            value = null;
+            if (defaultInstance is null || !IsScalarDefaultType(property.PropertyType))
             {
                 return false;
             }
 
-            return !IsNullable(property);
+            value = property.GetValue(defaultInstance);
+            return value is not null;
         }
+
+        private static bool IsScalarDefaultType(Type rawType)
+        {
+            var type = Nullable.GetUnderlyingType(rawType) ?? rawType;
+            return type == typeof(string) ||
+                type == typeof(bool) ||
+                type == typeof(byte) ||
+                type == typeof(sbyte) ||
+                type == typeof(short) ||
+                type == typeof(ushort) ||
+                type == typeof(int) ||
+                type == typeof(uint) ||
+                type == typeof(long) ||
+                type == typeof(ulong) ||
+                type == typeof(float) ||
+                type == typeof(double) ||
+                type == typeof(decimal) ||
+                type.IsEnum;
+        }
+
+        private static string SerializeDefault(object? value) =>
+            JsonSerializer.Serialize(value, OperatorJson.SerializerOptions);
 
         private static bool IsNullable(PropertyInfo property)
         {
@@ -264,9 +357,15 @@ public static class OperatorJsonSchema
             string.IsNullOrEmpty(value)
                 ? value
                 : char.ToLowerInvariant(value[0]) + value[1..];
+
+        private enum SchemaDirection
+        {
+            Input,
+            Output,
+        }
     }
 
-    private static object Primitive(string type, string? format = null)
+    private static Dictionary<string, object?> Primitive(string type, string? format = null)
     {
         var schema = new Dictionary<string, object?> { ["type"] = type };
         if (!string.IsNullOrWhiteSpace(format))

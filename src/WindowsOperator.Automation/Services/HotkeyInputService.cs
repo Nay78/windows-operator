@@ -1,5 +1,6 @@
 using FlaUI.Core.Input;
 using FlaUI.Core.WindowsAPI;
+using System.ComponentModel;
 using WindowsOperator.Core;
 using WindowsOperator.Core.Contracts;
 using WindowsOperator.Core.Services;
@@ -18,14 +19,23 @@ public sealed class HotkeyInputService : IInputService
                 OperatorErrors.UnsupportedControl("Screen click requires Windows desktop session."));
         }
 
-        Mouse.MoveTo(request.X, request.Y);
-        if (request.DoubleClick)
+        try
         {
-            Mouse.DoubleClick();
+            Mouse.MoveTo(request.X, request.Y);
+            if (request.DoubleClick)
+            {
+                Mouse.DoubleClick();
+            }
+            else
+            {
+                Mouse.Click();
+            }
         }
-        else
+        catch (Win32Exception exception)
         {
-            Mouse.Click();
+            throw new OperatorFailureException(
+                OperatorErrors.LockedDesktop(
+                    $"Screen input unavailable; win32={exception.NativeErrorCode}."));
         }
 
         return Task.FromResult(new ActionResult(true, "Screen click dispatched."));
@@ -42,7 +52,16 @@ public sealed class HotkeyInputService : IInputService
         }
 
         var keys = request.Keys.Select(Parse).ToArray();
-        Keyboard.TypeSimultaneously(keys);
+        try
+        {
+            Keyboard.TypeSimultaneously(keys);
+        }
+        catch (Win32Exception exception)
+        {
+            throw new OperatorFailureException(
+                OperatorErrors.LockedDesktop(
+                    $"Keyboard input unavailable; win32={exception.NativeErrorCode}."));
+        }
         return Task.FromResult(new ActionResult(true, "Hotkey dispatched."));
     }
 
@@ -55,6 +74,8 @@ public sealed class HotkeyInputService : IInputService
             "win" or "windows" => VirtualKeyShort.LWIN,
             "enter" => VirtualKeyShort.RETURN,
             "tab" => VirtualKeyShort.TAB,
+            "backspace" or "bksp" => VirtualKeyShort.BACK,
+            "delete" or "del" => VirtualKeyShort.DELETE,
             "pageup" or "page_up" or "pgup" => VirtualKeyShort.PRIOR,
             "pagedown" or "page_down" or "pgdn" => VirtualKeyShort.NEXT,
             "esc" or "escape" => VirtualKeyShort.ESCAPE,

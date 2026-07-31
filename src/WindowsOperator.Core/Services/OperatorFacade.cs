@@ -10,6 +10,7 @@ public sealed class OperatorFacade : IOperatorFacade
     private readonly IInputService _inputService;
     private readonly IMailService _mailService;
     private readonly IMicrosoftAuthService _microsoftAuthService;
+    private readonly RuntimeBuildIdentity _buildIdentity;
     private readonly IUiAutomationService _uiAutomationService;
     private readonly IOptions<OperatorOptions> _options;
     private readonly IScreenshotService _screenshotService;
@@ -25,6 +26,7 @@ public sealed class OperatorFacade : IOperatorFacade
         IEdgeBrowserService edgeBrowserService,
         IMailService mailService,
         IMicrosoftAuthService microsoftAuthService,
+        RuntimeBuildIdentity buildIdentity,
         IOptions<OperatorOptions> options)
     {
         _windowCatalogService = windowCatalogService;
@@ -35,6 +37,7 @@ public sealed class OperatorFacade : IOperatorFacade
         _edgeBrowserService = edgeBrowserService;
         _mailService = mailService;
         _microsoftAuthService = microsoftAuthService;
+        _buildIdentity = buildIdentity;
         _options = options;
     }
 
@@ -62,6 +65,10 @@ public sealed class OperatorFacade : IOperatorFacade
             ["desktop.window"] = new(true, "stable"),
             ["desktop.screenshot"] = new(true, "stable"),
             ["browser.edge.session"] = new(true, "stable"),
+            ["power-automate.mcp"] = new(
+                true,
+                "diagnostic",
+                "Browser-token/API bridge bootstrap only; Power Automate writes must not fall back to designer UI automation."),
             ["powerpoint.online.session"] = new(true, "stable"),
             ["powerpoint.online.update"] = new(
                 false,
@@ -72,6 +79,7 @@ public sealed class OperatorFacade : IOperatorFacade
 
         return new CapabilitiesResult(
             OperatorContractVersion.Value,
+            _buildIdentity,
             new CapabilityHost(health.Status, health.RuntimeMode, health.RestBaseUrl, "ok"),
             features,
             DateTimeOffset.UtcNow);

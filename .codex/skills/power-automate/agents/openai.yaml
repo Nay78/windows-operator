@@ -1,0 +1,4 @@
+interface:
+  display_name: "Power Automate"
+  short_description: "Operate browser-backed Power Automate flows"
+  default_prompt: "Use $power-automate to inspect and safely update this Power Automate flow through Windows Operator."

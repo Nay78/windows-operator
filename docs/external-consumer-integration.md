@@ -21,6 +21,10 @@ scripts, and staged PowerShell are operator tooling.
 - Committed OpenAPI spec lives at `openapi/windows-operator.openapi.json`.
 - Generated Go client lives under `clients/go`.
 - `scripts/linux/wo` exists for operator flows and smoke evidence.
+- The pre-release contract remains `0.1.0`. The `1.0.0` version begins only
+  after the comprehensive v1 acceptance gates and explicit release approval.
+- The current contract contains 67 operations: 55 stable, 10 diagnostic, and 2
+  development.
 
 ## Target Contract
 
@@ -175,7 +179,7 @@ All product errors should use `OperatorError`:
 
 ```json
 {
-  "code": "PowerPointValidationFailed",
+  "code": "powerpoint_validation_failed",
   "message": "PowerPoint edit request is invalid.",
   "remediation": "Inspect the presentation, fix selectors or paths, then retry.",
   "details": {
@@ -232,6 +236,53 @@ Each long-running route should document:
 - cleanup behavior
 - idempotency rules for reused IDs
 
+## Normative Runtime Semantics
+
+The operation policy at
+`openapi/windows-operator.operation-policy.json` owns operation-specific
+lifecycle, idempotency, retry, timeout, cancellation, concurrency, exposure,
+sensitivity, fixture, cleanup, and proof requirements. These rules govern all
+published operations:
+
+- `CONTRACT.VERSION`: `/v1/capabilities`, live OpenAPI, committed OpenAPI, and
+  generated clients identify one contract version. Executable build identity
+  is separate and recorded with live evidence.
+- `CONTRACT.ERROR`: every non-success product response uses `OperatorError`.
+  Callers branch on `code`, `category`, and `retryable`; they never parse
+  `message`.
+- `CONTRACT.IDS`: consumers provide explicit `runId`, `jobId`, or `sessionId`
+  where exposed. Reuse follows the operation policy's `idempotency` value.
+- `CONTRACT.RETRY`: callers retry only safe reads, explicitly idempotent
+  cleanup, caller-keyed requests, or typed retryable failures as allowed by the
+  operation policy. No blind retry follows an unknown mutation outcome.
+- `CONTRACT.TIMEOUT`: server work is bounded by each operation's
+  `timeoutPolicy`. Client cancellation stops request waiting; it does not imply
+  rollback unless the operation documents cancellation semantics.
+- `CONTRACT.POLLING`: concurrent consumers poll by explicit ID. Terminal status
+  or typed error ends polling; `status/latest` is operator convenience, not a
+  concurrency contract.
+- `CONTRACT.CONCURRENCY`: serialization scope is explicit per desktop, session,
+  atomic job claim, parallel read, or independent request. Callers must not
+  infer locking from timing.
+- `CONTRACT.ARTIFACT`: artifact IDs are opaque. Consumers use `href`, validate
+  declared byte length and SHA-256 where present, and treat content as private.
+- `CONTRACT.LISTS`: current list/search operations are bounded by request
+  filters or server limits and do not expose a pagination-token contract.
+  Adding pagination later must be additive.
+- `CONTRACT.CAPABILITY`: consumers inspect `/v1/capabilities` before optional
+  workflows. An unavailable feature returns a typed error; absence is never
+  inferred from message text.
+- `CONTRACT.SURFACE`: stable operations receive v1 compatibility guarantees.
+  Diagnostic and development operations remain typed and tested but are
+  excluded from ordinary relay allowlists and stable generated clients.
+
+Mechanical traceability:
+
+- policy coverage: `python3 scripts/check-operation-policy.py`
+- contract/client drift: `scripts/check-openapi-contract.sh`
+- live proof: `scripts/linux/v1-contract-conformance.py`
+- release gates: `docs/external-consumer-release.md`
+
 ## Artifact Contract
 
 External consumers should receive opaque artifact refs, not machine-local paths.
@@ -282,6 +333,11 @@ Target shape:
 ```json
 {
   "contractVersion": "0.1.0",
+  "build": {
+    "informationalVersion": "1.0.0+abcdef123456",
+    "assemblyVersion": "1.0.0.0",
+    "sourceRevision": "abcdef123456"
+  },
   "host": {
     "status": "ok",
     "runtimeMode": "headless-host"
@@ -298,6 +354,11 @@ Target shape:
   }
 }
 ```
+
+`contractVersion` identifies API compatibility. `build` identifies executable
+serving request. `sourceRevision` is `unavailable` when build does not embed
+revision; field is never omitted. Record full `build` object with live
+conformance evidence.
 
 Feature names should be domain-scoped and stable.
 
@@ -412,22 +473,38 @@ Complete:
 - External-facing results use artifact refs, with list/download routes for run
   artifacts.
 - `OperatorError` branch fields and target codes are documented.
-- `GET /v1/capabilities` exposes contract and feature availability.
+- `GET /v1/capabilities` exposes contract version, executable build identity,
+  and feature availability.
 - `docs/external-consumer-relay.md` documents the relay boundary.
 - Go helpers cover errors, artifact download, polling, and contract-version
   checks.
+- The operation policy owns all 67 operations and their surface, semantics,
+  fixtures, cleanup, gates, and live-evidence state.
+- The first-party authenticated relay template and deterministic tests exist.
+- Stable-only Go generation excludes diagnostic and development operations.
+
+Release-blocking:
+
+- Live proof is 44/67 verified. The 39-operation safe sweep, reversible
+  raw-JavaScript proof, and four cached Microsoft-auth status reads pass against
+  the Legion runtime. Raw JavaScript returned to disabled-by-default. The
+  remaining 23 operations need credentials, tenant content, or
+  consequential-mutation approval.
+- RC-pinned fresh-consumer proof cannot run before the frozen RC exists.
+- Relay deployment, credential provisioning, and release tag/push require
+  explicit operator authority.
 
 Deferred:
 
-- Reusable relay template.
 - Additional generated clients beyond Go.
-- Deprecation metadata and compatibility tests for stable routes.
+- Post-release compatibility maintenance beyond the v1 baseline.
 
 ## Acceptance
 
 External integration is production-ready when:
 
-- A fresh external repo can install a tagged generated client.
+- All 67 published operations meet their operation-level live proof rows.
+- A fresh external repo can install the tagged `v1.0.0` generated client.
 - It can call health, run a PowerPoint update or mail download, and retrieve
   artifacts without referencing this repo's scripts or paths.
 - Contract drift fails clearly before integration tests mutate Windows state.

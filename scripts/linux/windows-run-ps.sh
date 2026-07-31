@@ -15,7 +15,7 @@ Environment:
   WINDOWS_OPERATOR_SSH_USER            SSH user. Default: administrator
   WINDOWS_OPERATOR_SSH_HOST            SSH host. Default: 127.0.0.1
   WINDOWS_OPERATOR_SSH_TARGET          Full SSH target override. Default: $WINDOWS_OPERATOR_SSH_USER@$WINDOWS_OPERATOR_SSH_HOST
-  WINDOWS_OPERATOR_SSH_PORT            SSH port. Default: 22555
+  WINDOWS_OPERATOR_SSH_PORT            SSH port override. Default: SSH config for an explicit target; otherwise 22555
   WINDOWS_OPERATOR_SSH_IDENTITY_FILE   SSH private key. Default: /run/secrets/ssh_automation_key when present
   WINDOWS_OPERATOR_SSH_TIMEOUT         SSH wait timeout seconds. Default: 120
   WINDOWS_OPERATOR_RUN_ID              Optional run id.
@@ -129,7 +129,11 @@ esac
 ssh_user="${WINDOWS_OPERATOR_SSH_USER:-administrator}"
 ssh_host="${WINDOWS_OPERATOR_SSH_HOST:-127.0.0.1}"
 ssh_target="${WINDOWS_OPERATOR_SSH_TARGET:-${ssh_user}@${ssh_host}}"
-ssh_port="${WINDOWS_OPERATOR_SSH_PORT:-22555}"
+if [[ -n "${WINDOWS_OPERATOR_SSH_TARGET:-}" ]]; then
+  ssh_port="${WINDOWS_OPERATOR_SSH_PORT:-}"
+else
+  ssh_port="${WINDOWS_OPERATOR_SSH_PORT:-22555}"
+fi
 default_identity_file="/run/secrets/ssh_automation_key"
 if [[ -n "${WINDOWS_OPERATOR_SSH_IDENTITY_FILE:-}" ]]; then
   ssh_identity_file="$WINDOWS_OPERATOR_SSH_IDENTITY_FILE"
@@ -148,8 +152,12 @@ ssh_common_opts=(
   -o StrictHostKeyChecking=no
   -o UserKnownHostsFile=/dev/null
 )
-ssh_opts=(-p "$ssh_port" "${ssh_common_opts[@]}")
-scp_opts=(-P "$ssh_port" "${ssh_common_opts[@]}")
+ssh_opts=("${ssh_common_opts[@]}")
+scp_opts=("${ssh_common_opts[@]}")
+if [[ -n "$ssh_port" ]]; then
+  ssh_opts=(-p "$ssh_port" "${ssh_opts[@]}")
+  scp_opts=(-P "$ssh_port" "${scp_opts[@]}")
+fi
 
 if [[ -n "$ssh_identity_file" ]]; then
   [[ "$dry_run" -eq 1 || -r "$ssh_identity_file" ]] || die "SSH identity file unreadable: $ssh_identity_file"

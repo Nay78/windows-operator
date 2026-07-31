@@ -66,12 +66,15 @@ run, err := client.GetMailRunWithResponse(ctx, "missing-run")
 if err != nil {
     return err
 }
-if run.StatusCode() >= 400 && run.JSON4XX != nil && run.JSON4XX.Code != nil {
-    switch *run.JSON4XX.Code {
+if run.StatusCode() >= 400 && run.JSON4XX != nil {
+    switch run.JSON4XX.Code {
     case "mail_run_not_found":
         return nil
     default:
-        return run.JSON4XX
+        return fmt.Errorf(
+            "mail run failed: code=%s message=%s",
+            run.JSON4XX.Code,
+            run.JSON4XX.Message)
     }
 }
 ```
@@ -84,10 +87,10 @@ text := "Updated by external consumer"
 request := windowsoperator.PowerPointOnlineUpdateRequest{
     DeckUrl:   &deckURL,
     SessionId: &sessionID,
-    Job: &windowsoperator.PowerPointUpdateJob{
+    Job: windowsoperator.PowerPointUpdateJobInput{
         JobId:       jobID,
         RequestedBy: "external-consumer",
-        Operations: []windowsoperator.PowerPointUpdateOperation{
+        Operations: &[]windowsoperator.PowerPointUpdateOperationInput{
             {
                 Kind:     "replaceText",
                 TargetId: "TITLE_MAIN",
@@ -102,8 +105,28 @@ result, err := client.UpdatePowerPointOnlinePresentationWithResponse(ctx, reques
 if err != nil {
     return err
 }
-if result.StatusCode() >= 400 {
+if result.StatusCode() != 200 || result.JSON200 == nil {
     return fmt.Errorf("powerpoint update failed: %d", result.StatusCode())
+}
+```
+
+For queued jobs, poll through the typed client. `succeeded`, `failed`, and
+`partial` are terminal job states.
+
+```go
+record, err := windowsoperator.WaitForPowerPointJob(
+    ctx,
+    client,
+    jobID,
+    windowsoperator.WaitOptions{
+        Interval: time.Second,
+        Timeout:  5 * time.Minute,
+    })
+if err != nil {
+    return err
+}
+if record.Status != "succeeded" {
+    return fmt.Errorf("powerpoint job ended: %s", record.Status)
 }
 ```
 
@@ -135,8 +158,19 @@ if err != nil {
     return err
 }
 var body bytes.Buffer
-err = windowsoperator.DownloadArtifact(ctx, client, artifacts.JSON200.Artifacts[0], &body)
+if artifacts.StatusCode() != 200 || artifacts.JSON200 == nil ||
+    len(artifacts.JSON200.Artifacts) == 0 {
+    return fmt.Errorf("artifact listing failed or empty")
+}
+err = windowsoperator.DownloadArtifact(
+    ctx,
+    client,
+    artifacts.JSON200.Artifacts[0],
+    &body)
 ```
+
+`DownloadArtifact` validates declared byte length, SHA-256, and media type
+before writing. Validation failure leaves the destination untouched.
 
 ## Contract Drift
 
@@ -150,8 +184,15 @@ cd clients/go && go test ./...
 Consumer runtime gate:
 
 ```go
-_, err := windowsoperator.CheckContractVersion(
+_, err := windowsoperator.CheckContractCompatibility(
     ctx,
     client,
     windowsoperator.SupportedContractVersion)
 ```
+
+Compatibility requires valid SemVer. Stable runtimes must share the consumer's
+major version and be equal or newer. Pre-release versions require the same core
+version and pre-release identifiers; build metadata does not affect matching.
+
+`examples_test.go` compile-checks health/capabilities, typed errors, PowerPoint
+updates, and artifact downloads from an external-package consumer.

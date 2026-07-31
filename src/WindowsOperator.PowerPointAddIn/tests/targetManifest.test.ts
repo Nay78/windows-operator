@@ -29,6 +29,10 @@ describe("target manifest", () => {
     expect(expectedTargetTypeForOperation({ kind: "replaceText", targetId: "TITLE_MAIN", mode: "plain", text: "x" })).toBe("text");
     expect(expectedTargetTypeForOperation({ kind: "replaceImage", targetId: "HERO_IMAGE" })).toBe("image");
     expect(expectedTargetTypeForOperation({ kind: "readTable", targetId: "DATA_TABLE" })).toBe("table");
+    expect(expectedTargetTypeForOperation({ kind: "readTableGeometry", targetId: "DATA_TABLE" })).toBe("table");
+    expect(expectedTargetTypeForOperation({ kind: "findTableColumn", targetId: "DATA_TABLE", rowIndex: 0, text: "08-jul" })).toBe("table");
+    expect(expectedTargetTypeForOperation({ kind: "readShapeBounds", targetId: "DATE_HIGHLIGHT_BOX" })).toBe("shape");
+    expect(expectedTargetTypeForOperation({ kind: "setShapeBounds", targetId: "DATE_HIGHLIGHT_BOX" })).toBe("shape");
   });
 
   it("infers and validates named target shape compatibility", () => {
@@ -37,5 +41,7 @@ describe("target manifest", () => {
     expect(isShapeCompatibleWithTargetType("Table", "table")).toBe(true);
     expect(isShapeCompatibleWithTargetType("Table", "text")).toBe(false);
     expect(isShapeCompatibleWithTargetType("GeometricShape", "image")).toBe(true);
+    expect(isShapeCompatibleWithTargetType("Table", "shape")).toBe(true);
+    expect(isShapeCompatibleWithTargetType("Unsupported", "shape")).toBe(false);
   });
 });

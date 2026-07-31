@@ -61,8 +61,10 @@ scripts/generate-go-client.sh
 ```
 
 The script is the source of truth for the exact generator command. It regenerates
-OpenAPI, invokes the pinned `oapi-codegen` version, formats generated files, and
-tidies the Go module at Go 1.22.
+the complete OpenAPI document, projects its `stable` operations, invokes the
+pinned `oapi-codegen` version for that stable projection, formats generated
+files, and tidies the Go module at Go 1.22. Diagnostic and development routes
+remain in OpenAPI namespace documents but are absent from the default Go client.
 
 From inside `clients/go`, this equivalent command is available:
 

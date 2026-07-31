@@ -6,8 +6,10 @@
       "src\\WindowsOperator.Host\\WindowsOperator.Host.csproj",
       "src\\WindowsOperator.Mcp\\WindowsOperator.Mcp.csproj",
       "src\\WindowsOperator.OpenApi\\WindowsOperator.OpenApi.csproj",
+      "src\\WindowsOperator.Relay\\WindowsOperator.Relay.csproj",
       "tests\\WindowsOperator.Host.Tests\\WindowsOperator.Host.Tests.csproj",
-      "tests\\WindowsOperator.Mcp.Tests\\WindowsOperator.Mcp.Tests.csproj"
+      "tests\\WindowsOperator.Mcp.Tests\\WindowsOperator.Mcp.Tests.csproj",
+      "tests\\WindowsOperator.Relay.Tests\\WindowsOperator.Relay.Tests.csproj"
     ]
   }
 }

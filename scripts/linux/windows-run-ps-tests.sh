@@ -53,6 +53,38 @@ capture_fail() {
   printf '%s' "$output"
 }
 
+fake_bin="$tmp_root/fake-bin"
+mkdir -p "$fake_bin"
+cat >"$fake_bin/ssh" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$@" >>"$WINDOWS_OPERATOR_TEST_SSH_LOG"
+SH
+chmod +x "$fake_bin/ssh"
+
+alias_ssh_log="$tmp_root/alias-ssh.log"
+PATH="$fake_bin:$PATH" \
+WINDOWS_OPERATOR_LOCAL_ENV="/dev/null" \
+WINDOWS_OPERATOR_EXCHANGE_ROOT="$tmp_root/exchange" \
+WINDOWS_OPERATOR_RUN_ID="alias-port" \
+WINDOWS_OPERATOR_SSH_TARGET="hp-win" \
+WINDOWS_OPERATOR_TEST_SSH_LOG="$alias_ssh_log" \
+"$runner" "scripts/windows/bootstrap-vm.ps1" >/dev/null
+grep -qx 'hp-win' "$alias_ssh_log"
+! grep -qx -- '-p' "$alias_ssh_log"
+
+alias_port_override_log="$tmp_root/alias-port-override-ssh.log"
+PATH="$fake_bin:$PATH" \
+WINDOWS_OPERATOR_LOCAL_ENV="/dev/null" \
+WINDOWS_OPERATOR_EXCHANGE_ROOT="$tmp_root/exchange" \
+WINDOWS_OPERATOR_RUN_ID="alias-port-override" \
+WINDOWS_OPERATOR_SSH_TARGET="hp-win" \
+WINDOWS_OPERATOR_SSH_PORT="22022" \
+WINDOWS_OPERATOR_TEST_SSH_LOG="$alias_port_override_log" \
+"$runner" "scripts/windows/bootstrap-vm.ps1" >/dev/null
+grep -qx -- '-p' "$alias_port_override_log"
+grep -qx '22022' "$alias_port_override_log"
+
 run_ok "valid" "scripts/windows/bootstrap-vm.ps1"
 [[ -f "$tmp_root/exchange/runs/valid/command.ps1" ]]
 [[ -f "$tmp_root/exchange/runs/valid/request.json" ]]

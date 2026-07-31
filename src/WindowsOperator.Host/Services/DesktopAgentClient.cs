@@ -8,7 +8,7 @@ using WindowsOperator.Core.Services;
 
 namespace WindowsOperator.Host.Services;
 
-public sealed class DesktopAgentClient : IWorkbenchService, IPowerPointOnlineService, IDevAutomationService
+public sealed class DesktopAgentClient : IWorkbenchService, IPowerPointOnlineService, IDevAutomationService, IPowerAutomateMcpService
 {
     private readonly HttpClient _httpClient;
     private readonly IOptions<DesktopAgentOptions> _options;
@@ -181,6 +181,32 @@ public sealed class DesktopAgentClient : IWorkbenchService, IPowerPointOnlineSer
             $"/v1/dev/browser/edge/sessions/{Uri.EscapeDataString(sessionId)}/eval",
             request,
             cancellationToken);
+
+    public Task<PowerAutomateMcpStatusResult> GetStatusAsync(CancellationToken cancellationToken) =>
+        SendAsync<PowerAutomateMcpStatusResult>(HttpMethod.Get, "/v1/power-automate/mcp/status", null, cancellationToken);
+
+    public Task<PowerAutomateMcpStartResult> StartBridgeAsync(
+        PowerAutomateMcpStartRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<PowerAutomateMcpStartResult>(HttpMethod.Post, "/v1/power-automate/mcp/start", request, cancellationToken);
+
+    public Task<PowerAutomateMcpEdgeResult> OpenEdgeAsync(
+        PowerAutomateMcpEdgeRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<PowerAutomateMcpEdgeResult>(HttpMethod.Post, "/v1/power-automate/mcp/edge", request, cancellationToken);
+
+    public Task<PowerAutomateMcpEdgeCleanupResult> CleanupEdgeAsync(CancellationToken cancellationToken) =>
+        SendAsync<PowerAutomateMcpEdgeCleanupResult>(HttpMethod.Post, "/v1/power-automate/mcp/edge/cleanup", null, cancellationToken);
+
+    public Task<PowerAutomateMcpFlowReadResult> ReadFlowAsync(
+        PowerAutomateMcpFlowReadRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<PowerAutomateMcpFlowReadResult>(HttpMethod.Post, "/v1/power-automate/mcp/flows/read", request, cancellationToken);
+
+    public Task<PowerAutomateMcpFlowUpdateResult> UpdateFlowAsync(
+        PowerAutomateMcpFlowUpdateRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<PowerAutomateMcpFlowUpdateResult>(HttpMethod.Post, "/v1/power-automate/mcp/flows/update", request, cancellationToken);
 
     public Task<PowerPointOnlineSessionResult> StartOnlineSessionAsync(
         PowerPointOnlineSessionStartRequest request,

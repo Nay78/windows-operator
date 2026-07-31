@@ -22,7 +22,7 @@ Small safeguards:
 
 ## Scope
 
-- Source of truth: `/home/alejg/proj/windows-operator`
+- Source of truth: `/home/alejg/proj/run/windows-operator`
 - Windows shared path: `Z:\windows-operator`
 - Windows SSH-copy source path: `C:\src\windows-operator` unless `WINDOWS_OPERATOR_WINDOWS_REPO_ROOT` overrides it
 - NixOS repo: `/home/alejg/nixos`, only for VM/share/tunnel declarations
@@ -40,7 +40,7 @@ Small safeguards:
 - Linux health checks use Host REST tunnel `127.0.0.1:43117`; do not treat failed Linux curls to `127.0.0.1:43119` as Desktop Agent failure. `43119` is Windows loopback for Host-to-Agent traffic unless an explicit temporary SSH debug tunnel is created.
 - Autostart uses Task Scheduler tasks:
   - `WindowsOperator.Host` (startup, SYSTEM, headless REST/proxy)
-  - `WindowsOperator.Agent`
+  - `WindowsOperator.Agent` (logon, unelevated, local published runtime)
   - `Codex.AppServer`
 
 ## State Model
@@ -48,6 +48,8 @@ Small safeguards:
 Shared source is read/write code. Mutable Windows state stays local:
 
 - `%LOCALAPPDATA%\WindowsOperator`
+- `%LOCALAPPDATA%\WindowsOperator\agent` (published Desktop Agent runtime)
+- `%ProgramData%\WindowsOperator\host` (published Host runtime)
 - `%LOCALAPPDATA%\Codex`
 - `NUGET_PACKAGES`
 - `DOTNET_CLI_HOME`
@@ -74,6 +76,12 @@ Windows agent run:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\windows\run-agent.ps1 -RepoRoot Z:\windows-operator
+```
+
+Windows Agent runtime publication and task registration:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\windows\register-agent-autostart.ps1 -RepoRoot Z:\windows-operator
 ```
 
 Windows host registration:
@@ -103,6 +111,8 @@ Linux host checks use the NixOS Operator REST tunnel on `127.0.0.1:43117`.
 - Keep Windows-specific verification on Windows.
 - Prefer code-first automation over UI automation when possible.
 - For email attachment download, prefer Classic Outlook COM before Power Automate Desktop or web UI scraping.
+- For Power Automate cloud-flow writes, use the browser-token/API/MCP path. Do not mutate the Power Automate designer through UIA/screen input unless the user explicitly asks for break-glass UI automation.
+- Capture unplanned work in `docs/todo.md`, including while an active `.work` campaign owns its execution queue. Promote accepted items into `.work` during queue review.
 - Namespace new feature surfaces using [Feature namespaces](docs/feature-namespaces.md).
 - External-project axiom: external projects depend on Host REST, OpenAPI, and
   generated clients, not `scripts/linux/wo`, `Justfile`, SSH runner scripts, or
@@ -140,4 +150,5 @@ Linux host checks use the NixOS Operator REST tunnel on `127.0.0.1:43117`.
 - [Email attachment automation plan](docs/email-attachment-automation.md)
 - [Outlook mail automation target architecture](docs/outlook-mail-automation-architecture.md)
 - [PowerPoint automation target architecture](docs/powerpoint-automation-architecture.md)
+- [Power BI Desktop operator specification](docs/powerbi-desktop-operator-spec.md)
 - [Codex adapter notes](docs/codex-adapter.md)

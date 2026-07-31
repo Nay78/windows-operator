@@ -59,7 +59,7 @@ public sealed class McpProtocolHandler
             {
                 ["code"] = failure.Error.Code,
                 ["message"] = failure.Error.Message,
-                ["data"] = JsonSerializer.SerializeToNode(failure.Error, OperatorJson.SerializerOptions),
+                ["data"] = JsonSerializer.SerializeToNode(failure.Error, OperatorJson.PublicSerializerOptions),
             });
         }
         catch (Exception ex)

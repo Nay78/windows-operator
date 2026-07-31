@@ -26,4 +26,4 @@ public sealed record MicrosoftAuthorizeProbeResult(
     string? ObservedError = null,
     bool ObservedCodePresent = false,
     DateTimeOffset? ObservedAtUtc = null,
-    string? StatusPath = null);
+    [property: OperatorInternal] string? StatusPath = null);

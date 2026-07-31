@@ -28,6 +28,7 @@ public sealed record DevScriptResult
 
     public DateTimeOffset ObservedAtUtc { get; init; }
 
+    [OperatorInternal]
     public string? EvidencePath { get; init; }
 
     public string? SourceSha256 { get; init; }

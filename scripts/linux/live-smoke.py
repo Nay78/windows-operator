@@ -165,10 +165,15 @@ def call(
     return parsed, body
 
 
-def host_path_exists(parsed: Any) -> tuple[bool, str]:
-    artifact = parsed.get("artifact") if isinstance(parsed, dict) else None
-    host_path = artifact.get("hostPath") if isinstance(artifact, dict) else None
-    return bool(host_path and Path(host_path).exists()), f"artifact={host_path}"
+def artifact_ref_exists(parsed: Any) -> tuple[bool, str]:
+    workbench_artifact = parsed.get("artifact") if isinstance(parsed, dict) else None
+    artifact = workbench_artifact.get("artifact") if isinstance(workbench_artifact, dict) else None
+    artifact_id = artifact.get("artifactId") if isinstance(artifact, dict) else None
+    href = artifact.get("href") if isinstance(artifact, dict) else None
+    return (
+        bool(artifact_id and href and href == f"/v1/artifacts/{artifact_id}"),
+        f"artifactId={artifact_id} href={href}",
+    )
 
 
 def plain_http(url: str, timeout_seconds: int) -> tuple[int | str, bytes]:
@@ -448,9 +453,11 @@ def run_notepad_checks(recorder: Recorder, client: SmokeClient, args: argparse.N
             "POST",
             "/v1/desktop/screenshot",
             {"target": "foreground", "runId": run_id, "label": "notepad"},
-            expect=lambda parsed, _body, _headers: host_path_exists(parsed),
+            expect=lambda parsed, _body, _headers: artifact_ref_exists(parsed),
             keep=lambda parsed, _body, _headers: {
-                "artifactHostPath": (parsed.get("artifact") or {}).get("hostPath") if isinstance(parsed, dict) else None,
+                "artifactId": ((parsed.get("artifact") or {}).get("artifact") or {}).get("artifactId")
+                if isinstance(parsed, dict)
+                else None,
                 "backend": parsed.get("backend") if isinstance(parsed, dict) else None,
             },
         )
@@ -522,13 +529,14 @@ def run_smoke(args: argparse.Namespace) -> dict[str, Any]:
         missing=missing,
     )
 
-    codex_status, codex_body = plain_http(args.codex_url, args.timeout_seconds)
-    recorder.add(
-        "codex_app_server_tunnel",
-        codex_status == 400 and b"upgrade" in codex_body.lower(),
-        codex_status,
-        codex_body.decode("utf-8", "replace")[:160],
-    )
+    if not args.skip_codex_probe:
+        codex_status, codex_body = plain_http(args.codex_url, args.timeout_seconds)
+        recorder.add(
+            "codex_app_server_tunnel",
+            codex_status == 400 and b"upgrade" in codex_body.lower(),
+            codex_status,
+            codex_body.decode("utf-8", "replace")[:160],
+        )
 
     windows, _ = call(
         recorder,
@@ -566,9 +574,11 @@ def run_smoke(args: argparse.Namespace) -> dict[str, Any]:
         "POST",
         "/v1/desktop/screenshot",
         {"target": "foreground", "runId": run_id, "label": "foreground"},
-        expect=lambda parsed, _body, _headers: host_path_exists(parsed),
+        expect=lambda parsed, _body, _headers: artifact_ref_exists(parsed),
         keep=lambda parsed, _body, _headers: {
-            "artifactHostPath": (parsed.get("artifact") or {}).get("hostPath") if isinstance(parsed, dict) else None,
+            "artifactId": ((parsed.get("artifact") or {}).get("artifact") or {}).get("artifactId")
+            if isinstance(parsed, dict)
+            else None,
             "backend": parsed.get("backend") if isinstance(parsed, dict) else None,
         },
     )
@@ -682,7 +692,7 @@ def run_edge_checks(recorder: Recorder, client: SmokeClient, run_id: str) -> Non
                 "POST",
                 f"/v1/browser/edge/session/{edge_id}/screenshot",
                 {"target": "foreground", "runId": run_id, "label": "edge-session"},
-                expect=lambda parsed, _body, _headers: host_path_exists(parsed),
+                expect=lambda parsed, _body, _headers: artifact_ref_exists(parsed),
             )
         finally:
             call(
@@ -712,7 +722,7 @@ def run_edge_checks(recorder: Recorder, client: SmokeClient, run_id: str) -> Non
             "sessionId": form_id,
             "startUrl": "https://httpbin.org/forms/post",
             "profileMode": "temp",
-            "pageLoadSeconds": 5,
+            "pageLoadSeconds": 8,
         },
         expect=expect_dict_key("success", True),
     )
@@ -894,23 +904,24 @@ def run_mail_checks(recorder: Recorder, client: SmokeClient, args: argparse.Name
             f"workerAvailable={parsed.get('workerAvailable')}" if isinstance(parsed, dict) else "mail status failed",
         ),
     )
-    call(
-        recorder,
-        client,
-        "mail_search_cached_negative",
-        "POST",
-        "/v1/mail/messages/search",
-        {
-            "subjectContains": f"__windows_operator_live_smoke_no_match__{run_id}",
-            "maxResults": 1,
-            "freshness": "cached",
-        },
-        expect=lambda parsed, _body, _headers: (
-            isinstance(parsed, dict) and "messages" in parsed,
-            f"messages={len(parsed.get('messages') or [])}" if isinstance(parsed, dict) else "mail search failed",
-        ),
-    )
-    if args.include_fresh_mail:
+    if not args.skip_mail_search:
+        call(
+            recorder,
+            client,
+            "mail_search_cached_negative",
+            "POST",
+            "/v1/mail/messages/search",
+            {
+                "subjectContains": f"__windows_operator_live_smoke_no_match__{run_id}",
+                "maxResults": 1,
+                "freshness": "cached",
+            },
+            expect=lambda parsed, _body, _headers: (
+                isinstance(parsed, dict) and "messages" in parsed,
+                f"messages={len(parsed.get('messages') or [])}" if isinstance(parsed, dict) else "mail search failed",
+            ),
+        )
+    if args.include_fresh_mail and not args.skip_mail_search:
         call(
             recorder,
             client,
@@ -1122,6 +1133,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", help="Report JSON path. Default: <exchange-root>/runs/<run-id>/live-smoke-report.json")
     parser.add_argument("--timeout-seconds", type=int, default=90)
     parser.add_argument("--min-openapi-paths", type=int, default=42)
+    parser.add_argument("--skip-codex-probe", action="store_true", help="Skip the non-contract Codex app-server probe.")
+    parser.add_argument("--skip-mail-search", action="store_true", help="Skip Outlook COM message searches.")
     parser.add_argument("--include-notepad", action="store_true", help="Launch Notepad, type text through UIA, screenshot, then close it.")
     parser.add_argument("--include-fresh-mail", action="store_true", help="Run a slow no-match Outlook freshness search through the real mail worker.")
     parser.add_argument(

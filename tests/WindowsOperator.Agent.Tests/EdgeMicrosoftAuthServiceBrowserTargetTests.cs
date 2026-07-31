@@ -6,8 +6,93 @@ using WindowsOperator.Core.Json;
 
 namespace WindowsOperator.Agent.Tests;
 
+[Collection(ProcessEnvironmentCollection.Name)]
 public sealed class EdgeMicrosoftAuthServiceBrowserTargetTests
 {
+    [Fact]
+    public void MapEdgeWindowsFromCatalog_UsesAllTopLevelEdgeWindows()
+    {
+        var capturedAtUtc = DateTimeOffset.Parse("2026-07-08T12:00:00Z");
+        var edgeStartedAtUtc = capturedAtUtc.AddHours(-1);
+        var windows = new[]
+        {
+            new WindowRef(
+                101,
+                4100,
+                "Edit your flow | Power Automate - Work - Microsoft Edge",
+                "Chrome_WidgetWin_1",
+                new WindowBounds(0, 0, 1280, 720),
+                1,
+                capturedAtUtc,
+                true,
+                false),
+            new WindowRef(
+                102,
+                4100,
+                "Sign in to your account - Work - Microsoft Edge",
+                "Chrome_WidgetWin_1",
+                new WindowBounds(20, 20, 900, 700),
+                1,
+                capturedAtUtc,
+                false,
+                false),
+            new WindowRef(
+                201,
+                5100,
+                "Notepad",
+                "Notepad",
+                new WindowBounds(0, 0, 800, 600),
+                1,
+                capturedAtUtc,
+                false,
+                false),
+        };
+
+        var mapped = EdgeMicrosoftAuthService.MapEdgeWindowsFromCatalogForTest(
+            windows,
+            new Dictionary<uint, DateTimeOffset> { [4100] = edgeStartedAtUtc });
+
+        Assert.Equal(new[] { 101L, 102L }, mapped.Select(window => window.Hwnd.ToInt64()));
+        Assert.Contains(mapped, window => window.IsForeground && window.Title!.Contains("Power Automate", StringComparison.Ordinal));
+        Assert.Contains(mapped, window => !window.IsForeground && window.Title!.Contains("Sign in", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ScoreAuthorizeWindow_PrefersAuthWindowOverForegroundPowerAutomate()
+    {
+        var startedAfterUtc = DateTimeOffset.Parse("2026-07-08T12:00:00Z");
+        var oldProcessStartUtc = startedAfterUtc.AddHours(-2);
+        var foregroundPowerAutomate = new EdgeMicrosoftAuthService.BrowserWindow(
+            4100,
+            new IntPtr(101),
+            "Edit your flow | Power Automate - Work - Microsoft Edge",
+            oldProcessStartUtc,
+            true,
+            false);
+        var authWindow = new EdgeMicrosoftAuthService.BrowserWindow(
+            4100,
+            new IntPtr(102),
+            "Sign in to your account - Work - Microsoft Edge",
+            oldProcessStartUtc,
+            false,
+            false);
+
+        var powerAutomateScore = EdgeMicrosoftAuthService.ScoreAuthorizeWindow(
+            foregroundPowerAutomate,
+            startedProcessId: 9999,
+            startedAfterUtc,
+            reuseExistingProfile: true,
+            text: "Power Automate Edit your flow");
+        var authScore = EdgeMicrosoftAuthService.ScoreAuthorizeWindow(
+            authWindow,
+            startedProcessId: 9999,
+            startedAfterUtc,
+            reuseExistingProfile: true,
+            text: "Sign in to your account Enter code");
+
+        Assert.True(authScore > powerAutomateScore);
+    }
+
     [Fact]
     public void ParseEdgePageTargets_ReadsPageIdsAndSkipsNonPageEntries()
     {

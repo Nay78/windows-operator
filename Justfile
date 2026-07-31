@@ -14,12 +14,16 @@ sync-plan:
 # Check committed OpenAPI, generated Go client, and README route inventory.
 contract-check:
     scripts/check-openapi-contract.sh
+    python3 scripts/check-operation-policy.py
     scripts/check-readme-route-inventory.sh
+    python3 scripts/check-error-code-docs.py
+    cd clients/go && go test ./...
 
 # Test agent-facing Linux wrappers without a live Windows host.
 agent-tool-tests:
     scripts/linux/wo-tests.sh
     scripts/linux/windows-run-ps-tests.sh
+    scripts/linux/inspect-runtime-tests.sh
     scripts/linux/external-consumer-smoke-tests.sh
 
 # Test the external-consumer smoke gate against a local stub Host.
@@ -33,6 +37,10 @@ wo-test:
 # Test the staged Windows PowerShell runner without a live Windows host.
 windows-run-ps-test:
     scripts/linux/windows-run-ps-tests.sh
+
+# Test bounded Windows runtime inspection without a live Windows host.
+inspect-runtime-test:
+    scripts/linux/inspect-runtime-tests.sh
 
 # Test the PowerPoint Online final proof runner without live mutation.
 ppt-final-proof-test:

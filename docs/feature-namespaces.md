@@ -12,6 +12,7 @@ Good:
 - REST: `/v1/auth/microsoft/...`
 - REST: `/v1/browser/edge/...` for direct browser sessions
 - REST: `/v1/sessions/...` for generic operator-owned workbench sessions
+- REST: `/v1/power-automate/mcp/...` for local Power Automate bridge lifecycle
 - REST: `/v1/powerpoint/...`
 - REST: `/v1/powerpoint/online/...` for PowerPoint Online session/update orchestration
 - REST: `/v1/dev/...` for disabled-by-default local debug harnesses only
@@ -36,7 +37,7 @@ Use stable `/v1/<domain>/<provider-or-resource>/<action>` paths.
 
 Rules:
 
-- Domain is short and durable: `mail`, `auth`, `browser`, `sessions`, `powerpoint`, `windows`, `uia`, `input`, `dev`.
+- Domain is short and durable: `mail`, `auth`, `browser`, `sessions`, `power-automate`, `powerpoint`, `windows`, `uia`, `input`, `dev`.
 - Provider appears when behavior is provider-specific: `auth/microsoft`.
 - Browser session endpoints use implementation namespace only when callers
   explicitly request browser control. Auth flows stay under `auth/microsoft`.
@@ -72,6 +73,11 @@ POST /v1/powerpoint/jobs/claim
 POST /v1/powerpoint/jobs/{jobId}/complete
 POST /v1/powerpoint/jobs/{jobId}/fail
 GET  /v1/powerpoint/jobs/{jobId}
+GET  /v1/power-automate/mcp/status
+POST /v1/power-automate/mcp/start
+POST /v1/power-automate/mcp/edge
+POST /v1/power-automate/mcp/flows/read
+POST /v1/power-automate/mcp/flows/update
 POST /v1/powerpoint/online/sessions
 POST /v1/powerpoint/online/sessions/{sessionId}/slides/select
 POST /v1/powerpoint/online/updates
@@ -101,6 +107,7 @@ mail.outlook
 powerpoint.online
 browser.edge
 auth.microsoft
+power-automate.mcp
 ```
 
 ## MCP

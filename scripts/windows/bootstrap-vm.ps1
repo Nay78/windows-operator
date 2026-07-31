@@ -16,7 +16,7 @@ if (-not (Test-Path -LiteralPath $codexBootstrapPath)) {
     throw "Codex bootstrap script missing: $codexBootstrapPath"
 }
 
-& $bootstrapPath -RepoRoot $repoRoot -EnableAutostart
+& $bootstrapPath -RepoRoot $repoRoot
 if (-not $?) {
     throw "Windows Operator VM bootstrap failed."
 }

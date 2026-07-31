@@ -27,4 +27,12 @@ public sealed record PowerPointUpdateOperation
     public int? StartColumnIndex { get; init; }
 
     public IReadOnlyList<IReadOnlyList<string>>? Values { get; init; }
+
+    public double? Left { get; init; }
+
+    public double? Top { get; init; }
+
+    public double? Width { get; init; }
+
+    public double? Height { get; init; }
 }

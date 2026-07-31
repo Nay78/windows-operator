@@ -122,8 +122,8 @@ function Wait-ForRepoRoot {
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     while ((Get-Date) -lt $deadline) {
         if (Test-Path -LiteralPath $Path) {
-            $solutionPath = Join-Path $Path "WindowsOperator.sln"
-            if (Test-Path -LiteralPath $solutionPath) {
+            $agentProjectPath = Join-Path $Path "src\\WindowsOperator.Agent\\WindowsOperator.Agent.csproj"
+            if (Test-Path -LiteralPath $agentProjectPath) {
                 return (Resolve-Path -LiteralPath $Path).Path
             }
         }
@@ -153,12 +153,11 @@ try {
     $dotnetPath = Find-DotnetPath -Path $resolvedStateRoot
     Set-LocalStateEnvironment -Path $resolvedStateRoot -DotnetPath $dotnetPath -ExchangeRoot $ExchangeRoot -HostExchangeRoot $HostExchangeRoot
 
-    $solutionPath = Join-Path $resolvedRepoRoot "WindowsOperator.sln"
     $agentProjectPath = Join-Path $resolvedRepoRoot "src\\WindowsOperator.Agent\\WindowsOperator.Agent.csproj"
     $runDir = Join-Path $resolvedStateRoot "run"
 
-    Write-Log "Building shared source into local artifacts."
-    & $dotnetPath build $solutionPath 2>&1 | Tee-Object -FilePath $logPath -Append
+    Write-Log "Building Agent project into local artifacts."
+    & $dotnetPath build $agentProjectPath 2>&1 | Tee-Object -FilePath $logPath -Append
     if ($LASTEXITCODE -ne 0) {
         throw "dotnet build failed."
     }

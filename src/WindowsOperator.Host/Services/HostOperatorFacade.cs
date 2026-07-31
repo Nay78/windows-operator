@@ -8,17 +8,20 @@ namespace WindowsOperator.Host.Services;
 public sealed class HostOperatorFacade : IOperatorFacade
 {
     private readonly DesktopAgentClient _desktopAgent;
+    private readonly RuntimeBuildIdentity _buildIdentity;
     private readonly IOptions<OperatorOptions> _options;
     private readonly IOptions<DesktopAgentOptions> _desktopOptions;
     private readonly IOptions<PowerPointAddInOptions> _powerPointAddInOptions;
 
     public HostOperatorFacade(
         DesktopAgentClient desktopAgent,
+        RuntimeBuildIdentity buildIdentity,
         IOptions<OperatorOptions> options,
         IOptions<DesktopAgentOptions> desktopOptions,
         IOptions<PowerPointAddInOptions> powerPointAddInOptions)
     {
         _desktopAgent = desktopAgent;
+        _buildIdentity = buildIdentity;
         _options = options;
         _desktopOptions = desktopOptions;
         _powerPointAddInOptions = powerPointAddInOptions;
@@ -50,6 +53,12 @@ public sealed class HostOperatorFacade : IOperatorFacade
             ["desktop.window"] = AgentBacked(desktopAvailable, "stable"),
             ["desktop.screenshot"] = AgentBacked(desktopAvailable, "stable"),
             ["browser.edge.session"] = AgentBacked(desktopAvailable, "stable"),
+            ["power-automate.mcp"] = AgentBacked(
+                desktopAvailable,
+                "diagnostic",
+                desktopAvailable
+                    ? "Browser-token/API bridge bootstrap only; Power Automate writes must not fall back to designer UI automation."
+                    : "Desktop Agent is unavailable."),
             ["powerpoint.online.update"] = desktopAvailable && addInEnabled
                 ? Available("stable")
                 : Unavailable(
@@ -66,6 +75,7 @@ public sealed class HostOperatorFacade : IOperatorFacade
 
         return new CapabilitiesResult(
             OperatorContractVersion.Value,
+            _buildIdentity,
             new CapabilityHost(
                 health.Status,
                 health.RuntimeMode,
@@ -189,13 +199,13 @@ public sealed class HostOperatorFacade : IOperatorFacade
         }
     }
 
-    private static CapabilityFeature AgentBacked(bool desktopAvailable, string surface) =>
+    private static CapabilityFeature AgentBacked(bool desktopAvailable, string surface, string? availableReason = null) =>
         desktopAvailable
-            ? Available(surface)
+            ? Available(surface, availableReason)
             : Unavailable(surface, "Desktop Agent is unavailable.");
 
-    private static CapabilityFeature Available(string surface) =>
-        new(true, surface);
+    private static CapabilityFeature Available(string surface, string? reason = null) =>
+        new(true, surface, reason);
 
     private static CapabilityFeature Unavailable(
         string surface,

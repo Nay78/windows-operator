@@ -484,6 +484,183 @@ def run_mail_download(args: argparse.Namespace) -> int:
     )
 
 
+def summarize_power_automate_mcp_status(parsed: Any) -> dict[str, Any]:
+    if not isinstance(parsed, dict):
+        return {}
+    return {
+        "bridgeListening": parsed.get("bridgeListening"),
+        "bridgeHealthy": parsed.get("bridgeHealthy"),
+        "contextAvailable": parsed.get("contextAvailable"),
+        "bridgeVersion": parsed.get("bridgeVersion"),
+        "extensionPathResolved": parsed.get("extensionPathResolved"),
+    }
+
+
+def run_power_automate_mcp_status(args: argparse.Namespace) -> int:
+    return run_rest_command(
+        args=args,
+        method="GET",
+        path="/v1/power-automate/mcp/status",
+        payload=None,
+        command="wo power-automate mcp status",
+        response_name="power-automate-mcp-status.json",
+        run_id_prefix="wo-power-automate-mcp-status",
+        success_when=lambda status, parsed: status == 200 and isinstance(parsed, dict),
+        success_status="ok",
+        failure_status="power-automate-mcp-status-failed",
+        gate_name="power-automate-mcp-status",
+        stage="power-automate-mcp-status",
+        detail_prefix="GET /v1/power-automate/mcp/status",
+        extra_builder=lambda parsed, _run_id: summarize_power_automate_mcp_status(parsed),
+    )
+
+
+def run_power_automate_mcp_start(args: argparse.Namespace) -> int:
+    payload = {
+        "bridgeHost": args.bridge_host,
+        "bridgePort": args.bridge_port,
+        "packageSpec": args.package_spec,
+        "waitSeconds": args.wait_seconds,
+        "resolveExtensionPath": args.resolve_extension_path,
+        "dryRun": args.dry_run,
+    }
+    return run_rest_command(
+        args=args,
+        method="POST",
+        path="/v1/power-automate/mcp/start",
+        payload=payload,
+        command="wo power-automate mcp start",
+        response_name="power-automate-mcp-start.json",
+        run_id_prefix="wo-power-automate-mcp-start",
+        success_when=endpoint_success,
+        success_status="ok",
+        failure_status="power-automate-mcp-start-failed",
+        gate_name="power-automate-mcp-start",
+        stage="power-automate-mcp-start",
+        detail_prefix="POST /v1/power-automate/mcp/start",
+        extra_builder=lambda parsed, _run_id: summarize_power_automate_mcp_status(parsed.get("status") if isinstance(parsed, dict) else parsed),
+    )
+
+
+def run_power_automate_mcp_edge(args: argparse.Namespace) -> int:
+    payload: dict[str, Any] = {
+        "url": args.url,
+        "packageSpec": args.package_spec,
+        "profileMode": args.profile_mode,
+        "waitSeconds": args.wait_seconds,
+        "dryRun": args.dry_run,
+    }
+    if args.extension_path:
+        payload["extensionPath"] = args.extension_path
+    return run_rest_command(
+        args=args,
+        method="POST",
+        path="/v1/power-automate/mcp/edge",
+        payload=payload,
+        command="wo power-automate mcp edge",
+        response_name="power-automate-mcp-edge.json",
+        run_id_prefix="wo-power-automate-mcp-edge",
+        success_when=endpoint_success,
+        success_status="ok",
+        failure_status="power-automate-mcp-edge-failed",
+        gate_name="power-automate-mcp-edge",
+        stage="power-automate-mcp-edge",
+        detail_prefix="POST /v1/power-automate/mcp/edge",
+        extra_builder=lambda parsed, _run_id: {
+            "processId": parsed.get("processId") if isinstance(parsed, dict) else None,
+            "profileMode": parsed.get("profileMode") if isinstance(parsed, dict) else None,
+        },
+    )
+
+
+def summarize_power_automate_mcp_flow(parsed: Any, *, requested_flow_id: str | None = None) -> dict[str, Any]:
+    if not isinstance(parsed, dict):
+        return {"flowId": requested_flow_id}
+    summary = parsed.get("summary") if isinstance(parsed.get("summary"), dict) else {}
+    return {
+        "envId": parsed.get("envId"),
+        "flowId": parsed.get("flowId") or requested_flow_id,
+        "displayName": parsed.get("displayName"),
+        "source": parsed.get("source"),
+        "triggerCount": summary.get("triggerCount"),
+        "actionCount": summary.get("actionCount"),
+    }
+
+
+def run_power_automate_mcp_flow_read(args: argparse.Namespace) -> int:
+    payload: dict[str, Any] = {
+        "bridgeHost": args.bridge_host,
+        "bridgePort": args.bridge_port,
+    }
+    if args.flow_id:
+        payload["flowId"] = args.flow_id
+    return run_rest_command(
+        args=args,
+        method="POST",
+        path="/v1/power-automate/mcp/flows/read",
+        payload=payload,
+        command="wo power-automate mcp flow-read",
+        response_name="power-automate-mcp-flow-read.json",
+        run_id_prefix="wo-power-automate-mcp-flow-read",
+        success_when=endpoint_success,
+        success_status="ok",
+        failure_status="power-automate-mcp-flow-read-failed",
+        gate_name="power-automate-mcp-flow-read",
+        stage="power-automate-mcp-flow-read",
+        detail_prefix="POST /v1/power-automate/mcp/flows/read",
+        extra_builder=lambda parsed, _run_id: summarize_power_automate_mcp_flow(parsed, requested_flow_id=args.flow_id),
+    )
+
+
+def run_power_automate_mcp_flow_update(args: argparse.Namespace) -> int:
+    flow_json_path = resolve_repo_path(args.flow_json_file)
+    flow_json = flow_json_path.read_text(encoding="utf-8")
+    payload: dict[str, Any] = {
+        "flowJson": flow_json,
+        "validateBefore": args.validate_before,
+        "validateAfter": args.validate_after,
+        "create": args.create,
+        "dryRun": args.dry_run,
+        "bridgeHost": args.bridge_host,
+        "bridgePort": args.bridge_port,
+    }
+    if args.flow_id:
+        payload["flowId"] = args.flow_id
+    if args.display_name:
+        payload["displayName"] = args.display_name
+    return run_rest_command(
+        args=args,
+        method="POST",
+        path="/v1/power-automate/mcp/flows/update",
+        payload=payload,
+        command="wo power-automate mcp flow-update",
+        response_name="power-automate-mcp-flow-update.json",
+        run_id_prefix="wo-power-automate-mcp-flow-update",
+        success_when=endpoint_success,
+        success_status="ok",
+        failure_status="power-automate-mcp-flow-update-failed",
+        gate_name="power-automate-mcp-flow-update",
+        stage="power-automate-mcp-flow-update",
+        detail_prefix="POST /v1/power-automate/mcp/flows/update",
+        extra_builder=lambda parsed, _run_id: {
+            "flowId": args.flow_id,
+            "updateStatus": parsed.get("status") if isinstance(parsed, dict) else None,
+            "dryRun": parsed.get("dryRun") if isinstance(parsed, dict) and "dryRun" in parsed else args.dry_run,
+            "validateBefore": args.validate_before,
+            "validateAfter": args.validate_after,
+            "create": args.create,
+            "before": summarize_power_automate_mcp_flow(
+                parsed.get("before") if isinstance(parsed, dict) else None,
+                requested_flow_id=args.flow_id,
+            ),
+            "after": summarize_power_automate_mcp_flow(
+                parsed.get("after") if isinstance(parsed, dict) else None,
+                requested_flow_id=args.flow_id,
+            ),
+        },
+    )
+
+
 def run_auth_microsoft_cleanup(args: argparse.Namespace) -> int:
     payload = {
         "dryRun": args.dry_run,
@@ -776,6 +953,63 @@ def build_parser() -> argparse.ArgumentParser:
     mail_download_parser.add_argument("--freshness", choices=("auto", "cached", "fresh"), default="cached")
     mail_download_parser.add_argument("--dry-run", action=argparse.BooleanOptionalAction, default=False)
     mail_download_parser.set_defaults(handler=run_mail_download)
+
+    power_automate_parser = subparsers.add_parser("power-automate", help="Power Automate commands.")
+    power_automate_subparsers = power_automate_parser.add_subparsers(
+        dest="power_automate_command",
+        required=True,
+        metavar="command",
+    )
+    power_automate_mcp_parser = power_automate_subparsers.add_parser("mcp", help="Browser-backed MCP bridge commands.")
+    power_automate_mcp_subparsers = power_automate_mcp_parser.add_subparsers(
+        dest="power_automate_mcp_command",
+        required=True,
+        metavar="command",
+    )
+
+    power_automate_mcp_status = power_automate_mcp_subparsers.add_parser("status", help="Bridge dependency and health status.")
+    add_rest_common_flags(power_automate_mcp_status)
+    power_automate_mcp_status.set_defaults(handler=run_power_automate_mcp_status)
+
+    power_automate_mcp_start = power_automate_mcp_subparsers.add_parser("start", help="Start local MCP bridge.")
+    add_rest_common_flags(power_automate_mcp_start)
+    power_automate_mcp_start.add_argument("--bridge-host", default="127.0.0.1")
+    power_automate_mcp_start.add_argument("--bridge-port", type=int, default=17373)
+    power_automate_mcp_start.add_argument("--package-spec", default="@kaael1/mcp-power-automate@0.4.1")
+    power_automate_mcp_start.add_argument("--wait-seconds", type=int, default=10)
+    power_automate_mcp_start.add_argument("--resolve-extension-path", action=argparse.BooleanOptionalAction, default=True)
+    power_automate_mcp_start.add_argument("--dry-run", action=argparse.BooleanOptionalAction, default=False)
+    power_automate_mcp_start.set_defaults(handler=run_power_automate_mcp_start)
+
+    power_automate_mcp_edge = power_automate_mcp_subparsers.add_parser("edge", help="Open Edge with MCP extension.")
+    add_rest_common_flags(power_automate_mcp_edge)
+    power_automate_mcp_edge.add_argument("--url", default="https://make.powerautomate.com/")
+    power_automate_mcp_edge.add_argument("--extension-path")
+    power_automate_mcp_edge.add_argument("--package-spec", default="@kaael1/mcp-power-automate@0.4.1")
+    power_automate_mcp_edge.add_argument("--profile-mode", choices=("work", "temp"), default="work")
+    power_automate_mcp_edge.add_argument("--wait-seconds", type=int, default=4)
+    power_automate_mcp_edge.add_argument("--dry-run", action=argparse.BooleanOptionalAction, default=False)
+    power_automate_mcp_edge.set_defaults(handler=run_power_automate_mcp_edge)
+
+    power_automate_mcp_flow_read = power_automate_mcp_subparsers.add_parser("flow-read", help="Read selected flow through captured browser tokens and Power Automate APIs.")
+    add_rest_common_flags(power_automate_mcp_flow_read)
+    power_automate_mcp_flow_read.add_argument("--flow-id")
+    power_automate_mcp_flow_read.add_argument("--bridge-host", default="127.0.0.1")
+    power_automate_mcp_flow_read.add_argument("--bridge-port", type=int, default=17373)
+    power_automate_mcp_flow_read.set_defaults(handler=run_power_automate_mcp_flow_read)
+
+    power_automate_mcp_flow_update = power_automate_mcp_subparsers.add_parser("flow-update", help="Update selected flow through captured browser tokens and Power Automate APIs.")
+    add_rest_common_flags(power_automate_mcp_flow_update)
+    power_automate_mcp_flow_update.add_argument("--flow-json-file", type=Path, required=True)
+    power_automate_mcp_flow_update.add_argument("--flow-id")
+    power_automate_mcp_flow_update.add_argument("--display-name")
+    power_automate_mcp_flow_update.add_argument("--validate-before", action=argparse.BooleanOptionalAction, default=False)
+    power_automate_mcp_flow_update.add_argument("--validate-after", action=argparse.BooleanOptionalAction, default=False)
+    power_automate_mcp_flow_update.add_argument("--create", action=argparse.BooleanOptionalAction, default=False)
+    power_automate_mcp_flow_update.add_argument("--dry-run", action=argparse.BooleanOptionalAction, default=True)
+    power_automate_mcp_flow_update.add_argument("--bridge-host", default="127.0.0.1")
+    power_automate_mcp_flow_update.add_argument("--bridge-port", type=int, default=17373)
+    power_automate_mcp_flow_update.set_defaults(handler=run_power_automate_mcp_flow_update)
 
     auth_parser = subparsers.add_parser("auth", help="Authentication workflow commands.")
     auth_subparsers = auth_parser.add_subparsers(dest="auth_command", required=True, metavar="command")

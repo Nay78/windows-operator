@@ -8,8 +8,10 @@ classification already exists through Outlook or Exchange rules.
 
 ## Current State
 
-Windows Operator does not currently expose a first-class Power Automate flow
-creation surface.
+Windows Operator now exposes a narrow Power Automate MCP bridge and API-backed
+flow read/update/create surface. Creation uses the update request with
+`create:true`. It does not yet expose first-class semantic
+cloud-flow models.
 
 Existing support:
 
@@ -18,13 +20,23 @@ Existing support:
 - Generic Edge/browser automation for portal work.
 - Microsoft auth browser handoff for user-delegated sign-in flows.
 - Power Automate Desktop is installed on the Windows VM.
+- Power Automate MCP flow reads and writes use captured
+  browser tokens and Power Automate backend APIs, not designer UI automation.
 
 Missing support:
 
-- No `/v1/power-automate/...` REST namespace.
-- No `wo pa ...` CLI wrapper.
-- No generated Power Automate cloud-flow create/update contract.
+- No generated semantic Power Automate cloud-flow builder/update model.
 - No installed `pac` CLI or Power Platform PowerShell modules on the checked VM.
+
+## Power Automate Write Policy
+
+Cloud-flow writes must use the browser-token/API/MCP path. The harness must
+fail closed when token capture, MCP context, or backend API calls are
+unavailable.
+
+Power Automate designer UI automation is allowed only as explicit break-glass
+work. It can verify visible state, run Flow checker, or capture screenshots, but
+it must not silently create or mutate flows as a fallback for a failed API path.
 
 ## Recommended V1
 
@@ -252,15 +264,38 @@ Edge adaptation work is mostly harness integration, not an extension rewrite:
    `get_context`.
 6. Add an operator-only route or script that starts the bridge, opens Edge with
    the extension loaded, and reports readiness.
-7. Do not install or enable the token-capturing extension without explicit user
-   approval.
+7. Keep the token-capturing extension scoped to the operator-owned Edge session.
+
+Implemented harness surface:
+
+```text
+GET  /v1/power-automate/mcp/status
+POST /v1/power-automate/mcp/start
+POST /v1/power-automate/mcp/edge
+POST /v1/power-automate/mcp/flows/read
+POST /v1/power-automate/mcp/flows/update
+```
+
+Operator CLI:
+
+```text
+scripts/linux/wo power-automate mcp status
+scripts/linux/wo power-automate mcp start --dry-run
+scripts/linux/wo power-automate mcp edge --dry-run
+scripts/linux/wo power-automate mcp flow-read --flow-id <flow-id>
+scripts/linux/wo power-automate mcp flow-update --flow-id <flow-id> --flow-json-file flow.json --dry-run
+scripts/linux/wo power-automate mcp flow-update --create --display-name <name> --flow-json-file flow.json --no-dry-run
+```
+
+`/edge` loads the local token-capturing extension into the operator-owned Edge
+session and keeps captured context on Windows loopback.
 
 Live VM readiness notes:
 
 - Microsoft Edge exists at
   `C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`.
-- Node exists at `C:\Program Files\nodejs\node.exe` with version `v24.10.0`.
-- npm exists at `C:\Program Files\nodejs\npm.cmd` with version `11.6.1`.
+- Node exists at `C:\Program Files\nodejs\node.exe` with version `v24.1.0`.
+- npm exists at `C:\Program Files\nodejs\npm.cmd` with version `11.3.0`.
 - The npm registry latest observed for `@kaael1/mcp-power-automate` was `0.4.1`,
   while repository `main` declared `1.0.0`; pin a version or git SHA for
   reproducibility.

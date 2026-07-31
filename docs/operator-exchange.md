@@ -141,7 +141,6 @@ export WINDOWS_OPERATOR_RUN_TRANSPORT=ssh-copy
 scripts/linux/windows-sync-repo.sh
 scripts/linux/windows-run-ps.sh scripts/windows/bootstrap.ps1 \
   -RepoRoot 'C:\src\windows-operator' \
-  -EnableAutostart \
   -ExchangeRoot 'C:\ProgramData\WindowsOperator\exchange' \
   -HostExchangeRoot 'C:\ProgramData\WindowsOperator\exchange'
 ```

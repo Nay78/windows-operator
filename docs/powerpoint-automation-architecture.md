@@ -276,7 +276,7 @@ Host validates the REST boundary before queueing or storing results:
 
 - `jobId` and `artifactId` must use lowercase ASCII letters, digits, `_`, `-`, or interior dots, and must avoid Windows device names.
 - Jobs require `requestedBy` and at least one operation unless `discoverTargets: true`.
-- Operation kinds are `replaceText`, `replaceImage`, `readTable`, `replaceTableCell`, and `replaceTableRange`.
+- Operation kinds are `replaceText`, `replaceImage`, `readShapeBounds`, `setShapeBounds`, `readTable`, `readTableGeometry`, `findTableColumn`, `replaceTableCell`, and `replaceTableRange`.
 - `discoverTargets: true` asks add-in to enumerate supported binding-backed
   targets and named `TARGET_*` shapes without mutation, returning metadata in
   `discoveredTargets`.
@@ -285,7 +285,11 @@ Host validates the REST boundary before queueing or storing results:
   apply. The high-level online route treats this as deck mutation.
 - `replaceText` requires `text`; whitespace-only text requires `allowEmpty: true`.
 - `replaceImage` requires a valid staged artifact with `image/png` or `image/jpeg`.
+- `readShapeBounds` is non-mutating and returns `targets[].bounds` in absolute slide points.
+- `setShapeBounds` moves/resizes an existing shape target using absolute slide-point `left`, `top`, `width`, and `height`.
 - `readTable` is non-mutating and returns `targets[].table` with `rowCount`, `columnCount`, and `values`.
+- `readTableGeometry` is non-mutating and returns `targets[].table.geometry` with table bounds, column positions/widths, and row positions/heights.
+- `findTableColumn` is non-mutating; it searches one table row for exact normalized text and returns `targets[].tableMatch.columnIndex`.
 - `replaceTableCell` requires zero-based `rowIndex`, `columnIndex`, and `text`; whitespace-only text requires `allowEmpty: true`.
 - `replaceTableRange` writes a rectangular `values` matrix at optional zero-based `startRowIndex` and `startColumnIndex`, defaulting to `0`.
 - `validateOnly: true` keeps job shape and target ids required, but allows

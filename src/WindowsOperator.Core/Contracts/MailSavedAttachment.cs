@@ -7,8 +7,8 @@ public sealed record MailSavedAttachment(
     DateTimeOffset? ReceivedTime,
     int AttachmentIndex,
     string FileName,
-    string RelativePath,
-    string AbsolutePath,
+    [property: OperatorInternal] string RelativePath,
+    [property: OperatorInternal] string AbsolutePath,
     long Bytes,
     bool AlreadyProcessed,
     ArtifactRef? Artifact = null);

@@ -25,6 +25,8 @@ public static class OperatorHttp
     public static int MapStatusCode(string errorCode) =>
         errorCode switch
         {
+            ErrorCodes.InvalidRequest => StatusCodes.Status400BadRequest,
+            ErrorCodes.InternalError => StatusCodes.Status500InternalServerError,
             ErrorCodes.WindowNotFound => StatusCodes.Status404NotFound,
             ErrorCodes.LockedDesktop => StatusCodes.Status423Locked,
             ErrorCodes.UipiBlocked => StatusCodes.Status409Conflict,
@@ -32,7 +34,12 @@ public static class OperatorHttp
             ErrorCodes.BlankCapture => StatusCodes.Status409Conflict,
             ErrorCodes.MinimizedRdp => StatusCodes.Status409Conflict,
             ErrorCodes.UnsupportedControl => StatusCodes.Status422UnprocessableEntity,
+            ErrorCodes.AuthUnavailable => StatusCodes.Status423Locked,
+            ErrorCodes.AuthRunNotFound => StatusCodes.Status404NotFound,
+            ErrorCodes.BrowserSessionNotFound => StatusCodes.Status404NotFound,
+            ErrorCodes.WorkbenchSessionNotFound => StatusCodes.Status404NotFound,
             ErrorCodes.PowerPointValidationFailed => StatusCodes.Status422UnprocessableEntity,
+            ErrorCodes.PowerPointSessionNotFound => StatusCodes.Status404NotFound,
             ErrorCodes.PowerPointJobNotFound => StatusCodes.Status404NotFound,
             ErrorCodes.ArtifactNotFound => StatusCodes.Status404NotFound,
             ErrorCodes.PowerPointUnavailable => StatusCodes.Status423Locked,
@@ -42,6 +49,8 @@ public static class OperatorHttp
             ErrorCodes.MailFolderNotFound => StatusCodes.Status404NotFound,
             ErrorCodes.MailRunNotFound => StatusCodes.Status404NotFound,
             ErrorCodes.MailUnavailable => StatusCodes.Status423Locked,
+            ErrorCodes.PowerAutomateMcpUnavailable => StatusCodes.Status423Locked,
+            ErrorCodes.PowerAutomateMcpValidationFailed => StatusCodes.Status422UnprocessableEntity,
             ErrorCodes.OpenApiNamespaceNotFound => StatusCodes.Status404NotFound,
             ErrorCodes.OpenApiSurfaceInvalid => StatusCodes.Status422UnprocessableEntity,
             _ => StatusCodes.Status500InternalServerError,

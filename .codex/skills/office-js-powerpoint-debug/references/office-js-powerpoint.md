@@ -240,6 +240,38 @@ curl -sS -X POST http://127.0.0.1:43117/v1/powerpoint/online/updates \
 - Reopened table screenshot: `/var/lib/windows-server/shared/operator-exchange/runs/ppt-table-onecall-sem27-20260705t0453z-verification/screenshots/powerpoint-online-update.png`
 - Cleanup screenshot: `/var/lib/windows-server/shared/operator-exchange/runs/ppt-table-onecall-sem27-20260705t0453z-verification/screenshots/powerpoint-online-template-cleanup.png`
 
+## 2026-07-09 Geometry Primitive Implementation
+
+### Observed behavior
+
+Local `@types/office-js` exposes writable PowerPoint shape `left`, `top`,
+`width`, and `height`, plus table column `width` and row `currentHeight`.
+Add-in typecheck and build succeeded against these APIs. Live Host capability
+reported `powerpoint.online.update.available=false` because the PowerPoint
+add-in host is not enabled, so live deck proof was not available in this run.
+
+### Implication
+
+The operator can expose typed shape/table geometry primitives without raw
+browser DOM mutation. Live proof still needs an enabled add-in host and a deck
+with named `DATA_TABLE` and `DATE_HIGHLIGHT_BOX` targets.
+
+### Working command/script
+
+```bash
+cd src/WindowsOperator.PowerPointAddIn
+npm run typecheck
+npm run build
+
+curl -sS http://127.0.0.1:43117/v1/capabilities
+```
+
+### Evidence path
+
+No file artifact; command output was terminal-only in the 2026-07-09 Codex
+implementation session. The live capability response reported
+`"PowerPoint add-in host is not enabled."`
+
 ## 2026-07-05 Named Template Target Repair Proof
 
 ### Observed behavior

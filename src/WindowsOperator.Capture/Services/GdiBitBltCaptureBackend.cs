@@ -1,5 +1,6 @@
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.ComponentModel;
 using WindowsOperator.Core;
 using WindowsOperator.Core.Contracts;
 using Image = SixLabors.ImageSharp.Image;
@@ -29,21 +30,31 @@ public sealed class GdiBitBltCaptureBackend : ICaptureBackend
                     OperatorErrors.WindowNotFound($"Invalid bounds for hwnd={window.Hwnd}.")));
         }
 
-        using var bitmap = new Bitmap(window.Bounds.Width, window.Bounds.Height, PixelFormat.Format32bppArgb);
-        using var graphics = Graphics.FromImage(bitmap);
-        graphics.CopyFromScreen(window.Bounds.X, window.Bounds.Y, 0, 0, new Size(window.Bounds.Width, window.Bounds.Height));
+        try
+        {
+            using var bitmap = new Bitmap(window.Bounds.Width, window.Bounds.Height, PixelFormat.Format32bppArgb);
+            using var graphics = Graphics.FromImage(bitmap);
+            graphics.CopyFromScreen(window.Bounds.X, window.Bounds.Y, 0, 0, new Size(window.Bounds.Width, window.Bounds.Height));
 
-        using var stream = new MemoryStream();
-        bitmap.Save(stream, ImageFormat.Png);
-        stream.Position = 0;
+            using var stream = new MemoryStream();
+            bitmap.Save(stream, ImageFormat.Png);
+            stream.Position = 0;
 
-        return Task.FromResult(
-            CaptureBackendResult.Success(
-                new RawCaptureFrame(
-                    Image.Load<Rgba32>(stream),
-                    window.Bounds,
-                    window.DpiScale,
-                    Name,
-                    DateTimeOffset.UtcNow)));
+            return Task.FromResult(
+                CaptureBackendResult.Success(
+                    new RawCaptureFrame(
+                        Image.Load<Rgba32>(stream),
+                        window.Bounds,
+                        window.DpiScale,
+                        Name,
+                        DateTimeOffset.UtcNow)));
+        }
+        catch (Win32Exception exception)
+        {
+            return Task.FromResult(
+                CaptureBackendResult.Fail(
+                    OperatorErrors.MinimizedRdp(
+                        $"Screen copy unavailable for hwnd={window.Hwnd}; win32={exception.NativeErrorCode}.")));
+        }
     }
 }

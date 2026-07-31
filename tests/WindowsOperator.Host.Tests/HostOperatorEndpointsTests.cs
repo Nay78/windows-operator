@@ -2,10 +2,13 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http.Metadata;
 using Microsoft.AspNetCore.Http.Json;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using WindowsOperator.Core;
 using WindowsOperator.Core.Configuration;
 using WindowsOperator.Core.Contracts;
 using WindowsOperator.Core.Json;
@@ -17,6 +20,104 @@ namespace WindowsOperator.Host.Tests;
 
 public sealed class HostOperatorEndpointsTests
 {
+    [Theory]
+    [InlineData(ErrorCodes.AuthRunNotFound)]
+    [InlineData(ErrorCodes.BrowserSessionNotFound)]
+    [InlineData(ErrorCodes.WorkbenchSessionNotFound)]
+    [InlineData(ErrorCodes.PowerPointSessionNotFound)]
+    public void ResourceNotFound_MapsToHttpNotFound(string errorCode)
+    {
+        Assert.Equal(
+            (int)HttpStatusCode.NotFound,
+            HostOperatorHttp.MapStatusCode(errorCode));
+    }
+
+    [Fact]
+    public async Task UnknownRoute_ReturnsTypedRouteNotFound()
+    {
+        await using var app = await CreateAppAsync(new FakeUpdateService(null!));
+
+        var response = await app.GetTestClient().GetAsync("/v1/does-not-exist");
+
+        await AssertTypedErrorAsync(
+            response,
+            HttpStatusCode.NotFound,
+            ErrorCodes.RouteNotFound,
+            OperatorErrorCategory.NotFound,
+            retryable: false);
+    }
+
+    [Fact]
+    public async Task WrongMethod_ReturnsTypedMethodNotAllowed()
+    {
+        await using var app = await CreateAppAsync(new FakeUpdateService(null!));
+
+        var response = await app.GetTestClient().PostAsync("/v1/health", content: null);
+
+        await AssertTypedErrorAsync(
+            response,
+            HttpStatusCode.MethodNotAllowed,
+            ErrorCodes.MethodNotAllowed,
+            OperatorErrorCategory.Validation,
+            retryable: false);
+    }
+
+    [Fact]
+    public async Task MalformedJson_ReturnsTypedInvalidRequest()
+    {
+        await using var app = await CreateAppAsync(new FakeUpdateService(null!));
+        var client = app.GetTestClient();
+        using var content = new StringContent(
+            "{\"keys\":",
+            System.Text.Encoding.UTF8,
+            "application/json");
+
+        var response = await client.PostAsync("/v1/input/hotkey", content);
+
+        await AssertTypedErrorAsync(
+            response,
+            HttpStatusCode.BadRequest,
+            ErrorCodes.InvalidRequest,
+            OperatorErrorCategory.Validation,
+            retryable: false);
+    }
+
+    [Fact]
+    public async Task InvalidScreenshotFormat_ReturnsTypedInvalidRequest()
+    {
+        await using var app = await CreateAppAsync(new FakeUpdateService(null!));
+        var client = app.GetTestClient();
+
+        var response = await client.GetAsync("/v1/windows/42/screenshot?format=gif");
+
+        await AssertTypedErrorAsync(
+            response,
+            HttpStatusCode.BadRequest,
+            ErrorCodes.InvalidRequest,
+            OperatorErrorCategory.Validation,
+            retryable: false);
+    }
+
+    [Fact]
+    public async Task UnexpectedEndpointException_ReturnsSafeTypedInternalError()
+    {
+        await using var app = await CreateAppAsync(new FakeUpdateService(null!));
+        var client = app.GetTestClient();
+
+        var response = await client.GetAsync("/v1/health");
+
+        var error = await AssertTypedErrorAsync(
+            response,
+            HttpStatusCode.InternalServerError,
+            ErrorCodes.InternalError,
+            OperatorErrorCategory.Internal,
+            retryable: true);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.DoesNotContain(nameof(NotSupportedException), body, StringComparison.Ordinal);
+        Assert.DoesNotContain("HostOperatorEndpointsTests", body, StringComparison.Ordinal);
+        Assert.Equal("Unhandled endpoint exception.", error.Details!["detail"]);
+    }
+
     [Fact]
     public async Task PowerPointOnlineUpdatesRoute_MapsRequestAndResponse()
     {
@@ -177,6 +278,76 @@ public sealed class HostOperatorEndpointsTests
     }
 
     [Fact]
+    public async Task PowerAutomateMcpRoutes_MapRequestsAndResponses()
+    {
+        var powerAutomate = new FakePowerAutomateMcpService();
+        await using var app = await CreateAppAsync(
+            new FakeUpdateService(new PowerPointOnlineUpdateResult
+            {
+                Success = true,
+                Status = PowerPointOnlineUpdateStatus.Succeeded,
+                SaveProofTier = PowerPointOnlineSaveProofTier.Tier2SavedIndicator,
+                Session = CreateSession(),
+                JobRecord = CreateJobRecord(),
+                Evidence = Array.Empty<DesktopScreenshotResult>(),
+                Actions = Array.Empty<string>(),
+                Warnings = Array.Empty<string>(),
+                Errors = Array.Empty<OperatorError>(),
+                ObservedAtUtc = DateTimeOffset.Parse("2026-07-03T12:00:05Z"),
+            }),
+            powerAutomateMcp: powerAutomate);
+        var client = app.GetTestClient();
+
+        var status = await client.GetFromJsonAsync<PowerAutomateMcpStatusResult>(
+            "/v1/power-automate/mcp/status",
+            OperatorJson.SerializerOptions);
+        var startResponse = await client.PostAsJsonAsync(
+            "/v1/power-automate/mcp/start",
+            new PowerAutomateMcpStartRequest { BridgePort = 17373, DryRun = true },
+            OperatorJson.SerializerOptions);
+        var edgeResponse = await client.PostAsJsonAsync(
+            "/v1/power-automate/mcp/edge",
+            new PowerAutomateMcpEdgeRequest
+            {
+                DryRun = true,
+                ProfileMode = BrowserEdgeProfileMode.Temp,
+            },
+            OperatorJson.SerializerOptions);
+        var cleanupResponse = await client.PostAsync(
+            "/v1/power-automate/mcp/edge/cleanup",
+            content: null);
+        var readResponse = await client.PostAsJsonAsync(
+            "/v1/power-automate/mcp/flows/read",
+            new PowerAutomateMcpFlowReadRequest { FlowId = "flow-1" },
+            OperatorJson.SerializerOptions);
+        var updateResponse = await client.PostAsJsonAsync(
+            "/v1/power-automate/mcp/flows/update",
+            new PowerAutomateMcpFlowUpdateRequest
+            {
+                FlowId = "flow-1",
+                FlowJson = "{\"connectionReferences\":{},\"definition\":{}}",
+                DryRun = true,
+            },
+            OperatorJson.SerializerOptions);
+
+        Assert.NotNull(status);
+        Assert.True(status!.BridgeHealthy);
+        Assert.Equal(HttpStatusCode.OK, startResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, edgeResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, cleanupResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, readResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
+        Assert.Equal(17373, powerAutomate.LastStartRequest!.BridgePort);
+        Assert.True(powerAutomate.LastStartRequest.DryRun);
+        Assert.NotNull(powerAutomate.LastEdgeRequest);
+        Assert.Equal(BrowserEdgeProfileMode.Temp, powerAutomate.LastEdgeRequest.ProfileMode);
+        Assert.Equal(1, powerAutomate.CleanupCalls);
+        Assert.Equal("flow-1", powerAutomate.LastReadRequest!.FlowId);
+        Assert.Equal("flow-1", powerAutomate.LastUpdateRequest!.FlowId);
+        Assert.True(powerAutomate.LastUpdateRequest.DryRun);
+    }
+
+    [Fact]
     public async Task CapabilitiesRoute_ReturnsContractAndFeatures()
     {
         await using var app = await CreateAppAsync(new FakeUpdateService(new PowerPointOnlineUpdateResult
@@ -200,9 +371,14 @@ public sealed class HostOperatorEndpointsTests
         var result = await response.Content.ReadFromJsonAsync<CapabilitiesResult>(OperatorJson.SerializerOptions);
         Assert.NotNull(result);
         Assert.Equal("0.1.0", result!.ContractVersion);
+        Assert.Equal("1.0.0+abcdef123456", result.Build.InformationalVersion);
+        Assert.Equal("1.0.0.0", result.Build.AssemblyVersion);
+        Assert.Equal("abcdef123456", result.Build.SourceRevision);
         Assert.Equal("headless-host", result.Host.RuntimeMode);
         Assert.True(result.Features["powerpoint.online.update"].Available);
         Assert.True(result.Features["mail.outlook.download"].Available);
+        Assert.True(result.Features["power-automate.mcp"].Available);
+        Assert.Equal("diagnostic", result.Features["power-automate.mcp"].Surface);
     }
 
     [Fact]
@@ -313,6 +489,8 @@ public sealed class HostOperatorEndpointsTests
     {
         var json = JsonSerializer.Serialize(OperatorOpenApi.Document, OperatorJson.SerializerOptions);
 
+        Assert.Contains("\"/openapi.json\"", json);
+        Assert.Contains("\"getOpenApiDocument\"", json);
         Assert.Contains("\"/v1/powerpoint/online/updates\"", json);
         Assert.Contains("\"updatePowerPointOnlinePresentation\"", json);
         Assert.Contains("\"/v1/powerpoint/online/sessions/{sessionId}/addin/probe\"", json);
@@ -323,12 +501,41 @@ public sealed class HostOperatorEndpointsTests
         Assert.Contains("\"runPowerPointOnlineDevScript\"", json);
         Assert.Contains("\"/v1/dev/browser/edge/sessions/{sessionId}/eval\"", json);
         Assert.Contains("\"evaluateEdgeBrowserDevScript\"", json);
+        Assert.Contains("\"/v1/power-automate/mcp/status\"", json);
+        Assert.Contains("\"getPowerAutomateMcpStatus\"", json);
+        Assert.Contains("\"/v1/power-automate/mcp/start\"", json);
+        Assert.Contains("\"startPowerAutomateMcpBridge\"", json);
+        Assert.Contains("\"/v1/power-automate/mcp/edge\"", json);
+        Assert.Contains("\"openPowerAutomateMcpEdge\"", json);
+        Assert.Contains("\"/v1/power-automate/mcp/edge/cleanup\"", json);
+        Assert.Contains("\"cleanupPowerAutomateMcpEdge\"", json);
+        Assert.Contains("\"/v1/power-automate/mcp/flows/read\"", json);
+        Assert.Contains("\"readPowerAutomateMcpFlow\"", json);
+        Assert.Contains("\"/v1/power-automate/mcp/flows/update\"", json);
+        Assert.Contains("\"updatePowerAutomateMcpFlow\"", json);
         Assert.Contains("\"/v1/capabilities\"", json);
         Assert.Contains("\"getCapabilities\"", json);
         Assert.Contains("\"/v1/artifacts/{artifactId}\"", json);
         Assert.Contains("\"getArtifact\"", json);
         Assert.Contains("\"/v1/runs/{runId}/artifacts\"", json);
         Assert.Contains("\"listRunArtifacts\"", json);
+    }
+
+    [Fact]
+    public void OpenApi_ClaimPowerPointJob_DocumentsEmptyQueue()
+    {
+        using var document = JsonDocument.Parse(
+            JsonSerializer.Serialize(OperatorOpenApi.Document, OperatorJson.SerializerOptions));
+        var operation = document.RootElement
+            .GetProperty("paths")
+            .GetProperty("/v1/powerpoint/jobs/claim")
+            .GetProperty("post");
+
+        Assert.Equal(
+            "claimPowerPointJob",
+            operation.GetProperty("operationId").GetString());
+        Assert.True(operation.GetProperty("responses").TryGetProperty("204", out var noContent));
+        Assert.Equal("No queued job is available.", noContent.GetProperty("description").GetString());
     }
 
     [Fact]
@@ -351,6 +558,7 @@ public sealed class HostOperatorEndpointsTests
             "input",
             "browser.edge",
             "auth.microsoft",
+            "power-automate.mcp",
             "powerpoint.online",
             "powerpoint.jobs",
             "artifacts",
@@ -418,6 +626,73 @@ public sealed class HostOperatorEndpointsTests
                 .GetProperty("post")
                 .GetProperty("x-windows-operator-surface")
                 .GetString());
+        Assert.Equal(
+            "power-automate.mcp",
+            paths
+                .GetProperty("/v1/power-automate/mcp/status")
+                .GetProperty("get")
+                .GetProperty("x-windows-operator-namespace")
+                .GetString());
+        Assert.Equal(
+            "diagnostic",
+            paths
+                .GetProperty("/v1/power-automate/mcp/edge")
+                .GetProperty("post")
+                .GetProperty("x-windows-operator-surface")
+                .GetString());
+        Assert.Equal(
+            "diagnostic",
+            paths
+                .GetProperty("/v1/power-automate/mcp/edge/cleanup")
+                .GetProperty("post")
+                .GetProperty("x-windows-operator-surface")
+                .GetString());
+
+        var statusProperties = document.RootElement
+            .GetProperty("components")
+            .GetProperty("schemas")
+            .GetProperty("PowerAutomateMcpStatusResult")
+            .GetProperty("properties");
+        Assert.True(statusProperties.TryGetProperty("edgeSessionAlive", out _));
+        Assert.True(statusProperties.TryGetProperty("edgeProcessId", out _));
+        Assert.True(statusProperties.TryGetProperty("edgeHwnd", out _));
+        Assert.True(statusProperties.TryGetProperty("edgeLastUsedAtUtc", out _));
+        Assert.True(statusProperties.TryGetProperty("edgeLeaseExpiresAtUtc", out _));
+        Assert.True(statusProperties.TryGetProperty("edgeIdleTtlSeconds", out _));
+    }
+
+    [Fact]
+    public async Task OpenApi_Operations_MatchRuntimeEndpointMethodsAndRoutes()
+    {
+        await using var app = await CreateAppAsync(new FakeUpdateService(null!));
+        var runtimeOperations = app.Services
+            .GetRequiredService<EndpointDataSource>()
+            .Endpoints
+            .OfType<RouteEndpoint>()
+            .SelectMany(endpoint =>
+            {
+                var methods = endpoint.Metadata.GetMetadata<IHttpMethodMetadata>()?.HttpMethods ??
+                    Array.Empty<string>();
+                var route = NormalizeRoute(endpoint.RoutePattern.RawText!);
+                return methods.Select(method => $"{method.ToUpperInvariant()} {route}");
+            })
+            .ToHashSet(StringComparer.Ordinal);
+
+        using var document = JsonDocument.Parse(
+            JsonSerializer.Serialize(OperatorOpenApi.Document, OperatorJson.SerializerOptions));
+        var contractOperations = document.RootElement
+            .GetProperty("paths")
+            .EnumerateObject()
+            .SelectMany(path => path.Value
+                .EnumerateObject()
+                .Where(operation => operation.Name is "get" or "post" or "put" or "patch" or "delete")
+                .Select(operation =>
+                    $"{operation.Name.ToUpperInvariant()} {NormalizeRoute(path.Name)}"))
+            .ToHashSet(StringComparer.Ordinal);
+
+        Assert.Equal(
+            contractOperations.OrderBy(operation => operation, StringComparer.Ordinal),
+            runtimeOperations.OrderBy(operation => operation, StringComparer.Ordinal));
     }
 
     [Fact]
@@ -449,11 +724,21 @@ public sealed class HostOperatorEndpointsTests
         Assert.Equal(new[] { "stable" }, mailNamespace.Surfaces);
         Assert.Equal(5, mailNamespace.PathCount);
         Assert.Equal(5, mailNamespace.OperationCount);
+        var powerAutomateNamespace = Assert.Single(discovery.Namespaces, item => item.Name == "power-automate.mcp");
+        Assert.Equal("/openapi/namespaces/power-automate.mcp.json", powerAutomateNamespace.Href);
+        Assert.Equal(new[] { "diagnostic" }, powerAutomateNamespace.Surfaces);
+        Assert.Equal(6, powerAutomateNamespace.PathCount);
+        Assert.Equal(6, powerAutomateNamespace.OperationCount);
 
         using var mail = await GetJsonDocumentAsync(client, "/openapi/namespaces/mail.outlook.json");
         var mailPaths = mail.RootElement.GetProperty("paths").EnumerateObject().Select(item => item.Name).ToArray();
         Assert.NotEmpty(mailPaths);
         Assert.All(mailPaths, path => Assert.StartsWith("/v1/mail/", path, StringComparison.Ordinal));
+
+        using var powerAutomate = await GetJsonDocumentAsync(client, "/openapi/namespaces/power-automate.mcp.json?surface=diagnostic");
+        var powerAutomatePaths = powerAutomate.RootElement.GetProperty("paths").EnumerateObject().Select(item => item.Name).ToArray();
+        Assert.Equal(6, powerAutomatePaths.Length);
+        Assert.All(powerAutomatePaths, path => Assert.StartsWith("/v1/power-automate/mcp/", path, StringComparison.Ordinal));
 
         using var powerpointStable = await GetJsonDocumentAsync(client, "/openapi/namespaces/powerpoint.online.json");
         Assert.True(powerpointStable.RootElement.GetProperty("paths").TryGetProperty("/v1/powerpoint/online/updates", out _));
@@ -487,23 +772,72 @@ public sealed class HostOperatorEndpointsTests
         IPowerPointOnlineUpdateService updates,
         IPowerPointOnlineService? powerpointOnline = null,
         IDevAutomationService? devAutomation = null,
+        IPowerAutomateMcpService? powerAutomateMcp = null,
         IArtifactService? artifacts = null)
     {
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseTestServer();
-        builder.Services.Configure<JsonOptions>(options => OperatorJson.Configure(options.SerializerOptions));
+        builder.Services.Configure<JsonOptions>(options => OperatorJson.ConfigureHttp(options.SerializerOptions));
         builder.Services.AddSingleton(updates);
         builder.Services.AddSingleton<IOperatorFacade, UnusedFacade>();
         builder.Services.AddSingleton<IWorkbenchService, UnusedWorkbenchService>();
         builder.Services.AddSingleton<IPowerPointOnlineService>(powerpointOnline ?? new UnusedPowerPointOnlineService());
         builder.Services.AddSingleton<IDevAutomationService>(devAutomation ?? new UnusedDevAutomationService());
+        builder.Services.AddSingleton<IPowerAutomateMcpService>(powerAutomateMcp ?? new UnusedPowerAutomateMcpService());
         builder.Services.AddSingleton<IPowerPointJobService, UnusedPowerPointJobService>();
         builder.Services.AddSingleton(artifacts ?? new UnusedArtifactService());
 
         var app = builder.Build();
+        app.UseHostOperatorErrorHandling();
         app.MapHostOperatorEndpoints();
         await app.StartAsync();
         return app;
+    }
+
+    private static string NormalizeRoute(string route)
+    {
+        var segments = route.Split('/', StringSplitOptions.None);
+        for (var index = 0; index < segments.Length; index++)
+        {
+            if (segments[index].StartsWith('{') && segments[index].EndsWith('}'))
+            {
+                var suffix = segments[index].EndsWith("}.json", StringComparison.Ordinal)
+                    ? ".json"
+                    : string.Empty;
+                segments[index] = "{}" + suffix;
+            }
+            else if (segments[index].Contains('{', StringComparison.Ordinal))
+            {
+                var open = segments[index].IndexOf('{', StringComparison.Ordinal);
+                var close = segments[index].IndexOf('}', open);
+                if (close >= 0)
+                {
+                    segments[index] = segments[index][..open] + "{}" + segments[index][(close + 1)..];
+                }
+            }
+        }
+
+        return string.Join('/', segments);
+    }
+
+    private static async Task<OperatorError> AssertTypedErrorAsync(
+        HttpResponseMessage response,
+        HttpStatusCode expectedStatus,
+        string expectedCode,
+        OperatorErrorCategory expectedCategory,
+        bool retryable)
+    {
+        Assert.Equal(expectedStatus, response.StatusCode);
+        Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
+        var error = await response.Content.ReadFromJsonAsync<OperatorError>(OperatorJson.SerializerOptions);
+        Assert.NotNull(error);
+        Assert.Equal(expectedCode, error.Code);
+        Assert.False(string.IsNullOrWhiteSpace(error.Message));
+        Assert.False(string.IsNullOrWhiteSpace(error.Remediation));
+        Assert.False(string.IsNullOrWhiteSpace(error.CorrelationId));
+        Assert.Equal(expectedCategory, error.Category);
+        Assert.Equal(retryable, error.Retryable);
+        return error;
     }
 
     private static PowerPointOnlineSessionResult CreateSession() =>
@@ -620,11 +954,13 @@ public sealed class HostOperatorEndpointsTests
         public Task<CapabilitiesResult> GetCapabilitiesAsync(CancellationToken cancellationToken) =>
             Task.FromResult(new CapabilitiesResult(
                 "0.1.0",
+                new RuntimeBuildIdentity("1.0.0+abcdef123456", "1.0.0.0", "abcdef123456"),
                 new CapabilityHost("ok", "headless-host", "http://127.0.0.1:43117", "ok"),
                 new Dictionary<string, CapabilityFeature>(StringComparer.Ordinal)
                 {
                     ["powerpoint.online.update"] = new(true, "stable"),
                     ["mail.outlook.download"] = new(true, "stable"),
+                    ["power-automate.mcp"] = new(true, "diagnostic"),
                 },
                 DateTimeOffset.Parse("2026-07-06T12:00:00Z")));
         public Task<MailDownloadResult> DownloadMailAttachmentsAsync(MailDownloadRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
@@ -679,6 +1015,120 @@ public sealed class HostOperatorEndpointsTests
     {
         public Task<DevScriptResult> EvaluateEdgeBrowserSessionAsync(string sessionId, BrowserEdgeDevEvalRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<DevScriptResult> RunPowerPointOnlineScriptAsync(string sessionId, PowerPointDevScriptRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+    }
+
+    private sealed class FakePowerAutomateMcpService : IPowerAutomateMcpService
+    {
+        public PowerAutomateMcpStartRequest? LastStartRequest { get; private set; }
+
+        public PowerAutomateMcpEdgeRequest? LastEdgeRequest { get; private set; }
+
+        public PowerAutomateMcpFlowReadRequest? LastReadRequest { get; private set; }
+
+        public PowerAutomateMcpFlowUpdateRequest? LastUpdateRequest { get; private set; }
+
+        public int CleanupCalls { get; private set; }
+
+        public Task<PowerAutomateMcpStatusResult> GetStatusAsync(CancellationToken cancellationToken) =>
+            Task.FromResult(new PowerAutomateMcpStatusResult
+            {
+                Success = true,
+                BridgeListening = true,
+                BridgeHealthy = true,
+                ContextAvailable = true,
+                BridgeVersion = "0.4.1",
+                EdgeSessionAlive = true,
+                EdgeProcessId = 5678,
+                EdgeHwnd = 4321,
+                EdgeIdleTtlSeconds = 900,
+                Actions = new[] { "status_observed" },
+                ObservedAtUtc = DateTimeOffset.Parse("2026-07-06T12:00:00Z"),
+            });
+
+        public Task<PowerAutomateMcpStartResult> StartBridgeAsync(PowerAutomateMcpStartRequest request, CancellationToken cancellationToken)
+        {
+            LastStartRequest = request;
+            return Task.FromResult(new PowerAutomateMcpStartResult
+            {
+                Success = true,
+                ProcessId = 1234,
+                Status = new PowerAutomateMcpStatusResult
+                {
+                    Success = true,
+                    BridgeListening = true,
+                    BridgeHealthy = true,
+                },
+                Actions = new[] { "bridge_started" },
+                ObservedAtUtc = DateTimeOffset.Parse("2026-07-06T12:00:01Z"),
+            });
+        }
+
+        public Task<PowerAutomateMcpEdgeResult> OpenEdgeAsync(PowerAutomateMcpEdgeRequest request, CancellationToken cancellationToken)
+        {
+            LastEdgeRequest = request;
+            return Task.FromResult(new PowerAutomateMcpEdgeResult
+            {
+                Success = true,
+                Url = request.Url,
+                ProfileMode = request.ProfileMode,
+                ProcessId = 5678,
+                Hwnd = 4321,
+                Alive = true,
+                TtlSeconds = 900,
+                Actions = new[] { "edge_opened" },
+                ObservedAtUtc = DateTimeOffset.Parse("2026-07-06T12:00:02Z"),
+            });
+        }
+
+        public Task<PowerAutomateMcpEdgeCleanupResult> CleanupEdgeAsync(CancellationToken cancellationToken)
+        {
+            CleanupCalls++;
+            return Task.FromResult(new PowerAutomateMcpEdgeCleanupResult
+            {
+                Success = true,
+                Alive = false,
+                ProcessId = 5678,
+                Hwnd = 4321,
+                TtlSeconds = 900,
+                Actions = new[] { "edge_cleaned" },
+                ObservedAtUtc = DateTimeOffset.Parse("2026-07-06T12:00:03Z"),
+            });
+        }
+
+        public Task<PowerAutomateMcpFlowReadResult> ReadFlowAsync(PowerAutomateMcpFlowReadRequest request, CancellationToken cancellationToken)
+        {
+            LastReadRequest = request;
+            return Task.FromResult(new PowerAutomateMcpFlowReadResult
+            {
+                Success = true,
+                EnvId = "env-1",
+                FlowId = request.FlowId ?? "flow-1",
+                DisplayName = "Flow",
+                FlowJson = "{\"connectionReferences\":{},\"definition\":{}}",
+                Source = "modern-api",
+            });
+        }
+
+        public Task<PowerAutomateMcpFlowUpdateResult> UpdateFlowAsync(PowerAutomateMcpFlowUpdateRequest request, CancellationToken cancellationToken)
+        {
+            LastUpdateRequest = request;
+            return Task.FromResult(new PowerAutomateMcpFlowUpdateResult
+            {
+                Success = true,
+                Status = request.DryRun ? PowerAutomateMcpFlowUpdateStatus.DryRun : PowerAutomateMcpFlowUpdateStatus.Succeeded,
+                DryRun = request.DryRun,
+            });
+        }
+    }
+
+    private sealed class UnusedPowerAutomateMcpService : IPowerAutomateMcpService
+    {
+        public Task<PowerAutomateMcpStatusResult> GetStatusAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PowerAutomateMcpStartResult> StartBridgeAsync(PowerAutomateMcpStartRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PowerAutomateMcpEdgeResult> OpenEdgeAsync(PowerAutomateMcpEdgeRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PowerAutomateMcpEdgeCleanupResult> CleanupEdgeAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PowerAutomateMcpFlowReadResult> ReadFlowAsync(PowerAutomateMcpFlowReadRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PowerAutomateMcpFlowUpdateResult> UpdateFlowAsync(PowerAutomateMcpFlowUpdateRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 
     private sealed class UnusedPowerPointJobService : IPowerPointJobService

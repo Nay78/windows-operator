@@ -313,7 +313,7 @@ public sealed class McpToolCatalog
             "auth_microsoft_device_login" or
             "auth_microsoft_device_login_status" => $"{name}: success={BoolValue(obj, "success")} runId={StringValue(obj, "runId")} status={StringValue(obj, "status")} title={StringValue(obj, "browserTitle")}",
             "mail_list_folders" => $"{name}: success={BoolValue(obj, "success")} folders={ArrayCount(obj, "folders")} recovered={BoolValue(obj, "recovered")} warnings={ArrayCount(obj, "warnings")}",
-            "mail_status" => $"{name}: available={BoolValue(obj, "workerAvailable")} visible={IntValue(obj, "visibleOutlookCount")} headless={IntValue(obj, "headlessOutlookCount")} lastError={StringValue(obj, "lastWorkerError")}",
+            "mail_status" => $"{name}: available={BoolValue(obj, "workerAvailable")} visible={IntValue(obj, "visibleOutlookCount")} headless={IntValue(obj, "headlessOutlookCount")}",
             "mail_search_messages" => $"{name}: success={BoolValue(obj, "success")} messages={ArrayCount(obj, "messages")} recovered={BoolValue(obj, "recovered")} warnings={ArrayCount(obj, "warnings")}",
             "mail_download_attachments" or "mail_get_run" => $"{name}: success={BoolValue(obj, "success")} runId={StringValue(obj, "runId")} saved={IntValue(obj, "attachmentsSaved")} skipped={IntValue(obj, "attachmentsSkipped")} root={StringValue(obj, "downloadRoot")}",
             _ => $"{name}: success={BoolValue(obj, "success")} actions={ArrayCount(obj, "actions")} warnings={ArrayCount(obj, "warnings")} errors={ArrayCount(obj, "errors")}",
@@ -353,7 +353,8 @@ public sealed class McpToolCatalog
         }
     }
 
-    private static JsonNode? Serialize<T>(T value) => JsonSerializer.SerializeToNode(value, OperatorJson.SerializerOptions);
+    private static JsonNode? Serialize<T>(T value) =>
+        JsonSerializer.SerializeToNode(value, OperatorJson.PublicSerializerOptions);
 
     private static long ReadLong(JsonObject arguments, string propertyName)
     {
@@ -643,7 +644,7 @@ public sealed class McpToolCatalog
                 ["runId"] = new JsonObject { ["type"] = "string" },
                 ["loginUrl"] = new JsonObject { ["type"] = "string", ["default"] = "https://microsoft.com/devicelogin" },
                 ["pageLoadSeconds"] = new JsonObject { ["type"] = "integer", ["default"] = 6, ["minimum"] = 1, ["maximum"] = 30 },
-                ["verificationWaitSeconds"] = new JsonObject { ["type"] = "integer", ["default"] = 20, ["minimum"] = 0, ["maximum"] = 120 },
+                ["verificationWaitSeconds"] = new JsonObject { ["type"] = "integer", ["default"] = 20, ["minimum"] = 0, ["maximum"] = 600 },
                 ["inPrivate"] = new JsonObject { ["type"] = "boolean", ["default"] = false },
                 ["reuseExistingProfile"] = new JsonObject { ["type"] = "boolean", ["default"] = false },
                 ["dryRun"] = new JsonObject { ["type"] = "boolean", ["default"] = false },

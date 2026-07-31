@@ -111,7 +111,8 @@ internal sealed class FakePowerPointOnlineService : IPowerPointOnlineService
                         $"runs/workbench-test/screenshots/{label}.png",
                         $"/var/lib/windows-server/shared/operator-exchange/runs/workbench-test/screenshots/{label}.png",
                         "image/png",
-                        3),
+                        3,
+                        ArtifactRef.Create($"runs/workbench-test/screenshots/{label}.png", "image/png", 3)),
                     new WindowRef(
                         888,
                         777,

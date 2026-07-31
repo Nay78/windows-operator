@@ -13,4 +13,4 @@ public sealed record BrowserEdgeSessionDomActionResult(
     string? Url = null,
     string? Title = null,
     string? BodyText = null,
-    string? StatePath = null);
+    [property: OperatorInternal] string? StatePath = null);

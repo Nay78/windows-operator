@@ -89,6 +89,88 @@ namespace WindowsOperator.Host.Tests;
     }
 
     [Fact]
+    public async Task UpdateAsync_AllowsGeometryReadJobs_WhenDeckMutationNotAllowed()
+    {
+        var online = new FakePowerPointOnlineService();
+        var jobs = new FakePowerPointJobService();
+        var readJob = CreateJob() with
+        {
+            Operations = new[]
+            {
+                new PowerPointUpdateOperation
+                {
+                    Kind = "readShapeBounds",
+                    TargetId = "DATE_HIGHLIGHT_BOX",
+                },
+                new PowerPointUpdateOperation
+                {
+                    Kind = "readTableGeometry",
+                    TargetId = "DATA_TABLE",
+                },
+                new PowerPointUpdateOperation
+                {
+                    Kind = "findTableColumn",
+                    TargetId = "DATA_TABLE",
+                    RowIndex = 0,
+                    Text = "08-jul",
+                },
+            },
+        };
+        jobs.EnqueueResultFactory = record => record with { Status = "running" };
+        jobs.GetResults.Enqueue(CreateJobRecord("job-1", "succeeded") with { Job = readJob });
+        var service = new PowerPointOnlineUpdateService(online, jobs);
+
+        var result = await service.UpdateAsync(
+            CreateRequest() with
+            {
+                AllowDeckMutation = false,
+                Job = readJob,
+                Capture = false,
+            },
+            CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Single(jobs.EnqueuedJobs);
+        Assert.Equal(new[] { "readShapeBounds", "readTableGeometry", "findTableColumn" }, jobs.EnqueuedJobs[0].Operations.Select(operation => operation.Kind));
+    }
+
+    [Fact]
+    public async Task UpdateAsync_RejectsSetShapeBounds_WhenDeckMutationNotAllowed()
+    {
+        var online = new FakePowerPointOnlineService();
+        var jobs = new FakePowerPointJobService();
+        var mutationJob = CreateJob() with
+        {
+            Operations = new[]
+            {
+                new PowerPointUpdateOperation
+                {
+                    Kind = "setShapeBounds",
+                    TargetId = "DATE_HIGHLIGHT_BOX",
+                    Left = 100,
+                    Top = 20,
+                    Width = 50,
+                    Height = 400,
+                },
+            },
+        };
+        var service = new PowerPointOnlineUpdateService(online, jobs);
+
+        var ex = await Assert.ThrowsAsync<WindowsOperator.Core.OperatorFailureException>(() =>
+            service.UpdateAsync(
+                CreateRequest() with
+                {
+                    AllowDeckMutation = false,
+                    Job = mutationJob,
+                },
+                CancellationToken.None));
+
+        Assert.Equal(WindowsOperator.Core.ErrorCodes.PowerPointValidationFailed, ex.Error.Code);
+        Assert.Contains("allowDeckMutation", ex.Error.Details?["detail"]);
+        Assert.Empty(jobs.EnqueuedJobs);
+    }
+
+    [Fact]
     public async Task UpdateAsync_RejectsNamedTargetRepair_WhenDeckMutationNotAllowed()
     {
         var online = new FakePowerPointOnlineService();

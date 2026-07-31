@@ -75,7 +75,9 @@ public sealed class McpToolCatalogTests
         Assert.NotNull(schemas["auth_microsoft_authorize_probe"]["properties"]!["reuseExistingProfile"]);
         Assert.NotNull(schemas["auth_microsoft_authorize_probe_status"]["properties"]!["runId"]);
         Assert.Contains("deviceCode", schemas["auth_microsoft_device_login"]["required"]!.AsArray().Select(node => node!.GetValue<string>()));
-        Assert.NotNull(schemas["auth_microsoft_device_login"]["properties"]!["verificationWaitSeconds"]);
+        Assert.Equal(
+            600,
+            schemas["auth_microsoft_device_login"]["properties"]!["verificationWaitSeconds"]!["maximum"]!.GetValue<int>());
         Assert.NotNull(schemas["auth_microsoft_device_login"]["properties"]!["reuseExistingProfile"]);
         Assert.NotNull(schemas["auth_microsoft_device_login_status"]["properties"]!["runId"]);
         Assert.NotNull(schemas["mail_list_folders"]["properties"]!["freshness"]);
@@ -364,6 +366,7 @@ public sealed class McpToolCatalogTests
         public Task<CapabilitiesResult> GetCapabilitiesAsync(CancellationToken cancellationToken) =>
             Task.FromResult(new CapabilitiesResult(
                 "0.1.0",
+                new RuntimeBuildIdentity("1.0.0", "1.0.0.0", "unavailable"),
                 new CapabilityHost("ok", "interactive-user", "http://127.0.0.1:43117", "ok"),
                 new Dictionary<string, CapabilityFeature>(StringComparer.Ordinal),
                 DateTimeOffset.Parse("2026-04-26T00:00:00Z")));

@@ -4,5 +4,5 @@ public sealed record MailStatusResult(
     bool WorkerAvailable,
     int VisibleOutlookCount,
     int HeadlessOutlookCount,
-    string? LastWorkerError,
+    [property: OperatorInternal] string? LastWorkerError,
     DateTimeOffset CheckedAtUtc);

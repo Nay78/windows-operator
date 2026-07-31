@@ -71,6 +71,12 @@ release gates, artifacts, errors, relay, and SDK rules.
 - `POST /v1/auth/microsoft/device-login`
 - `GET /v1/auth/microsoft/device-login/status/latest`
 - `GET /v1/auth/microsoft/device-login/status/{runId}`
+- `GET /v1/power-automate/mcp/status`
+- `POST /v1/power-automate/mcp/start`
+- `POST /v1/power-automate/mcp/edge`
+- `POST /v1/power-automate/mcp/edge/cleanup`
+- `POST /v1/power-automate/mcp/flows/read`
+- `POST /v1/power-automate/mcp/flows/update`
 - `POST /v1/powerpoint/jobs`
 - `POST /v1/powerpoint/jobs/claim`
 - `POST /v1/powerpoint/jobs/{jobId}/complete`
@@ -99,8 +105,8 @@ release gates, artifacts, errors, relay, and SDK rules.
 - `GET /openapi/namespaces`
 - `GET /openapi/namespaces/{namespace}.json`
 
-OpenAPI operation tags are namespace labels such as `mail.outlook` and
-`powerpoint.online`. Use `GET /openapi/namespaces` and
+OpenAPI operation tags are namespace labels such as `mail.outlook`,
+`power-automate.mcp`, and `powerpoint.online`. Use `GET /openapi/namespaces` and
 `GET /openapi/namespaces/{namespace}.json` for bounded local-service discovery;
 the namespace spec defaults to stable routes and accepts `surface=all` or
 comma-separated surfaces such as `stable,diagnostic`.
@@ -162,20 +168,34 @@ Tool calls return full machine-readable JSON in `structuredContent`. Text conten
 
 ## Provisioning model
 
-Shared repo stays canonical source. Windows host builds from shared source in
-place, but mutable state stays local under `%LOCALAPPDATA%\WindowsOperator` by
-default:
+Shared repo stays canonical publish source. Bootstrap restores and publishes
+only the live Host and Agent projects; it does not run the development test
+suite. Mutable state and published runtimes stay local:
 
 - `DOTNET_CLI_HOME`
 - `NUGET_PACKAGES`
 - build outputs under `artifacts\bin` and `artifacts\obj`
+- Agent runtime under `%LOCALAPPDATA%\WindowsOperator\agent`
+- Host runtime under `%ProgramData%\WindowsOperator\host`
 - launcher state under `run`
 - logs under `logs`
 
 Provision a fresh Windows workstation with:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\windows\bootstrap.ps1 -RepoRoot \\server\share\windows-operator -EnableAutostart
+powershell -ExecutionPolicy Bypass -File .\scripts\windows\bootstrap.ps1 -RepoRoot \\server\share\windows-operator
+```
+
+Bootstrap applies the reversible `OperatorSafe` desktop profile by default:
+reduced menu delay, disabled window/taskbar animation and transparency, and no
+Explorer startup delay. It does not change services, Defender, Windows Update,
+AppX packages, DNS, OneDrive, or page-file policy. Pre-state snapshots live
+under `%LOCALAPPDATA%\WindowsOperator\provisioning\operator-safe`. Pass
+`-ProvisionProfile None` to opt out. Audit or roll back independently:
+
+```powershell
+.\scripts\windows\provision-operator-safe.ps1 -Action Audit
+.\scripts\windows\provision-operator-safe.ps1 -Action Rollback -SnapshotPath <snapshot-json>
 ```
 
 Operator autostart uses two Task Scheduler entries. `WindowsOperator.Host` runs
@@ -183,10 +203,14 @@ at startup as SYSTEM from a local published copy after a 30 second delay. Host
 REST always binds `127.0.0.1:43117`; PowerPoint add-in HTTPS on
 `https://localhost:3003` is enabled only when `register-host-autostart.ps1`
 stages a built add-in and localhost certificate. `WindowsOperator.Agent` runs
-only in the logged-in desktop session, unelevated, after a 30 second delay.
+the local published Agent only in the logged-in desktop session, unelevated,
+after a 30 second delay. Provisioning starts it immediately when a desktop
+exists; otherwise its registered logon task starts it later.
+`register-agent-autostart.ps1` owns Agent publication and task registration;
+`run-agent.ps1` remains a manual developer harness.
 Codex app-server autostart is a separate per-user task.
 
-Codex bootstrap provisions Codex CLI under `%LOCALAPPDATA%\Codex`, using a
+Codex bootstrap provisions runtime only under `%LOCALAPPDATA%\Codex`, using a
 local npm prefix/cache and a per-user `Codex.AppServer` scheduled task:
 
 ```powershell
@@ -286,8 +310,18 @@ wrapper runs base bootstrap and Codex bootstrap together:
 scripts/linux/windows-run-ps.sh scripts/windows/bootstrap-vm.ps1
 ```
 
-The runner defaults to `administrator@127.0.0.1:22555`. Staging, SSH, and
-copy-backed target details live in [operator exchange](docs/operator-exchange.md#linux-runner).
+The runner defaults to `administrator@127.0.0.1:22555`. Repo-owned endpoint
+facts and SSH aliases live in nixdots; this repo remains target-agnostic. Select
+an alias without duplicating its host, user, or port:
+
+```bash
+WINDOWS_OPERATOR_SSH_TARGET=hp-win \
+  scripts/linux/windows-run-ps.sh scripts/windows/bootstrap.ps1
+```
+
+`WINDOWS_OPERATOR_SSH_PORT` overrides the alias port when set. Staging, SSH,
+and copy-backed target details live in
+[operator exchange](docs/operator-exchange.md#linux-runner).
 
 Preferred wrapper for Microsoft device-code login:
 

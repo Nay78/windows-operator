@@ -13,4 +13,6 @@ public sealed record PowerPointTargetResult(
     string? Source = null,
     bool? Bound = null,
     bool? Tagged = null,
-    PowerPointTableSnapshot? Table = null);
+    PowerPointTableSnapshot? Table = null,
+    PowerPointShapeBounds? Bounds = null,
+    PowerPointTableMatch? TableMatch = null);
