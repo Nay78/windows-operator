@@ -5227,6 +5227,92 @@
       "proofEnvironment": "liveWindowsCampaignRuntime",
       "dispositionRationale": "Operator-only diagnostics excluded from ordinary relay and compatibility.",
       "decisionOwner": "contractOwner"
+    },
+    {
+      "operationId": "startBrowserCallbackRelay",
+      "method": "POST",
+      "path": "/v1/browser/edge/callback-relay/start",
+      "proposedSurface": "stable",
+      "consumerJob": "microsoftAuthHandoff",
+      "expectedCaller": "externalApplication",
+      "localExposure": "loopback",
+      "remoteExposure": "authenticatedRelay",
+      "handlerOwner": "host",
+      "fixture": "start-browser-callback-relay",
+      "observableEffect": "One-shot loopback callback relay started.",
+      "cleanup": "cleanupBrowserCallbackRelay",
+      "credentialGate": "none",
+      "mutationGate": "ownedResource",
+      "proofState": "pending",
+      "evidence": [],
+      "namespace": "browser.edge",
+      "unresolvedDecision": null,
+      "requestSchemas": [
+        "BrowserCallbackRelayRequest"
+      ],
+      "successSchemas": [
+        "BrowserCallbackRelayResult"
+      ],
+      "errorSchemas": [
+        "OperatorError"
+      ],
+      "lifecycle": "session",
+      "idempotency": "callerKeyed",
+      "retryPolicy": "typedRetryableOnly",
+      "timeoutPolicy": "serverBounded:60s",
+      "cancellationPolicy": "requestCancellation",
+      "concurrencyPolicy": "serializePerSession",
+      "sensitivity": "credentialMetadata",
+      "successCase": "One-shot loopback callback relay started.",
+      "negativeCase": "Malformed or incomplete request returns typed validation OperatorError.",
+      "prerequisites": [
+        "campaign build running on Windows"
+      ],
+      "proofEnvironment": "liveWindowsCampaignRuntime",
+      "dispositionRationale": "External consumer job requires compatibility.",
+      "decisionOwner": "contractOwner"
+    },
+    {
+      "operationId": "cleanupBrowserCallbackRelay",
+      "method": "POST",
+      "path": "/v1/browser/edge/callback-relay/{relayId}/cleanup",
+      "proposedSurface": "stable",
+      "consumerJob": "microsoftAuthHandoff",
+      "expectedCaller": "externalApplication",
+      "localExposure": "loopback",
+      "remoteExposure": "authenticatedRelay",
+      "handlerOwner": "host",
+      "fixture": "cleanup-browser-callback-relay",
+      "observableEffect": "Owned callback relay stopped.",
+      "cleanup": "operation is cleanup",
+      "credentialGate": "none",
+      "mutationGate": "ownedResource",
+      "proofState": "pending",
+      "evidence": [],
+      "namespace": "browser.edge",
+      "unresolvedDecision": null,
+      "requestSchemas": [],
+      "successSchemas": [
+        "BrowserCallbackRelayResult"
+      ],
+      "errorSchemas": [
+        "OperatorError"
+      ],
+      "lifecycle": "session",
+      "idempotency": "nonIdempotent",
+      "retryPolicy": "neverWithoutObservedStatus",
+      "timeoutPolicy": "serverBounded:60s",
+      "cancellationPolicy": "requestCancellation",
+      "concurrencyPolicy": "serializePerSession",
+      "sensitivity": "credentialMetadata",
+      "successCase": "Owned callback relay stopped.",
+      "negativeCase": "Unknown resource identifier returns typed notFound OperatorError.",
+      "prerequisites": [
+        "campaign build running on Windows"
+      ],
+      "proofEnvironment": "liveWindowsCampaignRuntime",
+      "dispositionRationale": "External consumer job requires compatibility.",
+      "decisionOwner": "contractOwner"
     }
   ],
   "schemaVersion": 1

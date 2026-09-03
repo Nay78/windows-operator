@@ -11,6 +11,8 @@ POLICY = ROOT / "openapi/windows-operator.operation-policy.json"
 HTTP_METHODS = {"delete", "get", "head", "options", "patch", "post", "put", "trace"}
 
 SESSION_OPERATIONS = {
+    "startBrowserCallbackRelay",
+    "cleanupBrowserCallbackRelay",
     "getWorkbenchSession",
     "captureWorkbenchSessionScreenshot",
     "cleanupWorkbenchSession",
@@ -85,6 +87,7 @@ IDEMPOTENT_CLEANUPS = {
     "releaseOneDriveLease",
 }
 CALLER_KEYED = {
+    "startBrowserCallbackRelay",
     "startEdgeBrowserSession",
     "openEdgeUrl",
     "startPowerPointOnlineSession",
@@ -108,6 +111,8 @@ DESKTOP_CONTENT = {
     "capturePowerPointOnlineSessionScreenshot",
 }
 CREDENTIAL_CONTENT = {
+    "startBrowserCallbackRelay",
+    "cleanupBrowserCallbackRelay",
     "startMicrosoftAuthorizeProbe",
     "getLatestMicrosoftAuthorizeProbeStatus",
     "getMicrosoftAuthorizeProbeStatus",
@@ -296,7 +301,46 @@ def main() -> None:
     )
     known = {entry["operationId"] for entry in policy["operations"]}
     for operation_id, projection in source.items():
-        if projection["namespace"] != "files.onedrive" or operation_id in known:
+        if operation_id in known:
+            continue
+        if operation_id in {"startBrowserCallbackRelay", "cleanupBrowserCallbackRelay"}:
+            is_cleanup = operation_id == "cleanupBrowserCallbackRelay"
+            policy["operations"].append(
+                {
+                    "operationId": operation_id,
+                    "method": "POST",
+                    "path": (
+                        "/v1/browser/edge/callback-relay/{relayId}/cleanup"
+                        if is_cleanup
+                        else "/v1/browser/edge/callback-relay/start"
+                    ),
+                    "proposedSurface": "stable",
+                    "consumerJob": "microsoftAuthHandoff",
+                    "expectedCaller": "externalApplication",
+                    "localExposure": "loopback",
+                    "remoteExposure": "authenticatedRelay",
+                    "handlerOwner": "host",
+                    "fixture": (
+                        "cleanup-browser-callback-relay"
+                        if is_cleanup
+                        else "start-browser-callback-relay"
+                    ),
+                    "observableEffect": (
+                        "Owned callback relay stopped."
+                        if is_cleanup
+                        else "One-shot loopback callback relay started."
+                    ),
+                    "cleanup": "operation is cleanup" if is_cleanup else "cleanupBrowserCallbackRelay",
+                    "credentialGate": "none",
+                    "mutationGate": "ownedResource",
+                    "proofState": "pending",
+                    "evidence": [],
+                    "namespace": "browser.edge",
+                    "unresolvedDecision": None,
+                }
+            )
+            continue
+        if projection["namespace"] != "files.onedrive":
             continue
         operation_method, operation_path = next(
             (method.upper(), path)

@@ -54,6 +54,8 @@ release gates, artifacts, errors, relay, and SDK rules.
 - `POST /v1/input/hotkey`
 - `POST /v1/browser/edge/reset`
 - `POST /v1/browser/edge/open-url`
+- `POST /v1/browser/edge/callback-relay/start`
+- `POST /v1/browser/edge/callback-relay/{relayId}/cleanup`
 - `POST /v1/browser/edge/session/start`
 - `GET /v1/browser/edge/session/{sessionId}/state`
 - `POST /v1/browser/edge/session/{sessionId}/navigate`

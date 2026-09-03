@@ -180,6 +180,28 @@ type ArtifactRef struct {
 	Sha256       *string    `json:"sha256"`
 }
 
+// BrowserCallbackRelayRequest defines model for BrowserCallbackRelayRequest.
+type BrowserCallbackRelayRequest struct {
+	ForwardPort int32   `json:"forwardPort"`
+	ListenPort  int32   `json:"listenPort"`
+	RelayId     *string `json:"relayId"`
+
+	// TtlSeconds Defaults to 600 when omitted.
+	TtlSeconds *int32 `json:"ttlSeconds,omitempty"`
+}
+
+// BrowserCallbackRelayResult defines model for BrowserCallbackRelayResult.
+type BrowserCallbackRelayResult struct {
+	Actions      []string  `json:"actions"`
+	Errors       []string  `json:"errors"`
+	ExpiresAtUtc time.Time `json:"expiresAtUtc"`
+	ForwardPort  int32     `json:"forwardPort"`
+	ListenPort   int32     `json:"listenPort"`
+	RelayId      string    `json:"relayId"`
+	State        string    `json:"state"`
+	Success      bool      `json:"success"`
+}
+
 // BrowserEdgeDevEvalRequest defines model for BrowserEdgeDevEvalRequest.
 type BrowserEdgeDevEvalRequest struct {
 	// AllowUnsafeRawJs Defaults to false when omitted.
@@ -1952,6 +1974,9 @@ type CleanupMicrosoftAuthWindowsJSONRequestBody = MicrosoftAuthCleanupRequest
 // StartMicrosoftDeviceLoginJSONRequestBody defines body for StartMicrosoftDeviceLogin for application/json ContentType.
 type StartMicrosoftDeviceLoginJSONRequestBody = MicrosoftDeviceLoginRequest
 
+// StartBrowserCallbackRelayJSONRequestBody defines body for StartBrowserCallbackRelay for application/json ContentType.
+type StartBrowserCallbackRelayJSONRequestBody = BrowserCallbackRelayRequest
+
 // OpenEdgeUrlJSONRequestBody defines body for OpenEdgeUrl for application/json ContentType.
 type OpenEdgeUrlJSONRequestBody = BrowserEdgeOpenUrlRequest
 
@@ -2141,6 +2166,14 @@ type ClientInterface interface {
 
 	// GetMicrosoftDeviceLoginStatus request
 	GetMicrosoftDeviceLoginStatus(ctx context.Context, runId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StartBrowserCallbackRelayWithBody request with any body
+	StartBrowserCallbackRelayWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	StartBrowserCallbackRelay(ctx context.Context, body StartBrowserCallbackRelayJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CleanupBrowserCallbackRelay request
+	CleanupBrowserCallbackRelay(ctx context.Context, relayId string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// OpenEdgeUrlWithBody request with any body
 	OpenEdgeUrlWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2471,6 +2504,42 @@ func (c *Client) StartMicrosoftDeviceLogin(ctx context.Context, body StartMicros
 
 func (c *Client) GetMicrosoftDeviceLoginStatus(ctx context.Context, runId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetMicrosoftDeviceLoginStatusRequest(c.Server, runId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StartBrowserCallbackRelayWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartBrowserCallbackRelayRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StartBrowserCallbackRelay(ctx context.Context, body StartBrowserCallbackRelayJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartBrowserCallbackRelayRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CleanupBrowserCallbackRelay(ctx context.Context, relayId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCleanupBrowserCallbackRelayRequest(c.Server, relayId)
 	if err != nil {
 		return nil, err
 	}
@@ -3694,6 +3763,80 @@ func NewGetMicrosoftDeviceLoginStatusRequest(server string, runId string) (*http
 	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewStartBrowserCallbackRelayRequest calls the generic StartBrowserCallbackRelay builder with application/json body
+func NewStartBrowserCallbackRelayRequest(server string, body StartBrowserCallbackRelayJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewStartBrowserCallbackRelayRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewStartBrowserCallbackRelayRequestWithBody generates requests for StartBrowserCallbackRelay with any type of body
+func NewStartBrowserCallbackRelayRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/browser/edge/callback-relay/start")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewCleanupBrowserCallbackRelayRequest generates requests for CleanupBrowserCallbackRelay
+func NewCleanupBrowserCallbackRelayRequest(server string, relayId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "relayId", runtime.ParamLocationPath, relayId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/browser/edge/callback-relay/%s/cleanup", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -5587,6 +5730,14 @@ type ClientWithResponsesInterface interface {
 	// GetMicrosoftDeviceLoginStatusWithResponse request
 	GetMicrosoftDeviceLoginStatusWithResponse(ctx context.Context, runId string, reqEditors ...RequestEditorFn) (*GetMicrosoftDeviceLoginStatusResponse, error)
 
+	// StartBrowserCallbackRelayWithBodyWithResponse request with any body
+	StartBrowserCallbackRelayWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartBrowserCallbackRelayResponse, error)
+
+	StartBrowserCallbackRelayWithResponse(ctx context.Context, body StartBrowserCallbackRelayJSONRequestBody, reqEditors ...RequestEditorFn) (*StartBrowserCallbackRelayResponse, error)
+
+	// CleanupBrowserCallbackRelayWithResponse request
+	CleanupBrowserCallbackRelayWithResponse(ctx context.Context, relayId string, reqEditors ...RequestEditorFn) (*CleanupBrowserCallbackRelayResponse, error)
+
 	// OpenEdgeUrlWithBodyWithResponse request with any body
 	OpenEdgeUrlWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*OpenEdgeUrlResponse, error)
 
@@ -5992,6 +6143,54 @@ func (r GetMicrosoftDeviceLoginStatusResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetMicrosoftDeviceLoginStatusResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type StartBrowserCallbackRelayResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *BrowserCallbackRelayResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r StartBrowserCallbackRelayResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StartBrowserCallbackRelayResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CleanupBrowserCallbackRelayResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *BrowserCallbackRelayResult
+	JSON4XX      *OperatorError
+	JSON5XX      *OperatorError
+}
+
+// Status returns HTTPResponse.Status
+func (r CleanupBrowserCallbackRelayResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CleanupBrowserCallbackRelayResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -7207,6 +7406,32 @@ func (c *ClientWithResponses) GetMicrosoftDeviceLoginStatusWithResponse(ctx cont
 	return ParseGetMicrosoftDeviceLoginStatusResponse(rsp)
 }
 
+// StartBrowserCallbackRelayWithBodyWithResponse request with arbitrary body returning *StartBrowserCallbackRelayResponse
+func (c *ClientWithResponses) StartBrowserCallbackRelayWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartBrowserCallbackRelayResponse, error) {
+	rsp, err := c.StartBrowserCallbackRelayWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartBrowserCallbackRelayResponse(rsp)
+}
+
+func (c *ClientWithResponses) StartBrowserCallbackRelayWithResponse(ctx context.Context, body StartBrowserCallbackRelayJSONRequestBody, reqEditors ...RequestEditorFn) (*StartBrowserCallbackRelayResponse, error) {
+	rsp, err := c.StartBrowserCallbackRelay(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartBrowserCallbackRelayResponse(rsp)
+}
+
+// CleanupBrowserCallbackRelayWithResponse request returning *CleanupBrowserCallbackRelayResponse
+func (c *ClientWithResponses) CleanupBrowserCallbackRelayWithResponse(ctx context.Context, relayId string, reqEditors ...RequestEditorFn) (*CleanupBrowserCallbackRelayResponse, error) {
+	rsp, err := c.CleanupBrowserCallbackRelay(ctx, relayId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCleanupBrowserCallbackRelayResponse(rsp)
+}
+
 // OpenEdgeUrlWithBodyWithResponse request with arbitrary body returning *OpenEdgeUrlResponse
 func (c *ClientWithResponses) OpenEdgeUrlWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*OpenEdgeUrlResponse, error) {
 	rsp, err := c.OpenEdgeUrlWithBody(ctx, contentType, body, reqEditors...)
@@ -8184,6 +8409,86 @@ func ParseGetMicrosoftDeviceLoginStatusResponse(rsp *http.Response) (*GetMicroso
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest MicrosoftDeviceLoginResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseStartBrowserCallbackRelayResponse parses an HTTP response from a StartBrowserCallbackRelayWithResponse call
+func ParseStartBrowserCallbackRelayResponse(rsp *http.Response) (*StartBrowserCallbackRelayResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StartBrowserCallbackRelayResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BrowserCallbackRelayResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 4:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON4XX = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode/100 == 5:
+		var dest OperatorError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON5XX = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCleanupBrowserCallbackRelayResponse parses an HTTP response from a CleanupBrowserCallbackRelayWithResponse call
+func ParseCleanupBrowserCallbackRelayResponse(rsp *http.Response) (*CleanupBrowserCallbackRelayResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CleanupBrowserCallbackRelayResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BrowserCallbackRelayResult
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
