@@ -107,6 +107,10 @@ public sealed partial class EdgeMicrosoftAuthService
                     errors.Add($"Failed to kill owned msedge pid={process.Id}.");
                 }
             }
+            catch (ArgumentException)
+            {
+                actions.Add($"edge_reset_stale_session:{processId}");
+            }
             catch (Exception ex)
             {
                 errors.Add($"Failed to inspect owned msedge pid={processId}: {ex.Message}");
