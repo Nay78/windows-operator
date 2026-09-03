@@ -200,6 +200,17 @@ scripts/linux/windows-run-ps.sh scripts/windows/login-microsoft-device-code.ps1 
 
 The helper uses the same browser handoff behavior when REST is unavailable.
 
+For Power BI/XMLA, a Linux agent can own OAuth polling and keep its token cache
+local while using Windows only for the interactive browser step:
+
+```bash
+scripts/linux/login-powerbi-xmla.sh --tenant-id <tenant-id-or-domain>
+```
+
+The command uses an isolated Edge auth profile, leaves
+account/password/MFA/consent to the desktop user, stores tokens with mode 0600
+under Linux local state, and prints sanitized status only.
+
 For Outlook profile recovery when REST mail calls are degraded:
 
 ```bash

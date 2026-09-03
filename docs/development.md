@@ -183,6 +183,28 @@ scripts/linux/test-microsoft-graph-mail-read.sh \
 
 This helper keeps token polling outside Windows Operator, as intended by the auth architecture, while reusing the Windows desktop browser handoff.
 
+Power BI XMLA login from a Linux agent such as Legion:
+
+```bash
+scripts/linux/login-powerbi-xmla.sh \
+  --tenant-id <tenant-id-or-domain>
+```
+
+The helper owns Entra device-code polling on Linux and calls
+`POST /v1/auth/microsoft/device-login`. Windows opens an isolated Edge auth
+profile; complete account, password, MFA, or consent prompts there. Successful
+login writes the token response to mode-0600 Linux-local state under
+`$XDG_STATE_HOME/windows-operator/auth/powerbi`; tokens never enter the shared
+exchange root or command output. Later calls reuse a valid access token or its
+refresh token. `powerBiApiStatus=200` proves the cached token reached the live
+Power BI REST boundary. The XMLA client should load `.access_token` inside its
+own process and supply it through its bearer-token API without printing it.
+Per-tenant locking prevents concurrent agents from racing the same cache/login.
+
+This path requires the Legion-to-Windows Host tunnel at the selected
+`--host-base-url`. Windows Operator remains loopback-only and does not own or
+return the OAuth token.
+
 Graph auth-code redirect probe:
 
 ```bash
