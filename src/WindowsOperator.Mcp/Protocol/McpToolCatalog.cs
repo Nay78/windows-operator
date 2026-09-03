@@ -50,7 +50,7 @@ public sealed class McpToolCatalog
                 async (arguments, cancellationToken) =>
                     Serialize(await operatorFacade.SendHotkeyAsync(Deserialize<HotkeyRequest>(arguments), cancellationToken))),
             new(
-                new McpToolDefinition("browser_edge_reset", "Hard-reset all Edge browser processes.", BrowserEdgeResetSchema()),
+                new McpToolDefinition("browser_edge_reset", "Hard-reset operator-owned dedicated Edge browser processes.", BrowserEdgeResetSchema()),
                 async (arguments, cancellationToken) =>
                     Serialize(await operatorFacade.ResetEdgeBrowserAsync(Deserialize<BrowserEdgeResetRequest>(arguments), cancellationToken))),
             new(

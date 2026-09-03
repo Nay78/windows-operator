@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Http.HttpResults;
+using FromServicesAttribute = Microsoft.AspNetCore.Mvc.FromServicesAttribute;
 using TypedResults = Microsoft.AspNetCore.Http.TypedResults;
 using WindowsOperator.Core;
 using WindowsOperator.Core.Contracts;
 using WindowsOperator.Core.Services;
+using WindowsOperator.Host.Services;
 
 namespace WindowsOperator.Host.Api;
 
@@ -135,6 +137,20 @@ public static class HostOperatorEndpoints
             CancellationToken cancellationToken) =>
             await HostOperatorHttp.ExecuteAsync(
                 () => workbench.OpenEdgeUrlAsync(request, cancellationToken)));
+
+        group.MapPost("/browser/edge/callback-relay/start", async Task<Results<Ok<BrowserCallbackRelayResult>, JsonHttpResult<OperatorError>>> (
+            BrowserCallbackRelayRequest request,
+            [FromServices] BrowserCallbackRelayService relay,
+            CancellationToken cancellationToken) =>
+            await HostOperatorHttp.ExecuteAsync(
+                () => relay.StartAsync(request, cancellationToken)));
+
+        group.MapPost("/browser/edge/callback-relay/{relayId}/cleanup", async Task<Results<Ok<BrowserCallbackRelayResult>, JsonHttpResult<OperatorError>>> (
+            string relayId,
+            [FromServices] BrowserCallbackRelayService relay,
+            CancellationToken cancellationToken) =>
+            await HostOperatorHttp.ExecuteAsync(
+                () => relay.CleanupAsync(relayId, cancellationToken)));
 
         group.MapGet("/browser/edge/session/{sessionId}/state", async Task<Results<Ok<BrowserEdgeSessionStateResult>, JsonHttpResult<OperatorError>>> (
             string sessionId,
@@ -500,6 +516,114 @@ public static class HostOperatorEndpoints
             CancellationToken cancellationToken) =>
             await HostOperatorHttp.ExecuteAsync(
                 () => facade.GetMailRunAsync(runId, cancellationToken)));
+
+        group.MapPost("/files/onedrive/list", async Task<Results<Ok<IReadOnlyList<OneDriveFileEntry>>, JsonHttpResult<OperatorError>>> (
+            OneDriveListRequest request,
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await HostOperatorHttp.ExecuteAsync(
+                () => facade.ListOneDriveFilesAsync(request, cancellationToken)));
+
+        group.MapPost("/files/onedrive/download", async Task<IResult> (
+            OneDriveLeaseRequest request,
+            [FromServices] DesktopAgentClient desktopAgent,
+            HttpResponse response,
+            CancellationToken cancellationToken) =>
+        {
+            try
+            {
+                response.ContentType = "application/octet-stream";
+                await desktopAgent.DownloadOneDriveFileAsync(request, response.Body, cancellationToken);
+                return TypedResults.Empty;
+            }
+            catch (OperatorFailureException failure)
+            {
+                return HostOperatorHttp.Error(failure);
+            }
+        });
+
+        group.MapPost("/files/onedrive/leases", async Task<Results<Ok<OneDriveLeaseResult>, JsonHttpResult<OperatorError>>> (
+            OneDriveLeaseRequest request,
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await HostOperatorHttp.ExecuteAsync(
+                () => facade.AcquireOneDriveLeaseAsync(request, cancellationToken)));
+
+        group.MapGet("/files/onedrive/leases/{leaseId}", async Task<Results<Ok<OneDriveLeaseStatusResult>, JsonHttpResult<OperatorError>>> (
+            string leaseId,
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await HostOperatorHttp.ExecuteAsync(
+                () => facade.GetOneDriveLeaseAsync(leaseId, cancellationToken)));
+
+        group.MapPost("/files/onedrive/leases/{leaseId}/renew", async Task<Results<Ok<OneDriveLeaseResult>, JsonHttpResult<OperatorError>>> (
+            string leaseId,
+            OneDriveLeaseRenewRequest request,
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await HostOperatorHttp.ExecuteAsync(
+                () => facade.RenewOneDriveLeaseAsync(leaseId, request, cancellationToken)));
+
+        group.MapPost("/files/onedrive/leases/{leaseId}/release", async Task<Results<Ok<OneDriveLeaseResult>, Accepted<OneDriveLeaseResult>, JsonHttpResult<OperatorError>>> (
+            string leaseId,
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+        {
+            try
+            {
+                var result = await facade.ReleaseOneDriveLeaseAsync(leaseId, cancellationToken);
+                return result.State == OneDriveLeaseState.Releasing
+                    ? TypedResults.Accepted($"/v1/files/onedrive/leases/{leaseId}", result)
+                    : TypedResults.Ok(result);
+            }
+            catch (OperatorFailureException failure)
+            {
+                return HostOperatorHttp.Error(failure);
+            }
+        });
+
+        group.MapGet("/files/onedrive/status", async Task<Results<Ok<OneDriveFilesOnDemandStatusResult>, JsonHttpResult<OperatorError>>> (
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await HostOperatorHttp.ExecuteAsync(
+                () => facade.GetOneDriveStatusAsync(cancellationToken)));
+
+        group.MapPost("/files/onedrive/runtime/recover", async Task<Results<Ok<OneDriveConfigurationRecoveryResult>, JsonHttpResult<OperatorError>>> (
+            OneDriveConfigurationRecoveryRequest request,
+            OneDriveConfigurationRecoveryService recovery,
+            CancellationToken cancellationToken) =>
+            await HostOperatorHttp.ExecuteAsync(
+                () => recovery.RecoverAsync(request, cancellationToken)));
+
+        group.MapGet("/files/onedrive/config", async Task<Results<Ok<OneDriveConfigResult>, JsonHttpResult<OperatorError>>> (
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await HostOperatorHttp.ExecuteAsync(
+                () => facade.GetOneDriveConfigAsync(cancellationToken)));
+
+        group.MapPut("/files/onedrive/config", async Task<Results<Ok<OneDriveConfigResult>, JsonHttpResult<OperatorError>>> (
+            OneDriveConfigUpdateRequest request,
+            HttpRequest httpRequest,
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await HostOperatorHttp.ExecuteAsync(
+                () => facade.UpdateOneDriveConfigAsync(
+                    request with { IfMatch = httpRequest.Headers.IfMatch.FirstOrDefault() },
+                    cancellationToken)));
+
+        group.MapPost("/files/onedrive/reclaims", async Task<Results<Ok<OneDriveReclaimResult>, JsonHttpResult<OperatorError>>> (
+            OneDriveReclaimRequest request,
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await HostOperatorHttp.ExecuteAsync(
+                () => facade.StartOneDriveReclaimAsync(request, cancellationToken)));
+
+        group.MapGet("/files/onedrive/reclaims/{runId}", async Task<Results<Ok<OneDriveReclaimResult>, JsonHttpResult<OperatorError>>> (
+            string runId,
+            IOperatorFacade facade,
+            CancellationToken cancellationToken) =>
+            await HostOperatorHttp.ExecuteAsync(
+                () => facade.GetOneDriveReclaimAsync(runId, cancellationToken)));
 
         endpoints.MapGet("/openapi.json", () => OperatorOpenApi.Document);
         endpoints.MapGet("/openapi/namespaces", () => OperatorOpenApi.ListNamespaces());

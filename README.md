@@ -101,6 +101,18 @@ release gates, artifacts, errors, relay, and SDK rules.
 - `POST /v1/mail/attachments/download`
 - `GET /v1/mail/runs/{runId}`
 - `GET /v1/mail/status`
+- `POST /v1/files/onedrive/list`
+- `POST /v1/files/onedrive/download`
+- `POST /v1/files/onedrive/leases`
+- `GET /v1/files/onedrive/leases/{leaseId}`
+- `POST /v1/files/onedrive/leases/{leaseId}/renew`
+- `POST /v1/files/onedrive/leases/{leaseId}/release`
+- `GET /v1/files/onedrive/status`
+- `POST /v1/files/onedrive/runtime/recover`
+- `GET /v1/files/onedrive/config`
+- `PUT /v1/files/onedrive/config`
+- `POST /v1/files/onedrive/reclaims`
+- `GET /v1/files/onedrive/reclaims/{runId}`
 - `GET /openapi.json`
 - `GET /openapi/namespaces`
 - `GET /openapi/namespaces/{namespace}.json`
@@ -202,13 +214,36 @@ Operator autostart uses two Task Scheduler entries. `WindowsOperator.Host` runs
 at startup as SYSTEM from a local published copy after a 30 second delay. Host
 REST always binds `127.0.0.1:43117`; PowerPoint add-in HTTPS on
 `https://localhost:3003` is enabled only when `register-host-autostart.ps1`
-stages a built add-in and localhost certificate. `WindowsOperator.Agent` runs
-the local published Agent only in the logged-in desktop session, unelevated,
-after a 30 second delay. Provisioning starts it immediately when a desktop
-exists; otherwise its registered logon task starts it later.
-`register-agent-autostart.ps1` owns Agent publication and task registration;
+stages a built add-in and localhost certificate. Host starts the local
+published Agent with the resolved Administrator desktop-session token. The Agent
+logon task is registered disabled to prevent a competing launcher;
 `run-agent.ps1` remains a manual developer harness.
 Codex app-server autostart is a separate per-user task.
+
+OneDrive runtime supervision is Host/Agent-owned and hard-limited to the VM.
+Provision with
+`-OneDriveRecoveryAllowedComputer WIN-UUKQS009K4J`.
+Host dynamically resolves and keeps OneDrive running in the active Administrator
+desktop session; the Administrator OneDrive startup task is disabled so Host
+remains the sole OneDrive lifecycle owner. Agent separately requires process and
+Files-On-Demand provider readiness. Auto-logon is an explicit local operator
+action on WIN-UUKQS009K4J:
+
+```powershell
+.\scripts\windows\enable-autologon.ps1 -Action Status
+.\scripts\windows\enable-autologon.ps1 -Action Configure
+.\scripts\windows\enable-autologon.ps1 -Action Disable
+```
+
+Configure prompts for the existing Administrator password in the local elevated
+shell only; no REST, command-line, file, or log input is accepted. The script
+sets single-session RDP behavior, disables duplicate Agent/OneDrive launchers,
+and writes secret-free audit records under `%ProgramData%\WindowsOperator\autologon`.
+The registry auto-logon password remains a machine-local Windows secret and is
+the security tradeoff of this option. Auto-logon stays disabled until the
+operator runs Configure.
+Recovery never changes authentication configuration or signs in.
+`ClearConfiguration` requests are rejected.
 
 Codex bootstrap provisions runtime only under `%LOCALAPPDATA%\Codex`, using a
 local npm prefix/cache and a per-user `Codex.AppServer` scheduled task:

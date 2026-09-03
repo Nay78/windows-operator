@@ -2,6 +2,10 @@
 
 Date: 2026-07-05
 
+Status: complete. The execution ledger and final completion proof govern.
+Later per-slice `planned` status text is retained as historical plan detail and
+does not represent the current queue.
+
 ## Objective
 
 Align Windows Operator to the target harness architecture:

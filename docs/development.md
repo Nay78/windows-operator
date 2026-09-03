@@ -5,7 +5,19 @@
 `WindowsOperator.Host` runs headless at startup after a 30 second delay and owns
 REST on `127.0.0.1:43117`. `WindowsOperator.Agent` runs inside the logged-in
 desktop session and owns UI automation on `127.0.0.1:43119`. Autostart uses
-Task Scheduler: delayed startup for Host, delayed logon for Agent.
+Task Scheduler: delayed startup for Host; the Agent logon task stays disabled
+because Host starts and supervises Agent in the dynamically resolved
+Administrator session.
+
+The optional no-manual-login path is operator-controlled and local to the
+allowlisted VM. Use `scripts/windows/enable-autologon.ps1 -Action Status` for
+secret-free policy, session, process, launcher, and Host-session-0 evidence.
+`-Action Configure` prompts for the existing Administrator password in the
+elevated local shell, sets `fSingleSessionPerUser=1`, disables duplicate Agent
+and OneDrive startup tasks, and records secret-free audit data. `-Action Disable`
+turns off Windows auto-logon and removes only its Winlogon password value; it
+does not clear OneDrive configuration. The action is not REST-backed, and this
+repository never supplies or stores the credential.
 
 ## Harness layering
 
@@ -83,6 +95,9 @@ Bootstrap always publishes and registers both runtimes: Host under
 health and, when a desktop exists, Agent health. It does not run solution tests;
 run those separately during development. Bootstrap also creates local state
 directories for .NET home, NuGet cache, build outputs, logs, and run wrappers.
+Runtime preflight requires an x64 .NET 8 SDK plus `Microsoft.NETCore.App`,
+`Microsoft.AspNetCore.App`, and `Microsoft.WindowsDesktop.App`; when the
+machine lacks the Desktop runtime, bootstrap installs it before publishing.
 It applies the reversible `OperatorSafe` desktop profile by default. The
 allowlist changes only per-user menu delay, window/taskbar animation,
 transparency, and Explorer startup delay. It never downloads or executes a
@@ -267,7 +282,11 @@ scripts/linux/windows-run-ps.sh scripts/windows/login-microsoft-device-code.ps1 
 The helper schedules itself into the logged-in desktop session and runs the same
 Edge handoff when REST is unavailable.
 
-Device-code signed-in Edge profile reuse:
+Device-code auth uses a run-owned isolated Edge profile. The legacy
+`reuseExistingProfile` flag remains accepted for client compatibility but is
+ignored so auth cannot attach to or close the user's ordinary Edge process.
+Credentials, account selection, consent, and MFA remain interactive in the
+owned Edge window:
 
 ```bash
 scripts/linux/wo auth microsoft device-login --device-code ABCD-EFGH -- --reuse-existing-profile
@@ -281,8 +300,7 @@ curl -X POST http://127.0.0.1:43117/v1/auth/microsoft/device-login \
   -d '{"deviceCode":"ABCD-EFGH","reuseExistingProfile":true}'
 ```
 
-Use this when the account picker or consent page must reuse the already signed-in
-Work profile instead of a fresh temporary Edge profile.
+Use the owned Edge window for account selection, consent, credentials, and MFA.
 
 Cleanup stale Microsoft-auth Edge windows:
 

@@ -57,8 +57,10 @@ function Test-DotnetSdk {
         return $false
     }
 
-    $hasCoreRuntime = $runtimes | Where-Object { $_ -match '^Microsoft\.NETCore\.App\s' }
-    if (-not $hasCoreRuntime) {
+    $hasCoreRuntime = $runtimes | Where-Object { $_ -match '^Microsoft\.NETCore\.App\s+8\.' }
+    $hasAspNetRuntime = $runtimes | Where-Object { $_ -match '^Microsoft\.AspNetCore\.App\s+8\.' }
+    $hasWindowsDesktopRuntime = $runtimes | Where-Object { $_ -match '^Microsoft\.WindowsDesktop\.App\s+8\.' }
+    if (-not $hasCoreRuntime -or -not $hasAspNetRuntime -or -not $hasWindowsDesktopRuntime) {
         return $false
     }
 
@@ -85,7 +87,7 @@ function Find-DotnetPath {
         }
     }
 
-    throw ".NET 8 SDK x64 missing. Run bootstrap.ps1 first."
+    throw ".NET 8 x64 SDK plus Core, ASP.NET Core, and Windows Desktop runtimes missing. Run bootstrap.ps1 first."
 }
 
 function Set-LocalStateEnvironment {

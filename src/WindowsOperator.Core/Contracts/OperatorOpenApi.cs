@@ -22,6 +22,17 @@ public static class OperatorOpenApi
         "/v1/power-automate/mcp/edge/cleanup",
         "/v1/power-automate/mcp/flows/read",
         "/v1/power-automate/mcp/flows/update",
+        "/v1/files/onedrive/list",
+        "/v1/files/onedrive/download",
+        "/v1/files/onedrive/leases",
+        "/v1/files/onedrive/leases/{leaseId}",
+        "/v1/files/onedrive/leases/{leaseId}/renew",
+        "/v1/files/onedrive/leases/{leaseId}/release",
+        "/v1/files/onedrive/status",
+        "/v1/files/onedrive/runtime/recover",
+        "/v1/files/onedrive/config",
+        "/v1/files/onedrive/reclaims",
+        "/v1/files/onedrive/reclaims/{runId}",
     ];
     private static readonly IReadOnlyList<OpenApiNamespaceDefinition> NamespaceDefinitions =
     [
@@ -37,6 +48,7 @@ public static class OperatorOpenApi
         new("powerpoint.jobs", "PowerPoint Jobs", "PowerPoint update job queue operations."),
         new("artifacts", "Artifacts", "Opaque artifact listing and download operations."),
         new("mail.outlook", "Outlook Mail", "Classic Outlook folder, message, and attachment operations."),
+        new("files.onedrive", "OneDrive Files-On-Demand", "Local OneDrive and SharePoint-synced file hydration, leases, and reclaim."),
     ];
     private static readonly IReadOnlyDictionary<string, OpenApiNamespaceDefinition> NamespacesByName =
         NamespaceDefinitions.ToDictionary(item => item.Name, StringComparer.Ordinal);
@@ -149,6 +161,10 @@ public static class OperatorOpenApi
                 Post("startEdgeBrowserSession", "Start an Edge browser session with DevTools enabled.", schema.Input<BrowserEdgeSessionStartRequest>(), schema.Ref<BrowserEdgeSessionStateResult>())),
             ["/v1/browser/edge/open-url"] = Path(
                 Post("openEdgeUrl", "Open a URL in a new owned Edge session and optionally capture a screenshot.", schema.Input<BrowserEdgeOpenUrlRequest>(), schema.Ref<BrowserEdgeOpenUrlResult>())),
+            ["/v1/browser/edge/callback-relay/start"] = Path(
+                Post("startBrowserCallbackRelay", "Start a one-shot loopback relay for an Edge localhost callback.", schema.Input<BrowserCallbackRelayRequest>(), schema.Ref<BrowserCallbackRelayResult>())),
+            ["/v1/browser/edge/callback-relay/{relayId}/cleanup"] = Path(
+                Post("cleanupBrowserCallbackRelay", "Stop an owned one-shot Edge callback relay.", null, schema.Ref<BrowserCallbackRelayResult>(), PathParam("relayId", "string"))),
             ["/v1/browser/edge/session/{sessionId}/state"] = Path(
                 Get("getEdgeBrowserSessionState", "Read live Edge browser session state.", schema.Ref<BrowserEdgeSessionStateResult>(), PathParam("sessionId", "string"))),
             ["/v1/browser/edge/session/{sessionId}/navigate"] = Path(
@@ -396,6 +412,77 @@ public static class OperatorOpenApi
                     "Read a prior mail download run manifest.",
                     schema.Ref<MailDownloadResult>(),
                     PathParam("runId", "string"))),
+            ["/v1/files/onedrive/leases"] = Path(
+                Post(
+                    "acquireOneDriveLease",
+                    "Hydrate a configured OneDrive file and acquire an opaque local-use lease.",
+                    schema.Input<OneDriveLeaseRequest>(),
+                    schema.Ref<OneDriveLeaseResult>())),
+            ["/v1/files/onedrive/list"] = Path(
+                Post(
+                    "listOneDriveFiles",
+                    "List entries in a configured OneDrive folder on the Windows Agent.",
+                    schema.Input<OneDriveListRequest>(),
+                    schema.ArrayOf<OneDriveFileEntry>())),
+            ["/v1/files/onedrive/download"] = Path(
+                BinaryPost(
+                    "downloadOneDriveFile",
+                    "Hydrate and stream a configured OneDrive file from the Windows Agent.",
+                    schema.Input<OneDriveLeaseRequest>())),
+            ["/v1/files/onedrive/leases/{leaseId}"] = Path(
+                Get(
+                    "getOneDriveLease",
+                    "Read a OneDrive Files-On-Demand lease.",
+                    schema.Ref<OneDriveLeaseStatusResult>(),
+                    PathParam("leaseId", "string"))),
+            ["/v1/files/onedrive/leases/{leaseId}/renew"] = Path(
+                Post(
+                    "renewOneDriveLease",
+                    "Extend a ready OneDrive Files-On-Demand lease.",
+                    schema.Input<OneDriveLeaseRenewRequest>(),
+                    schema.Ref<OneDriveLeaseResult>(),
+                    PathParam("leaseId", "string"))),
+            ["/v1/files/onedrive/leases/{leaseId}/release"] = Path(
+                PostAccepted(
+                    "releaseOneDriveLease",
+                    "Release a OneDrive lease and dehydrate the file when safe.",
+                    null,
+                    schema.Ref<OneDriveLeaseResult>(),
+                    PathParam("leaseId", "string"))),
+            ["/v1/files/onedrive/status"] = Path(
+                Get(
+                    "getOneDriveFilesOnDemandStatus",
+                    "Read OneDrive Files-On-Demand availability and lease state.",
+                    schema.Ref<OneDriveFilesOnDemandStatusResult>())),
+            ["/v1/files/onedrive/runtime/recover"] = Path(
+                Post(
+                    "recoverOneDriveRuntime",
+                    "Resolve the current active Administrator desktop session and start or reuse OneDrive there without changing configuration.",
+                    schema.Input<OneDriveConfigurationRecoveryRequest>(),
+                    schema.Ref<OneDriveConfigurationRecoveryResult>())),
+            ["/v1/files/onedrive/config"] = Path(
+                Get(
+                    "getOneDriveFilesOnDemandConfig",
+                    "Read OneDrive Files-On-Demand policy configuration.",
+                    schema.Ref<OneDriveConfigResult>()),
+                Put(
+                    "updateOneDriveFilesOnDemandConfig",
+                    "Update OneDrive Files-On-Demand policy configuration with an ETag precondition.",
+                    schema.Input<OneDriveConfigUpdateRequest>(),
+                    schema.Ref<OneDriveConfigResult>(),
+                    HeaderParam("If-Match", "ETag returned by the configuration read."))),
+            ["/v1/files/onedrive/reclaims"] = Path(
+                Post(
+                    "startOneDriveReclaim",
+                    "Dry-run or execute a scoped local OneDrive space reclaim.",
+                    schema.Input<OneDriveReclaimRequest>(),
+                    schema.Ref<OneDriveReclaimResult>())),
+            ["/v1/files/onedrive/reclaims/{runId}"] = Path(
+                Get(
+                    "getOneDriveReclaim",
+                    "Read a OneDrive local space reclaim run.",
+                    schema.Ref<OneDriveReclaimResult>(),
+                    PathParam("runId", "string"))),
         };
         AnnotateOperations(paths);
         schema.Ref<OperatorError>();
@@ -494,6 +581,11 @@ public static class OperatorOpenApi
         if (path.StartsWith("/v1/mail/", StringComparison.Ordinal))
         {
             return "mail.outlook";
+        }
+
+        if (path.StartsWith("/v1/files/onedrive/", StringComparison.Ordinal))
+        {
+            return "files.onedrive";
         }
 
         if (path.StartsWith("/v1/uia/", StringComparison.Ordinal))
@@ -663,6 +755,58 @@ public static class OperatorOpenApi
         params object[] parameters) =>
         ("post", Operation(operationId, summary, requestSchema, responseSchema, parameters));
 
+    private static (string Method, object Operation) BinaryPost(
+        string operationId,
+        string summary,
+        object requestSchema,
+        params object[] parameters)
+    {
+        var operation = (Dictionary<string, object?>)BinaryOperation(operationId, summary, parameters);
+        operation["requestBody"] = new Dictionary<string, object?>
+        {
+            ["required"] = true,
+            ["content"] = JsonContent(requestSchema),
+        };
+        return ("post", operation);
+    }
+
+    private static (string Method, object Operation) PostAccepted(
+        string operationId,
+        string summary,
+        object? requestSchema,
+        object responseSchema,
+        params object[] parameters)
+    {
+        var operation = (Dictionary<string, object?>)Operation(
+            operationId,
+            summary,
+            requestSchema,
+            responseSchema,
+            parameters);
+        var responses = (Dictionary<string, object?>)operation["responses"]!;
+        responses["202"] = JsonResponse(
+            "Release accepted. Poll the URI in Location with GET /v1/files/onedrive/leases/{leaseId} until state is no longer releasing.",
+            responseSchema,
+            new Dictionary<string, object?>
+            {
+                ["Location"] = new Dictionary<string, object?>
+                {
+                    ["description"] = "Relative polling URI for the lease status resource.",
+                    ["required"] = true,
+                    ["schema"] = Primitive("string", "uri-reference"),
+                },
+            });
+        return ("post", operation);
+    }
+
+    private static (string Method, object Operation) Put(
+        string operationId,
+        string summary,
+        object? requestSchema,
+        object responseSchema,
+        params object[] parameters) =>
+        ("put", Operation(operationId, summary, requestSchema, responseSchema, parameters));
+
     private static (string Method, object Operation) PostWithNoContent(
         string operationId,
         string summary,
@@ -758,12 +902,23 @@ public static class OperatorOpenApi
         return operation;
     }
 
-    private static object JsonResponse(string description, object schema) =>
-        new Dictionary<string, object?>
+    private static object JsonResponse(
+        string description,
+        object schema,
+        IReadOnlyDictionary<string, object?>? headers = null)
+    {
+        var response = new Dictionary<string, object?>
         {
             ["description"] = description,
             ["content"] = JsonContent(schema),
         };
+        if (headers is not null)
+        {
+            response["headers"] = headers;
+        }
+
+        return response;
+    }
 
     private static object JsonContent(object schema) =>
         new Dictionary<string, object?>
@@ -790,6 +945,16 @@ public static class OperatorOpenApi
             ["in"] = "query",
             ["required"] = false,
             ["schema"] = schema,
+        };
+
+    private static object HeaderParam(string name, string description) =>
+        new Dictionary<string, object?>
+        {
+            ["name"] = name,
+            ["in"] = "header",
+            ["required"] = true,
+            ["description"] = description,
+            ["schema"] = Primitive("string"),
         };
 
     private static object Primitive(string type, string? format = null)

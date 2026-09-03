@@ -9,6 +9,8 @@ param(
 
     [string]$HostExchangeRoot = "",
 
+    [string]$OneDriveRecoveryAllowedComputer = "",
+
     [ValidateSet("None", "OperatorSafe")]
     [string]$ProvisionProfile = "OperatorSafe"
 )
@@ -80,9 +82,10 @@ function Test-DotnetSdk {
         return $false
     }
 
-    $hasCoreRuntime = $runtimes | Where-Object { $_ -match '^Microsoft\.NETCore\.App\s' }
-    $hasAspNetRuntime = $runtimes | Where-Object { $_ -match '^Microsoft\.AspNetCore\.App\s' }
-    if (-not $hasCoreRuntime -or -not $hasAspNetRuntime) {
+    $hasCoreRuntime = $runtimes | Where-Object { $_ -match '^Microsoft\.NETCore\.App\s+8\.' }
+    $hasAspNetRuntime = $runtimes | Where-Object { $_ -match '^Microsoft\.AspNetCore\.App\s+8\.' }
+    $hasWindowsDesktopRuntime = $runtimes | Where-Object { $_ -match '^Microsoft\.WindowsDesktop\.App\s+8\.' }
+    if (-not $hasCoreRuntime -or -not $hasAspNetRuntime -or -not $hasWindowsDesktopRuntime) {
         return $false
     }
 
@@ -118,16 +121,26 @@ function Install-DotnetWithWinget {
         return $false
     }
 
-    Write-Step ".NET 8 SDK x64 missing. Installing with winget."
-    & $winget.Source install `
-        --id Microsoft.DotNet.SDK.8 `
-        --exact `
-        --architecture x64 `
-        --accept-package-agreements `
-        --accept-source-agreements `
-        --disable-interactivity
+    Write-Step ".NET 8 SDK x64 or required runtime missing. Installing with winget."
+    $packages = @(
+        "Microsoft.DotNet.SDK.8",
+        "Microsoft.DotNet.DesktopRuntime.8"
+    )
+    foreach ($package in $packages) {
+        & $winget.Source install `
+            --id $package `
+            --exact `
+            --architecture x64 `
+            --accept-package-agreements `
+            --accept-source-agreements `
+            --disable-interactivity
 
-    return ($LASTEXITCODE -eq 0)
+        if ($LASTEXITCODE -ne 0) {
+            return $false
+        }
+    }
+
+    return $true
 }
 
 function Install-DotnetWithMicrosoftScript {
@@ -139,6 +152,15 @@ function Install-DotnetWithMicrosoftScript {
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installerPath -Channel 8.0 -Architecture x64 -InstallDir (Join-Path $Path "dotnet-sdk") | Out-Host
     if ($LASTEXITCODE -ne 0) {
         throw ".NET installer failed."
+    }
+
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installerPath `
+        -Channel 8.0 `
+        -Runtime windowsdesktop `
+        -Architecture x64 `
+        -InstallDir (Join-Path $Path "dotnet-sdk") | Out-Host
+    if ($LASTEXITCODE -ne 0) {
+        throw ".NET Windows Desktop runtime installer failed."
     }
 }
 
@@ -162,7 +184,7 @@ function Ensure-DotnetSdk {
         return $dotnetPath
     }
 
-    throw ".NET 8 SDK x64 still missing after install attempts."
+    throw ".NET 8 x64 SDK plus Core, ASP.NET Core, and Windows Desktop runtimes still missing after install attempts."
 }
 
 function Set-LocalStateEnvironment {
@@ -227,6 +249,7 @@ function Test-InteractiveDesktop {
 function Wait-OperatorRuntime {
     param(
         [string]$HealthUrl = "http://127.0.0.1:43117/v1/health",
+        [string]$AgentHealthUrl = "http://127.0.0.1:43119/v1/health",
         [int]$TimeoutSeconds = 120
     )
 
@@ -242,10 +265,38 @@ function Wait-OperatorRuntime {
 
             if ($runtimeMode -ne "headless-host") {
                 $lastObservation = "Unexpected runtimeMode=$runtimeMode status=$status."
-            }
-            elseif ($interactiveDesktop -and $status -eq "ok") {
-                Write-Step "Runtime healthy. status=ok runtimeMode=headless-host desktop=interactive"
-                return
+            } elseif ($status -eq "degraded" -and $interactiveDesktop) {
+                $agentTask = Get-ScheduledTask -TaskName "WindowsOperator.Agent" -ErrorAction SilentlyContinue
+                if ($agentTask -and [string]$agentTask.State -eq "Disabled") {
+                    Write-Step "Host healthy enough for disconnected RDP state; Agent task remains disabled under Host supervision."
+                    return
+                }
+                $lastObservation = "status=$status runtimeMode=$runtimeMode desktop=interactive; Agent task is not disabled."
+            } elseif ($interactiveDesktop -and $status -eq "ok") {
+                try {
+                    $agentHealth = Invoke-RestMethod -Uri $AgentHealthUrl -Method Get -TimeoutSec 5
+                    $agentStatus = [string]$agentHealth.status
+                    if ($agentStatus -eq "ok") {
+                        Write-Step "Runtime healthy. host=ok agent=ok runtimeMode=headless-host desktop=interactive"
+                        return
+                    }
+
+                    $lastObservation = "Host status=ok; Agent status=$agentStatus."
+                }
+                catch {
+                    try {
+                        $oneDriveStatus = Invoke-RestMethod -Uri "$($HealthUrl.TrimEnd('/'))/v1/files/onedrive/status" -Method Get -TimeoutSec 5
+                        $supervisorReason = [string]$oneDriveStatus.runtimeSupervisor.reason
+                        if (-not [string]::IsNullOrWhiteSpace($supervisorReason) -and
+                            $supervisorReason -eq "target_rdp_session_not_ready") {
+                            Write-Step "Host healthy; Agent start deferred until the resolved Administrator RDP session is active."
+                            return
+                        }
+                    }
+                    catch {
+                    }
+                    $lastObservation = "Host status=ok; Agent health unavailable: $($_.Exception.Message)"
+                }
             }
             elseif (-not $interactiveDesktop) {
                 $agentTask = Get-ScheduledTask -TaskName "WindowsOperator.Agent" -ErrorAction SilentlyContinue
@@ -299,13 +350,19 @@ $hostAutostartArguments = @(
     "-ExecutionPolicy", "Bypass",
     "-File", (Join-Path $PSScriptRoot "register-host-autostart.ps1"),
     "-RepoRoot", $resolvedRepoRoot,
-    "-DotnetPath", $dotnetPath
+    "-DotnetPath", $dotnetPath,
+    "-DeferStart"
 )
 if (-not [string]::IsNullOrWhiteSpace($ExchangeRoot)) {
     $hostAutostartArguments += @("-ExchangeRoot", $ExchangeRoot)
 }
 if (-not [string]::IsNullOrWhiteSpace($HostExchangeRoot)) {
     $hostAutostartArguments += @("-HostExchangeRoot", $HostExchangeRoot)
+}
+if (-not [string]::IsNullOrWhiteSpace($OneDriveRecoveryAllowedComputer)) {
+    $hostAutostartArguments += @(
+        "-OneDriveRecoveryAllowedComputer", $OneDriveRecoveryAllowedComputer
+    )
 }
 
 & powershell.exe @hostAutostartArguments
@@ -328,11 +385,19 @@ if (-not [string]::IsNullOrWhiteSpace($ExchangeRoot)) {
 if (-not [string]::IsNullOrWhiteSpace($HostExchangeRoot)) {
     $agentAutostartArguments += @("-HostExchangeRoot", $HostExchangeRoot)
 }
+if (-not [string]::IsNullOrWhiteSpace($OneDriveRecoveryAllowedComputer)) {
+    $agentAutostartArguments += @(
+        "-OneDriveRecoveryAllowedComputer", $OneDriveRecoveryAllowedComputer
+    )
+}
 
 & powershell.exe @agentAutostartArguments
 if ($LASTEXITCODE -ne 0) {
     throw "Agent runtime registration failed."
 }
+
+Start-ScheduledTask -TaskName "WindowsOperator.Host"
+Write-Step "Started Host after Agent publication completed."
 
 Write-Step "Waiting for Host and Agent runtime health."
 Wait-OperatorRuntime

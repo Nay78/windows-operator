@@ -3,6 +3,8 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$RepoRoot,
 
+    [string]$OneDriveRecoveryAllowedComputer = "",
+
     [string]$StateRoot = (Join-Path $env:LOCALAPPDATA "WindowsOperator"),
 
     [string]$DotnetPath = "dotnet.exe",
@@ -14,6 +16,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+$requiredOneDriveRecoveryComputer = "WIN-UUKQS009K4J"
 
 function Write-Step {
     param([string]$Message)
@@ -44,8 +47,9 @@ function Test-DotnetSdk {
 
     $runtimes = & $Candidate --list-runtimes 2>$null
     if ($LASTEXITCODE -ne 0 -or
-        -not ($runtimes | Where-Object { $_ -match '^Microsoft\.NETCore\.App\s' }) -or
-        -not ($runtimes | Where-Object { $_ -match '^Microsoft\.AspNetCore\.App\s' })) {
+        -not ($runtimes | Where-Object { $_ -match '^Microsoft\.NETCore\.App\s+8\.' }) -or
+        -not ($runtimes | Where-Object { $_ -match '^Microsoft\.AspNetCore\.App\s+8\.' }) -or
+        -not ($runtimes | Where-Object { $_ -match '^Microsoft\.WindowsDesktop\.App\s+8\.' })) {
         return $false
     }
 
@@ -79,7 +83,7 @@ function Resolve-Dotnet {
         }
     }
 
-    throw ".NET 8 SDK x64 missing. Run bootstrap.ps1 first or pass -DotnetPath."
+    throw ".NET 8 x64 SDK plus Core, ASP.NET Core, and Windows Desktop runtimes missing. Run bootstrap.ps1 first or pass -DotnetPath."
 }
 
 function Test-InteractiveDesktop {
@@ -118,6 +122,14 @@ function Stop-ExistingAgent {
             )
         })
 
+    $launcherPath = Join-Path $StateRoot "run\start-agent.ps1"
+    $processes += @(Get-CimInstance Win32_Process |
+        Where-Object {
+            $_.Name -in @("powershell.exe", "pwsh.exe") -and
+            $_.CommandLine -and
+            $_.CommandLine.IndexOf($launcherPath, [StringComparison]::OrdinalIgnoreCase) -ge 0
+        })
+
     $listener = Get-NetTCPConnection -State Listen -LocalPort 43119 -ErrorAction SilentlyContinue |
         Select-Object -First 1
     if ($listener) {
@@ -129,7 +141,7 @@ function Stop-ExistingAgent {
     }
 
     foreach ($process in $processes | Sort-Object ProcessId -Unique) {
-        Write-Step "Stopping Agent runtime process PID=$($process.ProcessId)."
+        Write-Step "Stopping Agent runtime or exact launcher process PID=$($process.ProcessId)."
         Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
         Wait-Process -Id $process.ProcessId -Timeout 10 -ErrorAction SilentlyContinue
     }
@@ -143,6 +155,10 @@ $agentProjectPath = Join-Path $RepoRoot "src\WindowsOperator.Agent\WindowsOperat
 if (-not (Test-Path -LiteralPath $agentProjectPath)) {
     throw "Agent project missing: $agentProjectPath"
 }
+$supervisorSourcePath = Join-Path $RepoRoot "scripts\windows\invoke-agent-supervisor.ps1"
+if (-not (Test-Path -LiteralPath $supervisorSourcePath -PathType Leaf)) {
+    throw "Agent supervisor missing: $supervisorSourcePath"
+}
 
 $resolvedStateRoot = (New-Item -ItemType Directory -Path $StateRoot -Force).FullName
 $agentRoot = Join-Path $resolvedStateRoot "agent"
@@ -155,6 +171,17 @@ $nugetPackages = Join-Path $resolvedStateRoot "nuget-packages"
 }
 
 $resolvedDotnetPath = Resolve-Dotnet -Candidate $DotnetPath -LocalStateRoot $resolvedStateRoot
+$recoveryEnvironment = "`$env:WINDOWS_OPERATOR_ONEDRIVE_RECOVERY_ALLOWED_COMPUTERS = `$null`r`n"
+if (-not [string]::IsNullOrWhiteSpace($OneDriveRecoveryAllowedComputer)) {
+    if (-not [string]::Equals($OneDriveRecoveryAllowedComputer, $requiredOneDriveRecoveryComputer, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "OneDrive recovery is restricted to $requiredOneDriveRecoveryComputer."
+    }
+    if (-not [string]::Equals($OneDriveRecoveryAllowedComputer, $env:COMPUTERNAME, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "OneDrive recovery allowlist target '$OneDriveRecoveryAllowedComputer' does not match this computer '$env:COMPUTERNAME'."
+    }
+
+    $recoveryEnvironment = "`$env:WINDOWS_OPERATOR_ONEDRIVE_RECOVERY_ALLOWED_COMPUTERS = $(Quote-PowerShellLiteral $OneDriveRecoveryAllowedComputer)`r`n"
+}
 $env:WINDOWS_OPERATOR_LOCAL_STATE_ROOT = $resolvedStateRoot
 $env:DOTNET_CLI_HOME = $dotnetHome
 $env:NUGET_PACKAGES = $nugetPackages
@@ -200,15 +227,23 @@ if (-not [string]::IsNullOrWhiteSpace($HostExchangeRoot)) {
 }
 
 $launcherPath = Join-Path $runRoot "start-agent.ps1"
+$supervisorPath = Join-Path $runRoot "invoke-agent-supervisor.ps1"
+Copy-Item -LiteralPath $supervisorSourcePath -Destination $supervisorPath -Force
 $launcherContent = @"
 `$ErrorActionPreference = "Stop"
 `$env:WINDOWS_OPERATOR_LOCAL_STATE_ROOT = $(Quote-PowerShellLiteral $resolvedStateRoot)
 `$env:DOTNET_CLI_HOME = $(Quote-PowerShellLiteral $dotnetHome)
 `$env:NUGET_PACKAGES = $(Quote-PowerShellLiteral $nugetPackages)
-$exchangeEnvironment`$logRoot = $(Quote-PowerShellLiteral $logRoot)
+$recoveryEnvironment$exchangeEnvironment`$env:WINDOWS_OPERATOR_ONEDRIVE_RECOVERY_USER = 'Administrator'
+`$logRoot = $(Quote-PowerShellLiteral $logRoot)
 New-Item -ItemType Directory -Path `$logRoot -Force | Out-Null
-`$logPath = Join-Path `$logRoot ("agent-{0}.log" -f (Get-Date -Format "yyyyMMdd-HHmmss"))
-& $(Quote-PowerShellLiteral $resolvedDotnetPath) $(Quote-PowerShellLiteral $agentDll) 2>&1 | Tee-Object -FilePath `$logPath -Append
+Set-Location -LiteralPath $(Quote-PowerShellLiteral $agentRoot)
+& $(Quote-PowerShellLiteral $supervisorPath) ``
+    -ExecutablePath $(Quote-PowerShellLiteral $resolvedDotnetPath) ``
+    -ApplicationArguments @($(Quote-PowerShellLiteral $agentDll)) ``
+    -LogRoot `$logRoot ``
+    -MaximumRestartCount 3 ``
+    -RestartDelaySeconds 2
 exit `$LASTEXITCODE
 "@
 $launcherContent | Set-Content -LiteralPath $launcherPath -Encoding UTF8
@@ -237,11 +272,5 @@ $settings = New-ScheduledTaskSettingsSet `
 
 $task = New-ScheduledTask -Action $action -Trigger $trigger -Principal $principal -Settings $settings
 Register-ScheduledTask -TaskName "WindowsOperator.Agent" -InputObject $task -Force | Out-Null
-
-if (Test-InteractiveDesktop) {
-    Start-ScheduledTask -TaskName "WindowsOperator.Agent"
-    Write-Step "Registered and started task WindowsOperator.Agent for $userId. AgentRoot=$agentRoot Launcher=$launcherPath"
-}
-else {
-    Write-Step "Registered task WindowsOperator.Agent for $userId; no interactive desktop, start deferred until logon. AgentRoot=$agentRoot Launcher=$launcherPath"
-}
+Disable-ScheduledTask -TaskName "WindowsOperator.Agent" | Out-Null
+Write-Step "Registered disabled task WindowsOperator.Agent for $userId. Host is sole Agent lifecycle owner. AgentRoot=$agentRoot Launcher=$launcherPath"

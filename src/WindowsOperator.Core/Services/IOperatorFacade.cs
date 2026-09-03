@@ -84,4 +84,41 @@ public interface IOperatorFacade
     Task<MailDownloadResult> GetMailRunAsync(string runId, CancellationToken cancellationToken);
 
     Task<MailStatusResult> GetMailStatusAsync(CancellationToken cancellationToken);
+
+    Task<OneDriveLeaseResult> AcquireOneDriveLeaseAsync(
+        OneDriveLeaseRequest request,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<OneDriveFileEntry>> ListOneDriveFilesAsync(
+        OneDriveListRequest request,
+        CancellationToken cancellationToken);
+
+    Task<OneDriveLeaseStatusResult> GetOneDriveLeaseAsync(
+        string leaseId,
+        CancellationToken cancellationToken);
+
+    Task<OneDriveLeaseResult> RenewOneDriveLeaseAsync(
+        string leaseId,
+        OneDriveLeaseRenewRequest request,
+        CancellationToken cancellationToken);
+
+    Task<OneDriveLeaseResult> ReleaseOneDriveLeaseAsync(
+        string leaseId,
+        CancellationToken cancellationToken);
+
+    Task<OneDriveFilesOnDemandStatusResult> GetOneDriveStatusAsync(CancellationToken cancellationToken);
+
+    Task<OneDriveConfigResult> GetOneDriveConfigAsync(CancellationToken cancellationToken);
+
+    Task<OneDriveConfigResult> UpdateOneDriveConfigAsync(
+        OneDriveConfigUpdateRequest request,
+        CancellationToken cancellationToken);
+
+    Task<OneDriveReclaimResult> StartOneDriveReclaimAsync(
+        OneDriveReclaimRequest request,
+        CancellationToken cancellationToken);
+
+    Task<OneDriveReclaimResult> GetOneDriveReclaimAsync(
+        string runId,
+        CancellationToken cancellationToken);
 }

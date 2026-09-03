@@ -66,6 +66,94 @@ public sealed class DesktopAgentClientTests
     }
 
     [Fact]
+    public async Task ListOneDriveFilesAsync_RetriesLockedDesktopAndRecovers()
+    {
+        var handler = new SequencedResponseHandler(
+            _ => throw new HttpRequestException("connection refused"),
+            _ => throw new HttpRequestException("connection refused"),
+            _ => JsonResponse<IReadOnlyList<OneDriveFileEntry>>(
+                [new OneDriveFileEntry { Id = "root/file.txt", Name = "file.txt" }]));
+        var client = CreateOneDriveClient(handler, attempts: 3);
+
+        var result = await client.ListOneDriveFilesAsync(
+            new OneDriveListRequest { RootId = "root" },
+            CancellationToken.None);
+
+        Assert.Single(result);
+        Assert.Equal(3, handler.RequestCount);
+        Assert.All(handler.Paths, path => Assert.Equal("/v1/files/onedrive/list", path));
+    }
+
+    [Fact]
+    public async Task GetOneDriveStatusAsync_ExhaustedReadinessReturnsActionableLockedDesktop()
+    {
+        var handler = new SequencedResponseHandler(
+            _ => throw new HttpRequestException("actively refused"),
+            _ => throw new HttpRequestException("actively refused"));
+        var client = CreateOneDriveClient(handler, attempts: 2);
+
+        var failure = await Assert.ThrowsAsync<OperatorFailureException>(
+            () => client.GetOneDriveStatusAsync(CancellationToken.None));
+
+        Assert.Equal(ErrorCodes.LockedDesktop, failure.Error.Code);
+        Assert.True(failure.Error.Retryable);
+        Assert.Contains("2 readiness attempts", failure.Error.Details!["detail"]);
+        Assert.Contains("http://127.0.0.1:43119", failure.Error.Details["detail"]);
+        Assert.Contains("WindowsOperator.Agent", failure.Error.Details["detail"]);
+        Assert.Contains("actively refused", failure.Error.Details["detail"]);
+        Assert.Equal(2, handler.RequestCount);
+    }
+
+    [Fact]
+    public async Task GetOneDriveStatusAsync_DoesNotRetryAgentReportedDesktopLock()
+    {
+        var handler = new SequencedResponseHandler(
+            _ => new HttpResponseMessage(HttpStatusCode.Locked)
+            {
+                Content = JsonContent.Create(
+                    OperatorErrors.LockedDesktop("interactive session is locked"),
+                    options: OperatorJson.SerializerOptions),
+            });
+        var client = CreateOneDriveClient(handler, attempts: 3);
+
+        var failure = await Assert.ThrowsAsync<OperatorFailureException>(
+            () => client.GetOneDriveStatusAsync(CancellationToken.None));
+
+        Assert.Equal(ErrorCodes.LockedDesktop, failure.Error.Code);
+        Assert.Equal("interactive session is locked", failure.Error.Details!["detail"]);
+        Assert.Equal(1, handler.RequestCount);
+    }
+
+    [Fact]
+    public async Task DownloadOneDriveFileAsync_RetriesConnectionRefusedBeforeStreaming()
+    {
+        var payload = new byte[] { 1, 2, 3, 4 };
+        var handler = new SequencedResponseHandler(
+            _ => throw ConnectionRefused(),
+            _ => throw ConnectionRefused(),
+            _ => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(payload),
+            });
+        var client = CreateOneDriveClient(handler, attempts: 3);
+        await using var destination = new MemoryStream();
+
+        await client.DownloadOneDriveFileAsync(
+            new OneDriveLeaseRequest
+            {
+                RequestId = "download-recovery",
+                RootId = "root",
+                RelativePath = "file.txt",
+            },
+            destination,
+            CancellationToken.None);
+
+        Assert.Equal(payload, destination.ToArray());
+        Assert.Equal(3, handler.RequestCount);
+        Assert.All(handler.Paths, path => Assert.Equal("/v1/files/onedrive/download", path));
+    }
+
+    [Fact]
     public async Task CaptureWindowAsync_ForwardsLowercaseFormatQuery()
     {
         var handler = new RecordingResponseHandler(() => JsonResponse(CreateScreenshotResult()));
@@ -373,11 +461,26 @@ public sealed class DesktopAgentClientTests
             new HttpClient(handler),
             Options.Create(new DesktopAgentOptions { BaseUrl = "http://127.0.0.1:43119" }));
 
+    private static DesktopAgentClient CreateOneDriveClient(HttpMessageHandler handler, int attempts) =>
+        new(
+            new HttpClient(handler),
+            Options.Create(new DesktopAgentOptions
+            {
+                BaseUrl = "http://127.0.0.1:43119",
+                OneDriveReadinessAttempts = attempts,
+                OneDriveReadinessDelayMilliseconds = 100,
+            }));
+
     private static HttpResponseMessage JsonResponse<T>(T payload) =>
         new(HttpStatusCode.OK)
         {
             Content = JsonContent.Create(payload, options: OperatorJson.SerializerOptions),
         };
+
+    private static HttpRequestException ConnectionRefused() =>
+        new(
+            "connection refused",
+            new System.Net.Sockets.SocketException((int)System.Net.Sockets.SocketError.ConnectionRefused));
 
     private static ScreenshotResult CreateScreenshotResult() =>
         new(
@@ -599,6 +702,25 @@ public sealed class DesktopAgentClientTests
                 : await request.Content.ReadAsStringAsync(cancellationToken);
 
             return _responseFactory(request);
+        }
+    }
+
+    private sealed class SequencedResponseHandler(
+        params Func<HttpRequestMessage, HttpResponseMessage>[] responses) : HttpMessageHandler
+    {
+        private int _requestCount;
+
+        public int RequestCount => _requestCount;
+
+        public List<string?> Paths { get; } = [];
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            Paths.Add(request.RequestUri?.AbsolutePath);
+            var index = Interlocked.Increment(ref _requestCount) - 1;
+            return Task.FromResult(responses[Math.Min(index, responses.Length - 1)](request));
         }
     }
 }

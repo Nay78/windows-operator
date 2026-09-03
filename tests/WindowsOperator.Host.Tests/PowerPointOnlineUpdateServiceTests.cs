@@ -4,7 +4,7 @@ using WindowsOperator.Host.Services;
 
 namespace WindowsOperator.Host.Tests;
 
-    public sealed class PowerPointOnlineUpdateServiceTests
+public sealed class PowerPointOnlineUpdateServiceTests
 {
     [Fact]
     public async Task UpdateAsync_RejectsExecutableJob_WhenDeckMutationNotAllowed()
@@ -369,15 +369,13 @@ namespace WindowsOperator.Host.Tests;
         var jobs = new FakePowerPointJobService();
         jobs.EnqueueResultFactory = record => record with { Status = "running" };
         jobs.GetResults.Enqueue(CreateJobRecord("job-1", "succeeded"));
-        var facade = new FakeOperatorFacade();
-        var service = new PowerPointOnlineUpdateService(online, jobs, facade);
+        var service = new PowerPointOnlineUpdateService(online, jobs);
 
         var result = await service.UpdateAsync(CreateRequest(), CancellationToken.None);
 
         Assert.True(result.Success);
         Assert.Equal(1, online.RunPendingJobCalls);
         Assert.Equal(0, online.LastRunPendingJobWaitSeconds);
-        Assert.Empty(facade.ScreenClicks);
         Assert.Contains("addin_run_pending_job_command_requested", result.Actions);
         Assert.Contains("addin_run_pending_job_click_dispatched", result.Actions);
     }
@@ -1424,82 +1422,6 @@ namespace WindowsOperator.Host.Tests;
             CleanupSessionIds.Add(sessionId);
             return Task.FromResult(CleanupResult with { SessionId = sessionId });
         }
-    }
-
-    private sealed class FakeOperatorFacade : IOperatorFacade
-    {
-        public IReadOnlyList<UiElementRef> QueryUiResult { get; set; } = Array.Empty<UiElementRef>();
-
-        public Queue<IReadOnlyList<UiElementRef>> QueryUiResults { get; } = new();
-
-        public int QueryUiCalls { get; private set; }
-
-        public UiQuery? LastQuery { get; private set; }
-
-        public List<ScreenClickRequest> ScreenClicks { get; } = new();
-
-        public Task<HealthResult> GetHealthAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
-
-        public Task<CapabilitiesResult> GetCapabilitiesAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
-
-        public Task<IReadOnlyList<WindowRef>> ListWindowsAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
-
-        public Task<ActionResult> ActivateWindowAsync(long hwnd, CancellationToken cancellationToken) => throw new NotSupportedException();
-
-        public Task<ScreenshotResult> CaptureWindowAsync(long hwnd, ScreenshotFormat? format, CancellationToken cancellationToken) => throw new NotSupportedException();
-
-        public Task<IReadOnlyList<UiElementRef>> QueryUiAsync(UiQuery query, CancellationToken cancellationToken)
-        {
-            QueryUiCalls++;
-            LastQuery = query;
-            return Task.FromResult(QueryUiResults.Count > 0 ? QueryUiResults.Dequeue() : QueryUiResult);
-        }
-
-        public Task<ActionResult> ClickUiAsync(UiaClickRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
-
-        public Task<ActionResult> TypeUiAsync(UiaTypeRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
-
-        public Task<ActionResult> ClickScreenAsync(ScreenClickRequest request, CancellationToken cancellationToken)
-        {
-            ScreenClicks.Add(request);
-            return Task.FromResult(new ActionResult(true, "clicked"));
-        }
-
-        public Task<ActionResult> SendHotkeyAsync(HotkeyRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
-
-        public Task<BrowserEdgeResetResult> ResetEdgeBrowserAsync(BrowserEdgeResetRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
-
-        public Task<BrowserEdgeSessionStateResult> StartEdgeBrowserSessionAsync(BrowserEdgeSessionStartRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
-
-        public Task<BrowserEdgeSessionStateResult> GetEdgeBrowserSessionStateAsync(string sessionId, CancellationToken cancellationToken) => throw new NotSupportedException();
-
-        public Task<BrowserEdgeSessionStateResult> NavigateEdgeBrowserSessionAsync(string sessionId, BrowserEdgeSessionNavigateRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
-
-        public Task<BrowserEdgeSessionDomActionResult> ClickEdgeBrowserDomAsync(string sessionId, BrowserEdgeSessionDomClickRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
-
-        public Task<BrowserEdgeSessionDomActionResult> FillEdgeBrowserDomAsync(string sessionId, BrowserEdgeSessionDomFillRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
-
-        public Task<BrowserEdgeSessionStateResult> CloseEdgeBrowserSessionAsync(string sessionId, CancellationToken cancellationToken) => throw new NotSupportedException();
-
-        public Task<MicrosoftAuthCleanupResult> CleanupMicrosoftAuthWindowsAsync(MicrosoftAuthCleanupRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
-
-        public Task<MicrosoftAuthorizeProbeResult> StartMicrosoftAuthorizeProbeAsync(MicrosoftAuthorizeProbeRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
-
-        public Task<MicrosoftAuthorizeProbeResult> GetMicrosoftAuthorizeProbeStatusAsync(string runId, CancellationToken cancellationToken) => throw new NotSupportedException();
-
-        public Task<MicrosoftDeviceLoginResult> StartMicrosoftDeviceLoginAsync(MicrosoftDeviceLoginRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
-
-        public Task<MicrosoftDeviceLoginResult> GetMicrosoftDeviceLoginStatusAsync(string runId, CancellationToken cancellationToken) => throw new NotSupportedException();
-
-        public Task<MailFoldersResult> ListMailFoldersAsync(MailListFoldersRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
-
-        public Task<MailSearchResult> SearchMailMessagesAsync(MailSearchRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
-
-        public Task<MailDownloadResult> DownloadMailAttachmentsAsync(MailDownloadRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
-
-        public Task<MailDownloadResult> GetMailRunAsync(string runId, CancellationToken cancellationToken) => throw new NotSupportedException();
-
-        public Task<MailStatusResult> GetMailStatusAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 
     private sealed class FakePowerPointJobService : IPowerPointJobService

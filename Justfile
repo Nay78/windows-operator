@@ -3,6 +3,15 @@ set dotenv-load := false
 default:
     @just --list
 
+# Build the complete Host/Agent solution locally.
+build:
+    dotnet build WindowsOperator.sln
+
+# Build, sync source to the configured Windows target, publish, and register Host/Agent.
+deploy: build
+    scripts/linux/windows-sync-repo.sh
+    scripts/linux/windows-run-ps.sh scripts/windows/deploy-bootstrap.ps1 -RepoRoot 'C:\src\windows-operator' -ProvisionProfile None -OneDriveRecoveryAllowedComputer WIN-UUKQS009K4J
+
 # Sync repo-owned source and PowerShell profile to reachable Windows targets.
 sync:
     scripts/linux/windows-sync-available.sh
@@ -37,6 +46,10 @@ wo-test:
 # Test the staged Windows PowerShell runner without a live Windows host.
 windows-run-ps-test:
     scripts/linux/windows-run-ps-tests.sh
+
+# Test the Windows Operator storage cleanup engine on a Windows target.
+storage-cleanup-test:
+    scripts/linux/storage-cleanup-tests.sh
 
 # Test bounded Windows runtime inspection without a live Windows host.
 inspect-runtime-test:

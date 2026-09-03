@@ -53,6 +53,15 @@ POLLING_OPERATIONS = {
     "failPowerPointJob",
     "getPowerPointJob",
     "getMailRun",
+    "releaseOneDriveLease",
+}
+ONE_DRIVE_EXTERNAL_LEASE_OPERATIONS = {
+    "listOneDriveFiles",
+    "downloadOneDriveFile",
+    "acquireOneDriveLease",
+    "getOneDriveLease",
+    "renewOneDriveLease",
+    "releaseOneDriveLease",
 }
 ARTIFACT_OPERATIONS = {
     "captureDesktopScreenshot",
@@ -73,6 +82,7 @@ IDEMPOTENT_CLEANUPS = {
     "cleanupPowerPointOnlineTemplate",
     "cleanupPowerPointOnlineSession",
     "cleanupMicrosoftAuthWindows",
+    "releaseOneDriveLease",
 }
 CALLER_KEYED = {
     "startEdgeBrowserSession",
@@ -85,6 +95,9 @@ CALLER_KEYED = {
     "failPowerPointJob",
     "downloadMailAttachments",
     "updatePowerPointOnlinePresentation",
+    "acquireOneDriveLease",
+    "renewOneDriveLease",
+    "startOneDriveReclaim",
 }
 DESKTOP_CONTENT = {
     "captureDesktopScreenshot",
@@ -165,10 +178,17 @@ def openapi_operations(document: dict) -> dict[str, dict]:
                 .get("application/json", {})
                 .get("schema", {})
             )
+            accepted = operation.get("responses", {}).get("202", {})
             result[operation["operationId"]] = {
                 "namespace": operation["x-windows-operator-namespace"],
                 "requestSchemas": schema_names(request_schema),
                 "successSchemas": schema_names(success_schema),
+                "acceptedPolling": {
+                    "locationHeader": accepted.get("headers", {}).get("Location", {}).get("description"),
+                    "responseDescription": accepted.get("description"),
+                }
+                if accepted
+                else None,
             }
     return result
 
@@ -185,7 +205,7 @@ def lifecycle(operation_id: str) -> str:
 
 def idempotency(entry: dict) -> str:
     operation_id = entry["operationId"]
-    if entry["method"] == "GET":
+    if entry["method"] == "GET" or operation_id == "listOneDriveFiles":
         return "safeRead"
     if operation_id in IDEMPOTENT_CLEANUPS:
         return "idempotentCleanup"
@@ -198,6 +218,12 @@ def timeout_policy(entry: dict) -> str:
     namespace = entry["namespace"]
     if namespace == "mail.outlook":
         return "serverBounded:180s"
+    if entry["operationId"] in {"acquireOneDriveLease", "downloadOneDriveFile"}:
+        return "serverBounded:180s"
+    if entry["operationId"] == "startOneDriveReclaim":
+        return "serverBounded:660s"
+    if namespace == "files.onedrive":
+        return "serverBounded:60s"
     if namespace == "powerpoint.online":
         return "serverBounded:660s"
     if entry["lifecycle"] == "session":
@@ -261,10 +287,77 @@ def main() -> None:
     policy = json.loads(POLICY.read_text())
     source = openapi_operations(document)
 
+    policy["consumerJobs"].setdefault(
+        "oneDriveFilesOnDemand",
+        {
+            "defaultCaller": "operatorTool",
+            "description": "Hydrate, consume, release, and locally reclaim bounded OneDrive Files-On-Demand leases.",
+        },
+    )
+    known = {entry["operationId"] for entry in policy["operations"]}
+    for operation_id, projection in source.items():
+        if projection["namespace"] != "files.onedrive" or operation_id in known:
+            continue
+        operation_method, operation_path = next(
+            (method.upper(), path)
+            for path, path_item in document["paths"].items()
+            for method, operation in path_item.items()
+            if method in HTTP_METHODS
+            and isinstance(operation, dict)
+            and operation.get("operationId") == operation_id
+        )
+        policy["operations"].append(
+            {
+                "operationId": operation_id,
+                "method": operation_method,
+                "path": operation_path,
+                "proposedSurface": "diagnostic",
+                "consumerJob": "oneDriveFilesOnDemand",
+                "expectedCaller": "operatorTool",
+                "localExposure": "loopback",
+                "remoteExposure": "denied",
+                "handlerOwner": "host",
+                "fixture": "bounded-onedrive-files-on-demand-fixture",
+                "observableEffect": (
+                    "OneDrive directory metadata returned from the Windows Agent."
+                    if operation_id == "listOneDriveFiles"
+                    else "OneDrive file bytes streamed from the Windows Agent."
+                    if operation_id == "downloadOneDriveFile"
+                    else "Typed OneDrive Files-On-Demand control-plane result returned."
+                ),
+                "cleanup": "module-owned-local-state",
+                "credentialGate": "none",
+                "mutationGate": "consequentialApproval"
+                if operation_id == "updateOneDriveFilesOnDemandConfig"
+                else "none"
+                if operation_id.startswith("getOneDrive")
+                else "ownedResource",
+                "proofState": "blocked",
+                "evidence": [],
+                "namespace": "files.onedrive",
+                "unresolvedDecision": "Promote only after live hydrate/use/release and reclaim evidence.",
+            }
+        )
+
     for entry in policy["operations"]:
         operation_id = entry["operationId"]
         projection = source[operation_id]
         entry.update(projection)
+        if entry["acceptedPolling"] is None:
+            entry.pop("acceptedPolling")
+        if projection["namespace"] == "files.onedrive":
+            entry["proposedSurface"] = "diagnostic"
+            entry["remoteExposure"] = "denied"
+            entry["handlerOwner"] = (
+                "host" if operation_id == "recoverOneDriveRuntime" else "desktopAgentViaHost"
+            )
+            if operation_id == "updateOneDriveFilesOnDemandConfig":
+                entry["mutationGate"] = "consequentialApproval"
+            if operation_id == "recoverOneDriveRuntime":
+                entry["mutationGate"] = "consequentialApproval"
+        if operation_id in ONE_DRIVE_EXTERNAL_LEASE_OPERATIONS:
+            entry["consumerJob"] = "cenVuelosOneDriveLease"
+            entry["expectedCaller"] = "externalApplication"
         if operation_id in GATE_OVERRIDES:
             credential_gate, mutation_gate, proof_state = GATE_OVERRIDES[operation_id]
             entry["credentialGate"] = credential_gate
@@ -300,6 +393,11 @@ def main() -> None:
             if entry["proposedSurface"] == "diagnostic"
             else "Development-only mechanism excluded from ordinary relay and compatibility."
         )
+        if operation_id in ONE_DRIVE_EXTERNAL_LEASE_OPERATIONS:
+            entry["dispositionRationale"] = (
+                "Intended external cen_vuelos lease consumer; diagnostic pending live lifecycle proof "
+                "and consumer integration evidence."
+            )
         entry["unresolvedDecision"] = None
         entry["decisionOwner"] = "contractOwner"
 

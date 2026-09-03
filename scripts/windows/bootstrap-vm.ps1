@@ -16,7 +16,9 @@ if (-not (Test-Path -LiteralPath $codexBootstrapPath)) {
     throw "Codex bootstrap script missing: $codexBootstrapPath"
 }
 
-& $bootstrapPath -RepoRoot $repoRoot
+& $bootstrapPath `
+    -RepoRoot $repoRoot `
+    -OneDriveRecoveryAllowedComputer "WIN-UUKQS009K4J"
 if (-not $?) {
     throw "Windows Operator VM bootstrap failed."
 }

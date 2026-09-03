@@ -55,6 +55,33 @@ public static class OperatorApp
         builder.Services.AddWindowsAutomation();
         builder.Services.AddWindowCapture();
         builder.Services.AddSingleton<IMailService, OutlookMailService>();
+        builder.Services.AddSingleton<OneDriveFilesOnDemandService>();
+        builder.Services.AddSingleton<IOneDriveFilesOnDemandService>(services =>
+            services.GetRequiredService<OneDriveFilesOnDemandService>());
+        builder.Services.AddSingleton<IOneDriveFileConsumer>(services =>
+            services.GetRequiredService<OneDriveFilesOnDemandService>());
+        builder.Services.AddSingleton<OneDriveRecoveryReclaimScheduler>(services =>
+            new OneDriveRecoveryReclaimScheduler(
+                services.GetRequiredService<IOneDriveRecoveryReclaimRecordStore>(),
+                services.GetRequiredService<IOneDriveRecoveryRuntime>(),
+                services.GetRequiredService<IOneDriveRecoveryReclaimService>(),
+                new OneDriveRecoveryReclaimSchedulerOptions
+                {
+                    // The service adapter remains dormant until the persisted
+                    // OneDrive config explicitly enables PeriodicReclaim.
+                    Enabled = true,
+                    Interval = TimeSpan.FromDays(1),
+                    MaximumRecordsPerRun = 10,
+                }));
+        builder.Services.AddSingleton<IOneDriveRecoveryReclaimRecordStore>(services =>
+            services.GetRequiredService<OneDriveFilesOnDemandService>());
+        builder.Services.AddSingleton<IOneDriveRecoveryRuntime>(services =>
+            services.GetRequiredService<OneDriveFilesOnDemandService>());
+        builder.Services.AddSingleton<IOneDriveRecoveryReclaimService>(services =>
+            services.GetRequiredService<OneDriveFilesOnDemandService>());
+        builder.Services.AddHostedService(services =>
+            services.GetRequiredService<OneDriveRecoveryReclaimScheduler>());
+        builder.Services.AddHostedService<OneDriveRuntimeSupervisor>();
         builder.Services.AddSingleton<EdgeMicrosoftAuthService>();
         builder.Services.AddSingleton<IMicrosoftAuthService>(services => services.GetRequiredService<EdgeMicrosoftAuthService>());
         builder.Services.AddSingleton<IEdgeBrowserService>(services => services.GetRequiredService<EdgeMicrosoftAuthService>());

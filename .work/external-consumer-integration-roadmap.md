@@ -2,6 +2,18 @@
 
 Date: 2026-07-06
 
+Status: superseded as active queue by
+`.work/comprehensive-v1-contract-roadmap.md`; retained as pre-v1 implementation
+ledger, audit evidence, and hardening precursor.
+
+Last reviewed: 2026-07-23
+
+Current governing roadmap:
+
+```text
+.work/comprehensive-v1-contract-roadmap.md
+```
+
 ## Objective
 
 Bring Windows Operator to the external-consumer target defined in:
@@ -33,7 +45,7 @@ contracts.
 - Host REST serves `GET /openapi.json`.
 - Committed spec: `openapi/windows-operator.openapi.json`.
 - Go client: `clients/go`.
-- Route inventory: 58 OpenAPI paths.
+- Route inventory: 66 OpenAPI paths in the current working tree.
 - Contract docs define external-consumer target.
 - Route surface metadata exists on all OpenAPI operations.
 - `GET /v1/capabilities` reports contract/features before workflow calls.
@@ -41,7 +53,16 @@ contracts.
   expose opaque artifact refs.
 - Go client README/helpers/smoke exist.
 - Relay and release checklist docs exist.
-- First release tag is not cut yet; release doc defines gates for it.
+- First release tag is not cut locally or on `origin`; release doc defines gates
+  but fresh tagged-consumer acceptance remains unproven.
+- Live Host reports contract `0.1.0`, health `ok`, and seven available
+  capabilities. Its OpenAPI document is semantically equal to the current
+  working-tree spec.
+- Current generated Go client smoke proves health, capability/version checking,
+  and a typed `mail_run_not_found` negative response. Current artifact success
+  proof was skipped because no run id was supplied.
+- Current release gates are not green: Go client tests fail to compile and the
+  README route inventory omits one Power Automate cleanup route.
 
 ## Execution Rules
 
@@ -59,14 +80,66 @@ contracts.
 | --- | --- | --- | --- |
 | E0 Spec and references | complete | main | `docs/external-consumer-integration.md`; AGENTS/README/development/architecture references added. |
 | E1 Surface metadata | complete | worker + main review | `x-windows-operator-surface` and matching tags added to all OpenAPI operations; host OpenAPI metadata test passed; `GET /v1/health` remains stable. |
-| E2 Version and release gates | complete | worker + main review | Contract version source and drift gate added; `scripts/check-openapi-contract.sh`, Go client tests, portable build, host OpenAPI tests, and `git diff --check` passed. Core test execution blocked on Linux missing `Microsoft.WindowsDesktop.App 8.0.0`. |
-| E3 Error contract hardening | complete | main | `OperatorError` now includes optional `correlationId`, `retryable`, `category`; `OperatorErrorCategory` added; Host/Agent errors enrich responses; `docs/operator-error-codes.md`; live `GET /v1/artifacts/invalid` returned HTTP 404 `artifact_not_found`, `notFound`, `retryable=false`, string correlation id. |
+| E2 Version and release gates | partial | worker + main review | Version/drift generation check passes. No release tag exists; lint and breaking-change hooks remain optional/unconfigured. |
+| E3 Error contract hardening | partial | main | Runtime errors are branchable and live negative proof passes. OpenAPI marks core `OperatorError` fields optional, and the stable code table omits two Power Automate codes. |
 | E4 Capability discovery | complete | main | `CapabilitiesResult` contracts, Host/Agent routes, OpenAPI/client regeneration, README inventory; live `GET /v1/capabilities` over `http://127.0.0.1:43127` returned HTTP 200, contract `0.1.0`, explicit `powerpoint.online.update` and `mail.outlook.download` availability. |
 | E5 Artifact contract | complete | main | `ArtifactRef`, `ArtifactListResult`, `IArtifactService`, Host artifact/list routes, exchange-root store, checksums/ETag/media type; `WorkbenchArtifactRef` and mail attachment results now include artifact refs; Host autostart writes `Workbench.ExchangeRoot` for SYSTEM-safe artifact serving. |
-| E6 Go client readiness | complete | main | `clients/go/README.md`; helpers `DecodeOperatorError`, `CheckContractVersion`, `DownloadArtifact`, `WaitForRun`, `WaitForPowerPointJob`; `cd clients/go && go test ./...` passed. |
-| E7 External consumer smoke | complete | main | `scripts/external-consumer-smoke.sh` creates a temp external Go module and uses generated client/runtime only; live run against `http://127.0.0.1:43127` proved health, capabilities, negative `OperatorError`, and artifact download. |
-| E8 Relay guide/template | complete | main | `docs/external-consumer-relay.md` defines loopback Host, route allowlist, auth, redaction, artifact URL rewrite, timeout/rate-limit boundaries. |
-| E9 Release packaging | complete | main | `docs/external-consumer-release.md` defines `v0.1.0` tag gate, module path, pre-tag checks, live Host checks, fresh consumer proof; `scripts/check-openapi-contract.sh` passed and skips breaking check until first release tag exists. |
+| E6 Go client readiness | partial | main | Client, docs, and helpers exist. `go test ./...` currently fails at `windowsoperator_contract_test.go:102` because `Succeeded` is undefined. |
+| E7 External consumer smoke | partial | main | Historical artifact proof exists. Current live smoke passed health/capabilities/typed-negative paths but skipped artifact download without `WINDOWS_OPERATOR_SMOKE_RUN_ID`. |
+| E8 Relay guide/template | partial | main | Relay policy guide exists. Reusable authenticated relay template and live auth proof remain deferred; required only for remote consumers. |
+| E9 Release packaging | superseded by v1 roadmap; operator gate | main | Checklist now targets `v1.0.0`. No tag or frozen-RC consumer proof exists. Tag/push is an external effect and follows all local/live gates. |
+
+## Pre-v1 Contract Hardening Queue
+
+Historical queue after the 2026-07-22 contract audit. Its unfinished outcomes
+are absorbed by the governing comprehensive v1 roadmap; do not execute this
+table as an independent campaign.
+
+| Handle | State | Priority | Outcome | Acceptance evidence |
+| --- | --- | --- | --- | --- |
+| `CONTRACT-SCHEMA-FIDELITY` | planned | P0 | OpenAPI requiredness and constraints match Core contract invariants. C# `required` members such as `HotkeyRequest.Keys` and `UiaClickRequest.Query` generate required OpenAPI fields; `OperatorError.code`, `message`, and `remediation` are required. | Focused schema tests; regenerated OpenAPI/Go client; invalid typed requests no longer compile without required fields; `scripts/check-openapi-contract.sh`; Go tests. |
+| `CONTRACT-CLIENT-GATE` | planned after schema fidelity | P0 | Generated Go client and handwritten helpers/tests compile against the same enum/type surface. | `cd clients/go && go test ./...`; generation produces no diff. |
+| `CONTRACT-DOC-PARITY` | planned | P0 | README route inventory and stable error-code table match generated/source contracts, including Power Automate cleanup and both Power Automate error codes. Add an automated error-code parity gate. | `scripts/check-readme-route-inventory.sh`; error-code parity test/check; `git diff --check`. |
+| `CONTRACT-SEMANTICS` | planned after correctness gates | P1 | Public schemas expose descriptions, meaningful defaults, examples, formats, and validation constraints needed by generated consumers. Do not invent defaults; source them from runtime contracts. | OpenAPI lint enabled by default; focused assertions for representative desktop, browser, mail, PowerPoint, and Power Automate requests. |
+| `CONTRACT-COMPAT` | planned around first release | P1 | Stable routes have deprecation metadata policy and mechanical breaking-change comparison against the latest release tag. | Breaking checker runs in release gate; compatibility fixtures cover stable operations. |
+| `CONTRACT-RELEASE` | superseded by `V1-RC-PROOF` and `V1-RELEASE` | P0 release gate | Publish the comprehensive contract only after every-operation conformance and RC proof. | Governing v1 roadmap and release checklist; fresh `go get github.com/Nay78/windows-operator/clients/go@v1.0.0`; health, typed error, and artifact download through generated client. |
+| `CONTRACT-RELAY` | deferred unless remote adoption is required | P1 remote | Provide an authenticated, allowlisted relay template without moving automation policy out of Host. | Authenticated health/capability call; unauthorized request rejected; secret-redaction and route-allowlist tests; private artifact retrieval. |
+| `CONTRACT-SDK-EXPANSION` | deferred pending consumer demand | P2 | Add another generated SDK only after the tagged Go contract is stable. | Named consumer and language requirement; generated package validation and external-repo smoke. |
+
+### Dependency And Authority Gates
+
+```text
+CONTRACT-SCHEMA-FIDELITY
+  -> CONTRACT-CLIENT-GATE
+  -> CONTRACT-DOC-PARITY
+  -> CONTRACT-SEMANTICS
+  -> CONTRACT-RELEASE
+  -> CONTRACT-COMPAT
+
+CONTRACT-RELAY is required before remote production exposure.
+CONTRACT-SDK-EXPANSION waits for demonstrated consumer demand.
+```
+
+- Local contract, client, docs, and test changes need no product decision when
+  they restore existing C# invariants and documented behavior.
+- Changing runtime defaults, error semantics, route behavior, or stable field
+  meaning requires an explicit contract decision.
+- Creating/pushing `v1.0.0`, exposing a relay, binding a public listener, or
+  provisioning credentials requires operator authority.
+
+### Superseded Next Slice
+
+This recommendation was superseded by `V1-SURFACE-FREEZE`. Schema fidelity,
+client, and documentation outcomes remain required under the governing roadmap,
+after the stable v1 surface is defined.
+
+Non-goals for that slice:
+
+- no release tag or push
+- no public relay deployment
+- no runtime behavior/default changes without contract evidence
+- no new SDK language
+- no CLI, Just, SSH, or staged-PowerShell dependency for applications
 
 ## Dependency Order
 
@@ -456,7 +529,7 @@ Avoid:
 - exposing exchange paths as stable API
 - adding generated-client helpers that are only pass-through wrappers
 
-## Completion Evidence
+## Historical Completion Evidence (2026-07-06)
 
 Local validation:
 
@@ -514,7 +587,7 @@ Residual notes:
   workflows reported unavailable rather than executing PowerPoint/mail mutation.
   Capability discovery now exposes that state before consumers call workflows.
 
-Completion challenge:
+Historical completion challenge:
 
 - Re-checked ledger for pending E-slices: E0-E9 complete.
 - Re-checked OpenAPI route count/surface metadata: 58 paths, 0 operations

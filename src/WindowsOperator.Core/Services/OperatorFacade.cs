@@ -9,6 +9,7 @@ public sealed class OperatorFacade : IOperatorFacade
     private readonly IEdgeBrowserService _edgeBrowserService;
     private readonly IInputService _inputService;
     private readonly IMailService _mailService;
+    private readonly IOneDriveFilesOnDemandService _oneDriveService;
     private readonly IMicrosoftAuthService _microsoftAuthService;
     private readonly RuntimeBuildIdentity _buildIdentity;
     private readonly IUiAutomationService _uiAutomationService;
@@ -25,6 +26,7 @@ public sealed class OperatorFacade : IOperatorFacade
         IInputService inputService,
         IEdgeBrowserService edgeBrowserService,
         IMailService mailService,
+        IOneDriveFilesOnDemandService oneDriveService,
         IMicrosoftAuthService microsoftAuthService,
         RuntimeBuildIdentity buildIdentity,
         IOptions<OperatorOptions> options)
@@ -36,6 +38,7 @@ public sealed class OperatorFacade : IOperatorFacade
         _inputService = inputService;
         _edgeBrowserService = edgeBrowserService;
         _mailService = mailService;
+        _oneDriveService = oneDriveService;
         _microsoftAuthService = microsoftAuthService;
         _buildIdentity = buildIdentity;
         _options = options;
@@ -75,6 +78,7 @@ public sealed class OperatorFacade : IOperatorFacade
                 "stable",
                 "PowerPoint update orchestration is owned by the Headless Host."),
             ["mail.outlook.download"] = new(true, "stable"),
+            ["files.onedrive"] = new(true, "diagnostic", "Files-On-Demand lease and local reclaim surface; stable promotion requires live Windows proof."),
         };
 
         return new CapabilitiesResult(
@@ -195,6 +199,53 @@ public sealed class OperatorFacade : IOperatorFacade
 
     public Task<MailStatusResult> GetMailStatusAsync(CancellationToken cancellationToken) =>
         _mailService.GetStatusAsync(cancellationToken);
+
+    public Task<OneDriveLeaseResult> AcquireOneDriveLeaseAsync(
+        OneDriveLeaseRequest request,
+        CancellationToken cancellationToken) =>
+        _oneDriveService.AcquireLeaseAsync(request, cancellationToken);
+
+    public Task<IReadOnlyList<OneDriveFileEntry>> ListOneDriveFilesAsync(
+        OneDriveListRequest request,
+        CancellationToken cancellationToken) =>
+        _oneDriveService.ListFilesAsync(request, cancellationToken);
+
+    public Task<OneDriveLeaseStatusResult> GetOneDriveLeaseAsync(
+        string leaseId,
+        CancellationToken cancellationToken) =>
+        _oneDriveService.GetLeaseAsync(leaseId, cancellationToken);
+
+    public Task<OneDriveLeaseResult> RenewOneDriveLeaseAsync(
+        string leaseId,
+        OneDriveLeaseRenewRequest request,
+        CancellationToken cancellationToken) =>
+        _oneDriveService.RenewLeaseAsync(leaseId, request, cancellationToken);
+
+    public Task<OneDriveLeaseResult> ReleaseOneDriveLeaseAsync(
+        string leaseId,
+        CancellationToken cancellationToken) =>
+        _oneDriveService.ReleaseLeaseAsync(leaseId, cancellationToken);
+
+    public Task<OneDriveFilesOnDemandStatusResult> GetOneDriveStatusAsync(CancellationToken cancellationToken) =>
+        _oneDriveService.GetStatusAsync(cancellationToken);
+
+    public Task<OneDriveConfigResult> GetOneDriveConfigAsync(CancellationToken cancellationToken) =>
+        _oneDriveService.GetConfigAsync(cancellationToken);
+
+    public Task<OneDriveConfigResult> UpdateOneDriveConfigAsync(
+        OneDriveConfigUpdateRequest request,
+        CancellationToken cancellationToken) =>
+        _oneDriveService.UpdateConfigAsync(request, cancellationToken);
+
+    public Task<OneDriveReclaimResult> StartOneDriveReclaimAsync(
+        OneDriveReclaimRequest request,
+        CancellationToken cancellationToken) =>
+        _oneDriveService.StartReclaimAsync(request, cancellationToken);
+
+    public Task<OneDriveReclaimResult> GetOneDriveReclaimAsync(
+        string runId,
+        CancellationToken cancellationToken) =>
+        _oneDriveService.GetReclaimAsync(runId, cancellationToken);
 
     private async Task<WindowRef> RequireWindowAsync(long hwnd, CancellationToken cancellationToken)
     {

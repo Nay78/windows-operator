@@ -106,6 +106,8 @@ run_id="${WINDOWS_OPERATOR_RUN_ID:-sync-$(date -u +%Y%m%dT%H%M%SZ)-$$}"
 run_root="$exchange_root/runs/$run_id"
 windows_sync_root="${WINDOWS_OPERATOR_WINDOWS_SYNC_ROOT:-C:\\ProgramData\\WindowsOperator\\sync\\$run_id}"
 windows_archive_path="${windows_sync_root}\\repo.tar.gz"
+windows_staging_root="${windows_sync_root}\\repo-staging"
+windows_active_marker="${windows_sync_root}\\.windows-operator-active"
 
 ssh_common_opts=(
   -o BatchMode=yes
@@ -154,6 +156,7 @@ cat > "$run_root/request.json" <<EOF
   "repoRootWindows": $(json_quote "$windows_repo_root"),
   "syncRootWindows": $(json_quote "$windows_sync_root"),
   "archivePathWindows": $(json_quote "$windows_archive_path"),
+  "stagingRootWindows": $(json_quote "$windows_staging_root"),
   "archiveSha256": $(json_quote "$archive_sha256"),
   "archiveBytes": $archive_bytes,
   "sshTarget": $(json_quote "$ssh_target"),
@@ -176,12 +179,26 @@ until SSH_AUTH_SOCK= ssh "${ssh_opts[@]}" "$ssh_target" "echo ready" >"$run_root
   sleep 3
 done
 
-setup_remote="powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"New-Item -ItemType Directory -Force -Path $(ps_quote "$windows_sync_root") | Out-Null; New-Item -ItemType Directory -Force -Path $(ps_quote "$windows_repo_root") | Out-Null\""
+setup_remote="powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"New-Item -ItemType Directory -Force -Path $(ps_quote "$windows_sync_root") | Out-Null; New-Item -ItemType Directory -Force -Path $(ps_quote "$windows_repo_root") | Out-Null; New-Item -ItemType Directory -Force -Path $(ps_quote "$windows_staging_root") | Out-Null\""
 SSH_AUTH_SOCK= ssh "${ssh_opts[@]}" "$ssh_target" "$setup_remote" >"$run_root/setup.stdout.txt" 2>"$run_root/setup.stderr.txt" || {
   write_result "$run_root/result.json" "$run_id" "failed" 255 "Remote sync setup failed."
   printf '%s\n' "$run_root/result.json"
   exit 255
 }
+
+mark_remote_sync_active="powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"Set-Content -LiteralPath $windows_active_marker -Value $(ps_quote \"$run_id\")\""
+SSH_AUTH_SOCK= ssh "${ssh_opts[@]}" "$ssh_target" "$mark_remote_sync_active" >"$run_root/active-marker.stdout.txt" 2>"$run_root/active-marker.stderr.txt" || {
+  write_result "$run_root/result.json" "$run_id" "failed" 255 "Remote sync activity marker setup failed."
+  printf '%s\n' "$run_root/result.json"
+  exit 255
+}
+
+clear_remote_marker() {
+  SSH_AUTH_SOCK= ssh "${ssh_opts[@]}" "$ssh_target" \
+    "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"Remove-Item -LiteralPath $windows_active_marker -Force -ErrorAction SilentlyContinue\"" \
+    >/dev/null 2>&1 || true
+}
+trap clear_remote_marker EXIT
 
 remote_archive_scp="$(windows_path_for_scp "$windows_archive_path")"
 SSH_AUTH_SOCK= scp "${scp_opts[@]}" "$archive_path" "$ssh_target:$remote_archive_scp" >"$run_root/scp-upload.stdout.txt" 2>"$run_root/scp-upload.stderr.txt" || {
@@ -190,7 +207,8 @@ SSH_AUTH_SOCK= scp "${scp_opts[@]}" "$archive_path" "$ssh_target:$remote_archive
   exit 255
 }
 
-extract_remote="powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"\$ErrorActionPreference = 'Stop'; tar.exe -xzf $(ps_quote "$windows_archive_path") -C $(ps_quote "$windows_repo_root"); if (\$LASTEXITCODE -ne 0) { throw 'tar extract failed.' }; Get-ChildItem -LiteralPath $(ps_quote "$windows_repo_root") -Force | Select-Object -First 5 | Out-String\""
+extract_script="Get-ChildItem -LiteralPath $(ps_quote "$windows_staging_root") -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue; New-Item -ItemType Directory -Force -Path $(ps_quote "$windows_staging_root") | Out-Null; tar.exe -xzf $(ps_quote "$windows_archive_path") -C $(ps_quote "$windows_staging_root"); if (\$LASTEXITCODE -ne 0) { throw 'tar extract failed.' }; robocopy.exe $(ps_quote "$windows_staging_root") $(ps_quote "$windows_repo_root") /E /COPY:DAT /DCOPY:DAT /R:1 /W:1 /NFL /NDL /NJH /NJS /NP; if (\$LASTEXITCODE -gt 7) { throw 'robocopy repo sync failed.' }; Get-ChildItem -LiteralPath $(ps_quote "$windows_repo_root") -Force | Select-Object -First 5 | Out-String"
+extract_remote="powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"$extract_script\""
 SSH_AUTH_SOCK= ssh "${ssh_opts[@]}" "$ssh_target" "$extract_remote" >"$run_root/extract.stdout.txt" 2>"$run_root/extract.stderr.txt" || {
   write_result "$run_root/result.json" "$run_id" "failed" 1 "Remote archive extract failed."
   printf '%s\n' "$run_root/result.json"

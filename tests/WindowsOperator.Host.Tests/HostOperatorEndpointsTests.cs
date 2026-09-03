@@ -522,6 +522,299 @@ public sealed class HostOperatorEndpointsTests
     }
 
     [Fact]
+    public async Task OneDriveConfigRoute_MapsToHostFacade()
+    {
+        await using var app = await CreateAppAsync(new FakeUpdateService(null!));
+
+        var response = await app.GetTestClient().GetAsync("/v1/files/onedrive/config");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var result = await response.Content.ReadFromJsonAsync<OneDriveConfigResult>(OperatorJson.SerializerOptions);
+        Assert.NotNull(result);
+        Assert.Equal("etag-onedrive-test", result!.ETag);
+        Assert.Contains("geosupport", result.Config.Roots.Keys);
+    }
+
+    [Theory]
+    [InlineData(true, 2, "clearConfiguration is not supported")]
+    [InlineData(false, -1, "targetSessionId must be zero")]
+    public async Task OneDriveRuntimeRecovery_RejectsUnsafeRequestShape(
+        bool clearConfiguration,
+        int targetSessionId,
+        string expectedDetail)
+    {
+        await using var app = await CreateAppAsync(new FakeUpdateService(null!));
+
+        var response = await app.GetTestClient().PostAsJsonAsync(
+            "/v1/files/onedrive/runtime/recover",
+            new OneDriveConfigurationRecoveryRequest
+            {
+                ClearConfiguration = clearConfiguration,
+                TargetSessionId = targetSessionId,
+            },
+            OperatorJson.SerializerOptions);
+
+        var error = await AssertTypedErrorAsync(
+            response,
+            HttpStatusCode.BadRequest,
+            ErrorCodes.InvalidRequest,
+            OperatorErrorCategory.Validation,
+            retryable: false);
+        Assert.Contains(expectedDetail, error!.Details!["detail"]);
+    }
+
+    [Fact]
+    public void OneDriveRuntimeRecovery_IsEnabledOnlyForExactVm()
+    {
+        Assert.True(OneDriveConfigurationRecoveryService.IsRecoveryEnabled(
+            "WIN-UUKQS009K4J",
+            "WIN-UUKQS009K4J"));
+        Assert.False(OneDriveConfigurationRecoveryService.IsRecoveryEnabled(
+            "LEGION",
+            "LEGION"));
+        Assert.False(OneDriveConfigurationRecoveryService.IsRecoveryEnabled(
+            "OTHER-WINDOWS",
+            "WIN-UUKQS009K4J"));
+    }
+
+    [Theory]
+    [InlineData("WIN-UUKQS009K4J", "WIN-UUKQS009K4J", 2, "Administrator", "disconnected", 2, true)]
+    [InlineData("WIN-UUKQS009K4J", "WIN-UUKQS009K4J", 0, "Administrator", "disconnected", 2, false)]
+    [InlineData("WIN-UUKQS009K4J", "WIN-UUKQS009K4J", 2, "Administrator", "active", 2, false)]
+    [InlineData("WIN-UUKQS009K4J", "WIN-UUKQS009K4J", 2, "OtherUser", "disconnected", 2, false)]
+    [InlineData("LEGION", "LEGION", 2, "Administrator", "disconnected", 2, false)]
+    [InlineData("WIN-UUKQS009K4J", "WIN-UUKQS009K4J", 2, "Administrator", "disconnected", 1, false)]
+    public void OneDriveRuntimeRecovery_TransfersOnlyAllowlistedDisconnectedAdministratorSession(
+        string computerName,
+        string allowedComputer,
+        int sessionId,
+        string userName,
+        string sessionState,
+        ushort protocol,
+        bool expected)
+    {
+        Assert.Equal(expected, OneDriveConfigurationRecoveryService.ShouldTransferDisconnectedSession(
+            computerName,
+            allowedComputer,
+            sessionId,
+            userName,
+            sessionState,
+            protocol));
+    }
+
+    [Theory]
+    [InlineData("Administrator", "active", 2, true)]
+    [InlineData("Administrator", "disconnected", 2, false)]
+    [InlineData("Administrator", "active", 0, true)]
+    [InlineData("OtherUser", "active", 2, false)]
+    public void OneDriveRuntimeRecovery_RequiresActiveAdministratorDesktopSession(
+        string userName,
+        string sessionState,
+        ushort protocol,
+        bool expected)
+    {
+        Assert.Equal(expected, OneDriveConfigurationRecoveryService.IsTargetSessionEligible(
+            userName,
+            sessionState,
+            protocol));
+    }
+
+    [Theory]
+    [InlineData(1, 2, @"C:\Users\Administrator\AppData\Local\Microsoft\OneDrive\OneDrive.exe", @"C:\Users\Administrator\AppData\Local\Microsoft\OneDrive\OneDrive.exe", true)]
+    [InlineData(2, 2, @"C:\Users\Administrator\AppData\Local\Microsoft\OneDrive\OneDrive.exe", @"C:\Users\Administrator\AppData\Local\Microsoft\OneDrive\OneDrive.exe", false)]
+    [InlineData(1, 2, null, @"C:\Users\Administrator\AppData\Local\Microsoft\OneDrive\OneDrive.exe", false)]
+    [InlineData(1, 2, @"C:\Other\OneDrive.exe", @"C:\Users\Administrator\AppData\Local\Microsoft\OneDrive\OneDrive.exe", false)]
+    public void OneDriveRuntimeRecovery_StopsOnlyVerifiedStaleTargetUserRuntime(
+        int processSessionId,
+        int targetSessionId,
+        string? processPath,
+        string expectedPath,
+        bool expected)
+    {
+        Assert.Equal(expected, OneDriveConfigurationRecoveryService.ShouldStopStaleProcess(
+            processSessionId,
+            targetSessionId,
+            processPath,
+            expectedPath));
+    }
+
+    [Theory]
+    [InlineData(1, 2, "dotnet", true)]
+    [InlineData(1, 2, "WindowsOperator.Agent", true)]
+    [InlineData(2, 2, "dotnet", false)]
+    [InlineData(1, 2, "other-process", false)]
+    public void OneDriveRuntimeRecovery_MigratesOnlyVerifiedWrongSessionAgentListener(
+        int processSessionId,
+        int targetSessionId,
+        string processName,
+        bool expected)
+    {
+        Assert.Equal(expected, OneDriveConfigurationRecoveryService.IsDesktopAgentListenerEligibleForStop(
+            processSessionId,
+            targetSessionId,
+            processName));
+    }
+
+    [Fact]
+    public void OneDriveRuntimeSupervisorState_SurvivesStoreRestartAndBacksOffFailures()
+    {
+        var stateRoot = Directory.CreateTempSubdirectory();
+        var statePath = Path.Combine(stateRoot.FullName, "onedrive-runtime.json");
+        try
+        {
+            var first = new OneDriveRuntimeStateStore(statePath);
+            first.BeginAttempt("WIN-UUKQS009K4J", true, 2);
+            first.BeginAttempt("WIN-UUKQS009K4J", true);
+            Assert.Equal(2, first.Read()!.TargetSessionId);
+            first.RecordFailure(OperatorErrors.OneDriveUnavailable(
+                "target_rdp_session_not_ready;session=2;state=disconnected",
+                OneDriveConfigurationRecoveryService.BuildRuntimeEvidence(
+                    "target_rdp_session_not_ready;session=2;state=disconnected",
+                    "WIN-UUKQS009K4J",
+                    "WIN-UUKQS009K4J",
+                    "Administrator",
+                    "disconnected",
+                    2,
+                    (321, 2))));
+
+            var second = new OneDriveRuntimeStateStore(statePath);
+            var restored = second.Read();
+
+            Assert.NotNull(restored);
+            Assert.Equal("waiting_for_session", restored!.State);
+            Assert.Equal("disconnected", restored.SessionState);
+            Assert.Equal(2, restored.AttemptCount);
+            Assert.Equal(1, restored.ConsecutiveFailureCount);
+            Assert.True(restored.NextAttemptAtUtc > restored.LastAttemptAtUtc);
+            Assert.False(second.ShouldAttempt(restored.ObservedAtUtc));
+        }
+        finally
+        {
+            stateRoot.Delete(recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData("OtherUser", "active", 2)]
+    [InlineData("Administrator", "active", 1)]
+    public void OneDriveRuntimeRecovery_ReportsActualIneligibleSessionEvidence(
+        string userName,
+        string sessionState,
+        ushort protocol)
+    {
+        var runtime = OneDriveConfigurationRecoveryService.BuildRuntimeEvidence(
+            $"target_rdp_session_not_ready;session=2;user={userName};state={sessionState};protocol={protocol}",
+            "WIN-UUKQS009K4J",
+            "WIN-UUKQS009K4J",
+            userName,
+            sessionState,
+            protocol,
+            (1234, 2));
+        var error = OperatorErrors.OneDriveUnavailable("target_rdp_session_not_ready", runtime);
+
+        Assert.Equal(userName, runtime.InteractiveUser);
+        Assert.Equal(sessionState, runtime.InteractiveSessionState);
+        Assert.Equal(protocol, runtime.InteractiveSessionProtocol);
+        Assert.Null(runtime.ActiveInteractiveSessionId);
+        Assert.Equal(userName, error.Details!["interactiveUser"]);
+        Assert.Equal(sessionState, error.Details["interactiveSessionState"]);
+        Assert.Equal(protocol.ToString(), error.Details["interactiveSessionProtocol"]);
+        Assert.Equal("Open the Administrator desktop session on the allowlisted VM, then retry.", error.Remediation);
+    }
+
+    [Fact]
+    public void OneDriveRuntimeRecovery_ReportsConsoleTransferFailureEvidence()
+    {
+        var runtime = OneDriveConfigurationRecoveryService.BuildRuntimeEvidence(
+            "target_rdp_session_console_transfer_failed;session=2;exitCode=1",
+            "WIN-UUKQS009K4J",
+            "WIN-UUKQS009K4J",
+            "Administrator",
+            "disconnected",
+            2,
+            (1234, 2),
+            2);
+        var error = OperatorErrors.OneDriveUnavailable(
+            "target_rdp_session_console_transfer_failed;session=2;exitCode=1",
+            runtime);
+
+        Assert.Equal(ErrorCodes.OneDriveUnavailable, error.Code);
+        Assert.Equal("target_rdp_session_console_transfer_failed", runtime.ProviderReason);
+        Assert.Equal("2", error.Details!["configuredSessionId"]);
+        Assert.Equal("operator_retry_administrator_console_transfer_2", error.Details["actions"]);
+    }
+
+    [Fact]
+    public async Task OneDriveRuntimeRecovery_AcceptsNonClearingShapeBeforeMachineGate()
+    {
+        await using var app = await CreateAppAsync(new FakeUpdateService(null!));
+
+        var response = await app.GetTestClient().PostAsJsonAsync(
+            "/v1/files/onedrive/runtime/recover",
+            new OneDriveConfigurationRecoveryRequest
+            {
+                ClearConfiguration = false,
+                TargetSessionId = 0,
+            },
+            OperatorJson.SerializerOptions);
+
+        var error = await AssertTypedErrorAsync(
+            response,
+            HttpStatusCode.Locked,
+            ErrorCodes.OneDriveUnavailable,
+            OperatorErrorCategory.Unavailable,
+            retryable: true);
+        Assert.Contains("onedrive_recovery_denied", error!.Details!["detail"]);
+        Assert.Equal("false", error.Details["recoveryAllowed"]);
+        Assert.Equal("false", error.Details["authenticationRequired"]);
+        Assert.Equal("operator_inspect_onedrive_runtime", error.Details["actions"]);
+    }
+
+    [Fact]
+    public async Task OneDriveRelease_ReturnsAcceptedWhileReleaseIsPending()
+    {
+        await using var app = await CreateAppAsync(new FakeUpdateService(null!));
+
+        var response = await app.GetTestClient().PostAsync("/v1/files/onedrive/leases/od-pending/release", null);
+
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+        Assert.Equal("/v1/files/onedrive/leases/od-pending", response.Headers.Location?.OriginalString);
+        var result = await response.Content.ReadFromJsonAsync<OneDriveLeaseResult>(OperatorJson.SerializerOptions);
+        Assert.Equal(OneDriveLeaseState.Releasing, result!.State);
+    }
+
+    [Fact]
+    public async Task OneDriveDiagnosticNamespace_ListsExpectedPublicSurface()
+    {
+        await using var app = await CreateAppAsync(new FakeUpdateService(null!));
+
+        using var document = await GetJsonDocumentAsync(
+            app.GetTestClient(),
+            "/openapi/namespaces/files.onedrive.json?surface=diagnostic");
+        var paths = document.RootElement.GetProperty("paths");
+        var expected = new Dictionary<string, string[]>(StringComparer.Ordinal)
+        {
+            ["/v1/files/onedrive/list"] = ["post"],
+            ["/v1/files/onedrive/download"] = ["post"],
+            ["/v1/files/onedrive/leases"] = ["post"],
+            ["/v1/files/onedrive/leases/{leaseId}"] = ["get"],
+            ["/v1/files/onedrive/leases/{leaseId}/renew"] = ["post"],
+            ["/v1/files/onedrive/leases/{leaseId}/release"] = ["post"],
+            ["/v1/files/onedrive/status"] = ["get"],
+            ["/v1/files/onedrive/runtime/recover"] = ["post"],
+            ["/v1/files/onedrive/config"] = ["get", "put"],
+            ["/v1/files/onedrive/reclaims"] = ["post"],
+            ["/v1/files/onedrive/reclaims/{runId}"] = ["get"],
+        };
+
+        Assert.Equal(expected.Keys.Order(), paths.EnumerateObject().Select(item => item.Name).Order());
+        foreach (var (path, methods) in expected)
+        {
+            Assert.Equal(methods.Order(), paths.GetProperty(path).EnumerateObject().Select(item => item.Name).Order());
+        }
+    }
+
+    [Fact]
     public void OpenApi_ClaimPowerPointJob_DocumentsEmptyQueue()
     {
         using var document = JsonDocument.Parse(
@@ -563,6 +856,7 @@ public sealed class HostOperatorEndpointsTests
             "powerpoint.jobs",
             "artifacts",
             "mail.outlook",
+            "files.onedrive",
         };
 
         foreach (var path in paths.EnumerateObject())
@@ -786,6 +1080,9 @@ public sealed class HostOperatorEndpointsTests
         builder.Services.AddSingleton<IPowerAutomateMcpService>(powerAutomateMcp ?? new UnusedPowerAutomateMcpService());
         builder.Services.AddSingleton<IPowerPointJobService, UnusedPowerPointJobService>();
         builder.Services.AddSingleton(artifacts ?? new UnusedArtifactService());
+        builder.Services.AddSingleton<OneDriveConfigurationRecoveryService>();
+        builder.Services.AddSingleton(new OneDriveRuntimeStateStore(
+            Path.Combine(Path.GetTempPath(), $"host-endpoint-onedrive-{Guid.NewGuid():N}.json")));
 
         var app = builder.Build();
         app.UseHostOperatorErrorHandling();
@@ -886,6 +1183,14 @@ public sealed class HostOperatorEndpointsTests
             UpdatedAtUtc = DateTimeOffset.Parse("2026-07-03T12:00:02Z"),
         };
 
+    private static OneDriveConfigResult CreateOneDriveConfigResult() =>
+        new()
+        {
+            Config = new OneDriveConfig(),
+            ETag = "etag-onedrive-test",
+            ObservedAtUtc = DateTimeOffset.Parse("2026-07-06T12:00:00Z"),
+        };
+
     private static async Task<JsonDocument> GetJsonDocumentAsync(HttpClient client, string requestUri)
     {
         var response = await client.GetAsync(requestUri);
@@ -966,6 +1271,29 @@ public sealed class HostOperatorEndpointsTests
         public Task<MailDownloadResult> DownloadMailAttachmentsAsync(MailDownloadRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<MailDownloadResult> GetMailRunAsync(string runId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<MailStatusResult> GetMailStatusAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<OneDriveLeaseResult> AcquireOneDriveLeaseAsync(OneDriveLeaseRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<IReadOnlyList<OneDriveFileEntry>> ListOneDriveFilesAsync(OneDriveListRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<OneDriveLeaseStatusResult> GetOneDriveLeaseAsync(string leaseId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<OneDriveLeaseResult> RenewOneDriveLeaseAsync(string leaseId, OneDriveLeaseRenewRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<OneDriveLeaseResult> ReleaseOneDriveLeaseAsync(string leaseId, CancellationToken cancellationToken) =>
+            Task.FromResult(new OneDriveLeaseResult
+            {
+                Success = false,
+                LeaseId = leaseId,
+                RootId = "test",
+                RelativePath = "file.txt",
+                State = OneDriveLeaseState.Releasing,
+                CreatedAtUtc = DateTimeOffset.Parse("2026-08-07T00:00:00Z"),
+                Actions = new[] { "release_started" },
+            });
+        public Task<OneDriveFilesOnDemandStatusResult> GetOneDriveStatusAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<OneDriveConfigResult> GetOneDriveConfigAsync(CancellationToken cancellationToken) =>
+            Task.FromResult(CreateOneDriveConfigResult());
+        public Task<OneDriveConfigResult> UpdateOneDriveConfigAsync(OneDriveConfigUpdateRequest request, CancellationToken cancellationToken) =>
+            Task.FromResult(CreateOneDriveConfigResult() with { Config = request.Config });
+        public Task<OneDriveReclaimResult> StartOneDriveReclaimAsync(OneDriveReclaimRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<OneDriveReclaimResult> GetOneDriveReclaimAsync(string runId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<BrowserEdgeSessionStateResult> GetEdgeBrowserSessionStateAsync(string sessionId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<HealthResult> GetHealthAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<MicrosoftAuthorizeProbeResult> GetMicrosoftAuthorizeProbeStatusAsync(string runId, CancellationToken cancellationToken) => throw new NotSupportedException();

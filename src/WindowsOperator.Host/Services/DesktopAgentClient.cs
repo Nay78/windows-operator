@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Net.Sockets;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
 using WindowsOperator.Core;
@@ -8,7 +9,7 @@ using WindowsOperator.Core.Services;
 
 namespace WindowsOperator.Host.Services;
 
-public sealed class DesktopAgentClient : IWorkbenchService, IPowerPointOnlineService, IDevAutomationService, IPowerAutomateMcpService
+public sealed class DesktopAgentClient : IWorkbenchService, IPowerPointOnlineService, IDevAutomationService, IPowerAutomateMcpService, IOneDriveFilesOnDemandService
 {
     private readonly HttpClient _httpClient;
     private readonly IOptions<DesktopAgentOptions> _options;
@@ -354,6 +355,152 @@ public sealed class DesktopAgentClient : IWorkbenchService, IPowerPointOnlineSer
     public Task<MailStatusResult> GetMailStatusAsync(CancellationToken cancellationToken) =>
         SendAsync<MailStatusResult>(HttpMethod.Get, "/v1/mail/status", null, cancellationToken);
 
+    public Task<IReadOnlyList<OneDriveFileEntry>> ListOneDriveFilesAsync(
+        OneDriveListRequest request,
+        CancellationToken cancellationToken) =>
+        SendOneDriveAsync<IReadOnlyList<OneDriveFileEntry>>(
+            HttpMethod.Post,
+            "/v1/files/onedrive/list",
+            request,
+            cancellationToken);
+
+    Task<IReadOnlyList<OneDriveFileEntry>> IOneDriveFilesOnDemandService.ListFilesAsync(
+        OneDriveListRequest request,
+        CancellationToken cancellationToken) =>
+        ListOneDriveFilesAsync(request, cancellationToken);
+
+    public Task<OneDriveLeaseResult> AcquireLeaseAsync(
+        OneDriveLeaseRequest request,
+        CancellationToken cancellationToken) =>
+        SendOneDriveAsync<OneDriveLeaseResult>(HttpMethod.Post, "/v1/files/onedrive/leases", request, cancellationToken);
+
+    public async Task DownloadOneDriveFileAsync(
+        OneDriveLeaseRequest request,
+        Stream destination,
+        CancellationToken cancellationToken)
+    {
+        var (attempts, delay) = OneDriveReadinessPolicy();
+        OperatorFailureException? lastRefusal = null;
+        HttpResponseMessage? response = null;
+        for (var attempt = 1; attempt <= attempts; attempt++)
+        {
+            using var message = new HttpRequestMessage(
+                HttpMethod.Post,
+                new Uri(new Uri(_options.Value.BaseUrl), "/v1/files/onedrive/download"))
+            {
+                Content = JsonContent.Create(request, options: OperatorJson.SerializerOptions),
+            };
+
+            try
+            {
+                response = await _httpClient.SendAsync(
+                    message,
+                    HttpCompletionOption.ResponseHeadersRead,
+                    cancellationToken);
+                break;
+            }
+            catch (HttpRequestException exception) when (
+                IsConnectionRefused(exception) &&
+                attempt < attempts)
+            {
+                lastRefusal = TransportFailure(exception);
+                await Task.Delay(delay, cancellationToken);
+            }
+            catch (HttpRequestException exception) when (IsConnectionRefused(exception))
+            {
+                lastRefusal = TransportFailure(exception);
+            }
+            catch (HttpRequestException exception)
+            {
+                // A reset or other ambiguous failure may follow request handling.
+                // Do not replay a stream operation that could already hold a lease.
+                throw TransportFailure(exception);
+            }
+        }
+
+        if (response is null)
+        {
+            throw BuildOneDriveAgentUnavailable(attempts, lastRefusal);
+        }
+        using (response)
+        {
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync(cancellationToken);
+                if (!string.IsNullOrWhiteSpace(body))
+                {
+                    try
+                    {
+                        var error = JsonSerializer.Deserialize<OperatorError>(body, OperatorJson.SerializerOptions);
+                        if (error is not null)
+                        {
+                            throw new OperatorFailureException(error);
+                        }
+                    }
+                    catch (JsonException)
+                    {
+                        // Fall through to the transport-level error below.
+                    }
+                }
+
+                throw new OperatorFailureException(
+                    OperatorErrors.LockedDesktop($"Desktop agent returned HTTP {(int)response.StatusCode}."));
+            }
+
+            await response.Content.CopyToAsync(destination, cancellationToken);
+        }
+    }
+
+    public Task<OneDriveLeaseStatusResult> GetLeaseAsync(string leaseId, CancellationToken cancellationToken) =>
+        SendOneDriveAsync<OneDriveLeaseStatusResult>(
+            HttpMethod.Get,
+            $"/v1/files/onedrive/leases/{Uri.EscapeDataString(leaseId)}",
+            null,
+            cancellationToken);
+
+    public Task<OneDriveLeaseResult> RenewLeaseAsync(
+        string leaseId,
+        OneDriveLeaseRenewRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<OneDriveLeaseResult>(
+            HttpMethod.Post,
+            $"/v1/files/onedrive/leases/{Uri.EscapeDataString(leaseId)}/renew",
+            request,
+            cancellationToken);
+
+    public Task<OneDriveLeaseResult> ReleaseLeaseAsync(string leaseId, CancellationToken cancellationToken) =>
+        SendAsync<OneDriveLeaseResult>(
+            HttpMethod.Post,
+            $"/v1/files/onedrive/leases/{Uri.EscapeDataString(leaseId)}/release",
+            null,
+            cancellationToken);
+
+    public Task<OneDriveFilesOnDemandStatusResult> GetOneDriveStatusAsync(CancellationToken cancellationToken) =>
+        SendOneDriveAsync<OneDriveFilesOnDemandStatusResult>(HttpMethod.Get, "/v1/files/onedrive/status", null, cancellationToken);
+
+    Task<OneDriveFilesOnDemandStatusResult> IOneDriveFilesOnDemandService.GetStatusAsync(CancellationToken cancellationToken) =>
+        GetOneDriveStatusAsync(cancellationToken);
+
+    public Task<OneDriveConfigResult> GetConfigAsync(CancellationToken cancellationToken) =>
+        SendOneDriveAsync<OneDriveConfigResult>(HttpMethod.Get, "/v1/files/onedrive/config", null, cancellationToken);
+
+    public Task<OneDriveConfigResult> UpdateConfigAsync(
+        OneDriveConfigUpdateRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<OneDriveConfigResult>(HttpMethod.Put, "/v1/files/onedrive/config", request, cancellationToken);
+
+    public Task<OneDriveReclaimResult> StartReclaimAsync(
+        OneDriveReclaimRequest request,
+        CancellationToken cancellationToken) =>
+        SendAsync<OneDriveReclaimResult>(HttpMethod.Post, "/v1/files/onedrive/reclaims", request, cancellationToken);
+
+    public Task<OneDriveReclaimResult> GetReclaimAsync(string runId, CancellationToken cancellationToken) =>
+        SendOneDriveAsync<OneDriveReclaimResult>(
+            HttpMethod.Get,
+            $"/v1/files/onedrive/reclaims/{Uri.EscapeDataString(runId)}",
+            null,
+            cancellationToken);
+
     public Task<MailSearchResult> SearchMailMessagesAsync(MailSearchRequest request, CancellationToken cancellationToken) =>
         SendAsync<MailSearchResult>(HttpMethod.Post, "/v1/mail/messages/search", request, cancellationToken);
 
@@ -362,6 +509,71 @@ public sealed class DesktopAgentClient : IWorkbenchService, IPowerPointOnlineSer
 
     public Task<MailDownloadResult> GetMailRunAsync(string runId, CancellationToken cancellationToken) =>
         SendAsync<MailDownloadResult>(HttpMethod.Get, $"/v1/mail/runs/{Uri.EscapeDataString(runId)}", null, cancellationToken);
+
+    private async Task<T> SendOneDriveAsync<T>(
+        HttpMethod method,
+        string path,
+        object? payload,
+        CancellationToken cancellationToken)
+    {
+        var (attempts, delay) = OneDriveReadinessPolicy();
+        OperatorFailureException? lastFailure = null;
+
+        for (var attempt = 1; attempt <= attempts; attempt++)
+        {
+            try
+            {
+                return await SendAsync<T>(method, path, payload, cancellationToken);
+            }
+            catch (OperatorFailureException failure) when (
+                IsDesktopAgentTransportFailure(failure) &&
+                attempt < attempts)
+            {
+                lastFailure = failure;
+                await Task.Delay(delay, cancellationToken);
+            }
+            catch (OperatorFailureException failure) when (IsDesktopAgentTransportFailure(failure))
+            {
+                lastFailure = failure;
+            }
+        }
+
+        throw BuildOneDriveAgentUnavailable(attempts, lastFailure);
+    }
+
+    private static bool IsDesktopAgentTransportFailure(OperatorFailureException failure) =>
+        failure.Error.Code == ErrorCodes.LockedDesktop &&
+        failure.Error.Details?.TryGetValue("detail", out var detail) == true &&
+        detail.StartsWith("Desktop agent unavailable at ", StringComparison.Ordinal);
+
+    private (int Attempts, TimeSpan Delay) OneDriveReadinessPolicy() =>
+        (
+            Math.Clamp(_options.Value.OneDriveReadinessAttempts, 1, 10),
+            TimeSpan.FromMilliseconds(Math.Clamp(
+                _options.Value.OneDriveReadinessDelayMilliseconds,
+                100,
+                5000))
+        );
+
+    private static bool IsConnectionRefused(HttpRequestException exception) =>
+        exception.InnerException is SocketException socketException &&
+        socketException.SocketErrorCode == SocketError.ConnectionRefused;
+
+    private OperatorFailureException TransportFailure(HttpRequestException exception) =>
+        new(OperatorErrors.LockedDesktop(
+            $"Desktop agent unavailable at {_options.Value.BaseUrl}: {exception.Message}"));
+
+    private OperatorFailureException BuildOneDriveAgentUnavailable(
+        int attempts,
+        OperatorFailureException? lastFailure)
+    {
+        var priorDetail = lastFailure?.Error.Details?.GetValueOrDefault("detail") ?? "no transport detail";
+        return new OperatorFailureException(OperatorErrors.LockedDesktop(
+            $"Desktop agent remained unavailable after {attempts} readiness attempts;" +
+            $"baseUrl={_options.Value.BaseUrl};" +
+            "verify scheduled task WindowsOperator.Agent is running with a live child process and port 43119 is listening;" +
+            $"lastFailure={priorDetail}"));
+    }
 
     private async Task<T> SendAsync<T>(
         HttpMethod method,
@@ -373,6 +585,10 @@ public sealed class DesktopAgentClient : IWorkbenchService, IPowerPointOnlineSer
         if (payload is not null)
         {
             request.Content = JsonContent.Create(payload, options: OperatorJson.SerializerOptions);
+        }
+        if (payload is OneDriveConfigUpdateRequest configUpdate && !string.IsNullOrWhiteSpace(configUpdate.IfMatch))
+        {
+            request.Headers.TryAddWithoutValidation("If-Match", configUpdate.IfMatch);
         }
 
         HttpResponseMessage response;

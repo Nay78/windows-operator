@@ -62,28 +62,54 @@ public sealed partial class EdgeMicrosoftAuthService
             return new BrowserEdgeResetResult(false, 0, 0, actions, errors, DateTimeOffset.UtcNow);
         }
 
+        if (!IsInteractiveAuthSession(Process.GetCurrentProcess().SessionId, WtsGetActiveConsoleSessionId()))
+        {
+            actions.Add("edge_reset_skipped:inactive_agent_session");
+            errors.Add("Edge reset requires the active console session.");
+            return new BrowserEdgeResetResult(false, 0, 0, actions, errors, DateTimeOffset.UtcNow);
+        }
+
+        var ownedProcesses = ReadPersistedBrowserSessions()
+            .Where(IsDedicatedBrowserProcess)
+            .Select(metadata => metadata.ProcessId)
+            .Concat(_browserSessions.Values.Where(IsDedicatedBrowserProcess).Select(metadata => metadata.ProcessId))
+            .Distinct()
+            .ToArray();
         var matched = 0;
         var killed = 0;
-        foreach (var process in Process.GetProcessesByName("msedge"))
+        foreach (var processId in ownedProcesses)
         {
-            using (process)
+            try
             {
+                using var process = Process.GetProcessById(processId);
+                process.Refresh();
+                if (process.HasExited ||
+                    !string.Equals(process.ProcessName, "msedge", StringComparison.OrdinalIgnoreCase) ||
+                    process.SessionId != checked((int)WtsGetActiveConsoleSessionId()))
+                {
+                    continue;
+                }
+
                 matched++;
                 if (request.DryRun)
                 {
                     continue;
                 }
 
-                try
+                process.Kill(entireProcessTree: true);
+                process.WaitForExit(3000);
+                if (process.HasExited)
                 {
-                    process.Kill(entireProcessTree: true);
-                    process.WaitForExit(3000);
                     killed++;
                 }
-                catch (Exception ex)
+                else
                 {
-                    errors.Add($"Failed to kill msedge pid={process.Id}: {ex.Message}");
+                    errors.Add($"Failed to kill owned msedge pid={process.Id}.");
                 }
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"Failed to inspect owned msedge pid={processId}: {ex.Message}");
             }
         }
 
@@ -264,8 +290,15 @@ public sealed partial class EdgeMicrosoftAuthService
 
         if (!closed)
         {
-            closed = TryKillProcess(metadata.ProcessId);
-            actions.Add(closed ? "session_process_killed" : "session_close_failed");
+            if (IsDedicatedBrowserProcess(metadata))
+            {
+                closed = TryKillProcess(metadata.ProcessId);
+                actions.Add(closed ? "session_process_killed" : "session_close_failed");
+            }
+            else
+            {
+                actions.Add("session_process_preserved_unowned");
+            }
         }
 
         if (!closed)
@@ -522,6 +555,55 @@ public sealed partial class EdgeMicrosoftAuthService
         {
             return false;
         }
+    }
+
+    private static bool IsDedicatedBrowserProcess(EdgeBrowserSessionMetadata metadata)
+    {
+        if (string.IsNullOrWhiteSpace(metadata.ProfileRoot) || string.IsNullOrWhiteSpace(metadata.RunRoot))
+        {
+            return false;
+        }
+
+        try
+        {
+            var profileRoot = Path.GetFullPath(metadata.ProfileRoot);
+            var runRoot = Path.GetFullPath(metadata.RunRoot);
+            return profileRoot.StartsWith(runRoot.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static IReadOnlyList<EdgeBrowserSessionMetadata> ReadPersistedBrowserSessions()
+    {
+        var root = BrowserSessionRoot();
+        if (!Directory.Exists(root))
+        {
+            return Array.Empty<EdgeBrowserSessionMetadata>();
+        }
+
+        var sessions = new List<EdgeBrowserSessionMetadata>();
+        foreach (var path in Directory.EnumerateFiles(root, "session.json", SearchOption.AllDirectories))
+        {
+            try
+            {
+                var metadata = JsonSerializer.Deserialize<EdgeBrowserSessionMetadata>(
+                    File.ReadAllText(path),
+                    OperatorJson.SerializerOptions);
+                if (metadata is not null)
+                {
+                    sessions.Add(metadata);
+                }
+            }
+            catch
+            {
+                // Ignore incomplete session state; never broaden reset scope.
+            }
+        }
+
+        return sessions;
     }
 
     private static bool TryKillProcess(int processId)

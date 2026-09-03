@@ -55,6 +55,14 @@
     "workbenchSessionLifecycle": {
       "defaultCaller": "externalApplication",
       "description": "Read, capture, and clean operator-owned workbench sessions."
+    },
+    "oneDriveFilesOnDemand": {
+      "defaultCaller": "operatorTool",
+      "description": "Hydrate, consume, release, and locally reclaim bounded OneDrive Files-On-Demand leases."
+    },
+    "cenVuelosOneDriveLease": {
+      "defaultCaller": "externalApplication",
+      "description": "External cen_vuelos consumer acquires, polls, renews, and releases opaque OneDrive lease identifiers; routes remain diagnostic pending live proof."
     }
   },
   "operations": [
@@ -4684,6 +4692,541 @@
       ],
       "timeoutPolicy": "serverBounded:180s",
       "unresolvedDecision": null
+    },
+    {
+      "operationId": "acquireOneDriveLease",
+      "method": "POST",
+      "path": "/v1/files/onedrive/leases",
+      "proposedSurface": "diagnostic",
+      "consumerJob": "cenVuelosOneDriveLease",
+      "expectedCaller": "externalApplication",
+      "localExposure": "loopback",
+      "remoteExposure": "denied",
+      "handlerOwner": "desktopAgentViaHost",
+      "fixture": "bounded-onedrive-files-on-demand-fixture",
+      "observableEffect": "Typed OneDrive Files-On-Demand control-plane result returned.",
+      "cleanup": "module-owned-local-state",
+      "credentialGate": "none",
+      "mutationGate": "ownedResource",
+      "proofState": "blocked",
+      "evidence": [],
+      "namespace": "files.onedrive",
+      "unresolvedDecision": null,
+      "requestSchemas": [
+        "OneDriveLeaseRequest"
+      ],
+      "successSchemas": [
+        "OneDriveLeaseResult"
+      ],
+      "errorSchemas": [
+        "OperatorError"
+      ],
+      "lifecycle": "synchronous",
+      "idempotency": "callerKeyed",
+      "retryPolicy": "typedRetryableOnly",
+      "timeoutPolicy": "serverBounded:180s",
+      "cancellationPolicy": "requestCancellation",
+      "concurrencyPolicy": "independentRequests",
+      "sensitivity": "runtimeMetadata",
+      "successCase": "Typed OneDrive Files-On-Demand control-plane result returned.",
+      "negativeCase": "Malformed or incomplete request returns typed validation OperatorError.",
+      "prerequisites": [
+        "campaign build running on Windows",
+        "interactive desktop agent healthy"
+      ],
+      "proofEnvironment": "liveWindowsCampaignRuntime",
+      "dispositionRationale": "Intended external cen_vuelos lease consumer; diagnostic pending live lifecycle proof and consumer integration evidence.",
+      "decisionOwner": "contractOwner"
+    },
+    {
+      "operationId": "getOneDriveLease",
+      "method": "GET",
+      "path": "/v1/files/onedrive/leases/{leaseId}",
+      "proposedSurface": "diagnostic",
+      "consumerJob": "cenVuelosOneDriveLease",
+      "expectedCaller": "externalApplication",
+      "localExposure": "loopback",
+      "remoteExposure": "denied",
+      "handlerOwner": "desktopAgentViaHost",
+      "fixture": "bounded-onedrive-files-on-demand-fixture",
+      "observableEffect": "Typed OneDrive Files-On-Demand control-plane result returned.",
+      "cleanup": "module-owned-local-state",
+      "credentialGate": "none",
+      "mutationGate": "none",
+      "proofState": "blocked",
+      "evidence": [],
+      "namespace": "files.onedrive",
+      "unresolvedDecision": null,
+      "requestSchemas": [],
+      "successSchemas": [
+        "OneDriveLeaseStatusResult"
+      ],
+      "errorSchemas": [
+        "OperatorError"
+      ],
+      "lifecycle": "synchronous",
+      "idempotency": "safeRead",
+      "retryPolicy": "safeWithSameRequest",
+      "timeoutPolicy": "serverBounded:60s",
+      "cancellationPolicy": "requestCancellation",
+      "concurrencyPolicy": "parallelRead",
+      "sensitivity": "runtimeMetadata",
+      "successCase": "Typed OneDrive Files-On-Demand control-plane result returned.",
+      "negativeCase": "Unknown resource identifier returns typed notFound OperatorError.",
+      "prerequisites": [
+        "campaign build running on Windows",
+        "interactive desktop agent healthy"
+      ],
+      "proofEnvironment": "liveWindowsCampaignRuntime",
+      "dispositionRationale": "Intended external cen_vuelos lease consumer; diagnostic pending live lifecycle proof and consumer integration evidence.",
+      "decisionOwner": "contractOwner"
+    },
+    {
+      "operationId": "renewOneDriveLease",
+      "method": "POST",
+      "path": "/v1/files/onedrive/leases/{leaseId}/renew",
+      "proposedSurface": "diagnostic",
+      "consumerJob": "cenVuelosOneDriveLease",
+      "expectedCaller": "externalApplication",
+      "localExposure": "loopback",
+      "remoteExposure": "denied",
+      "handlerOwner": "desktopAgentViaHost",
+      "fixture": "bounded-onedrive-files-on-demand-fixture",
+      "observableEffect": "Typed OneDrive Files-On-Demand control-plane result returned.",
+      "cleanup": "module-owned-local-state",
+      "credentialGate": "none",
+      "mutationGate": "ownedResource",
+      "proofState": "blocked",
+      "evidence": [],
+      "namespace": "files.onedrive",
+      "unresolvedDecision": null,
+      "requestSchemas": [
+        "OneDriveLeaseRenewRequest"
+      ],
+      "successSchemas": [
+        "OneDriveLeaseResult"
+      ],
+      "errorSchemas": [
+        "OperatorError"
+      ],
+      "lifecycle": "synchronous",
+      "idempotency": "callerKeyed",
+      "retryPolicy": "typedRetryableOnly",
+      "timeoutPolicy": "serverBounded:60s",
+      "cancellationPolicy": "requestCancellation",
+      "concurrencyPolicy": "independentRequests",
+      "sensitivity": "runtimeMetadata",
+      "successCase": "Typed OneDrive Files-On-Demand control-plane result returned.",
+      "negativeCase": "Unknown resource identifier returns typed notFound OperatorError.",
+      "prerequisites": [
+        "campaign build running on Windows",
+        "interactive desktop agent healthy"
+      ],
+      "proofEnvironment": "liveWindowsCampaignRuntime",
+      "dispositionRationale": "Intended external cen_vuelos lease consumer; diagnostic pending live lifecycle proof and consumer integration evidence.",
+      "decisionOwner": "contractOwner"
+    },
+    {
+      "operationId": "releaseOneDriveLease",
+      "method": "POST",
+      "path": "/v1/files/onedrive/leases/{leaseId}/release",
+      "proposedSurface": "diagnostic",
+      "consumerJob": "cenVuelosOneDriveLease",
+      "expectedCaller": "externalApplication",
+      "localExposure": "loopback",
+      "remoteExposure": "denied",
+      "handlerOwner": "desktopAgentViaHost",
+      "fixture": "bounded-onedrive-files-on-demand-fixture",
+      "observableEffect": "Typed OneDrive Files-On-Demand control-plane result returned.",
+      "cleanup": "module-owned-local-state",
+      "credentialGate": "none",
+      "mutationGate": "ownedResource",
+      "proofState": "blocked",
+      "evidence": [],
+      "namespace": "files.onedrive",
+      "unresolvedDecision": null,
+      "requestSchemas": [],
+      "successSchemas": [
+        "OneDriveLeaseResult"
+      ],
+      "errorSchemas": [
+        "OperatorError"
+      ],
+      "lifecycle": "polling",
+      "idempotency": "idempotentCleanup",
+      "retryPolicy": "typedRetryableOnly",
+      "timeoutPolicy": "serverBounded:60s",
+      "cancellationPolicy": "pollByExplicitId",
+      "concurrencyPolicy": "independentRequests",
+      "sensitivity": "runtimeMetadata",
+      "successCase": "Typed OneDrive Files-On-Demand control-plane result returned.",
+      "negativeCase": "Unknown resource identifier returns typed notFound OperatorError.",
+      "prerequisites": [
+        "campaign build running on Windows",
+        "interactive desktop agent healthy"
+      ],
+      "proofEnvironment": "liveWindowsCampaignRuntime",
+      "dispositionRationale": "Intended external cen_vuelos lease consumer; diagnostic pending live lifecycle proof and consumer integration evidence.",
+      "decisionOwner": "contractOwner",
+      "acceptedPolling": {
+        "locationHeader": "Relative polling URI for the lease status resource.",
+        "responseDescription": "Release accepted. Poll the URI in Location with GET /v1/files/onedrive/leases/{leaseId} until state is no longer releasing."
+      }
+    },
+    {
+      "operationId": "getOneDriveFilesOnDemandStatus",
+      "method": "GET",
+      "path": "/v1/files/onedrive/status",
+      "proposedSurface": "diagnostic",
+      "consumerJob": "oneDriveFilesOnDemand",
+      "expectedCaller": "operatorTool",
+      "localExposure": "loopback",
+      "remoteExposure": "denied",
+      "handlerOwner": "desktopAgentViaHost",
+      "fixture": "bounded-onedrive-files-on-demand-fixture",
+      "observableEffect": "Typed OneDrive Files-On-Demand control-plane result returned.",
+      "cleanup": "module-owned-local-state",
+      "credentialGate": "none",
+      "mutationGate": "none",
+      "proofState": "blocked",
+      "evidence": [],
+      "namespace": "files.onedrive",
+      "unresolvedDecision": null,
+      "requestSchemas": [],
+      "successSchemas": [
+        "OneDriveFilesOnDemandStatusResult"
+      ],
+      "errorSchemas": [
+        "OperatorError"
+      ],
+      "lifecycle": "synchronous",
+      "idempotency": "safeRead",
+      "retryPolicy": "safeWithSameRequest",
+      "timeoutPolicy": "serverBounded:60s",
+      "cancellationPolicy": "requestCancellation",
+      "concurrencyPolicy": "parallelRead",
+      "sensitivity": "runtimeMetadata",
+      "successCase": "Typed OneDrive Files-On-Demand control-plane result returned.",
+      "negativeCase": "Wrong HTTP method returns typed validation OperatorError.",
+      "prerequisites": [
+        "campaign build running on Windows",
+        "interactive desktop agent healthy"
+      ],
+      "proofEnvironment": "liveWindowsCampaignRuntime",
+      "dispositionRationale": "Operator-only diagnostics excluded from ordinary relay and compatibility.",
+      "decisionOwner": "contractOwner"
+    },
+    {
+      "operationId": "getOneDriveFilesOnDemandConfig",
+      "method": "GET",
+      "path": "/v1/files/onedrive/config",
+      "proposedSurface": "diagnostic",
+      "consumerJob": "oneDriveFilesOnDemand",
+      "expectedCaller": "operatorTool",
+      "localExposure": "loopback",
+      "remoteExposure": "denied",
+      "handlerOwner": "desktopAgentViaHost",
+      "fixture": "bounded-onedrive-files-on-demand-fixture",
+      "observableEffect": "Typed OneDrive Files-On-Demand control-plane result returned.",
+      "cleanup": "module-owned-local-state",
+      "credentialGate": "none",
+      "mutationGate": "none",
+      "proofState": "blocked",
+      "evidence": [],
+      "namespace": "files.onedrive",
+      "unresolvedDecision": null,
+      "requestSchemas": [],
+      "successSchemas": [
+        "OneDriveConfigResult"
+      ],
+      "errorSchemas": [
+        "OperatorError"
+      ],
+      "lifecycle": "synchronous",
+      "idempotency": "safeRead",
+      "retryPolicy": "safeWithSameRequest",
+      "timeoutPolicy": "serverBounded:60s",
+      "cancellationPolicy": "requestCancellation",
+      "concurrencyPolicy": "parallelRead",
+      "sensitivity": "runtimeMetadata",
+      "successCase": "Typed OneDrive Files-On-Demand control-plane result returned.",
+      "negativeCase": "Wrong HTTP method returns typed validation OperatorError.",
+      "prerequisites": [
+        "campaign build running on Windows",
+        "interactive desktop agent healthy"
+      ],
+      "proofEnvironment": "liveWindowsCampaignRuntime",
+      "dispositionRationale": "Operator-only diagnostics excluded from ordinary relay and compatibility.",
+      "decisionOwner": "contractOwner"
+    },
+    {
+      "operationId": "updateOneDriveFilesOnDemandConfig",
+      "method": "PUT",
+      "path": "/v1/files/onedrive/config",
+      "proposedSurface": "diagnostic",
+      "consumerJob": "oneDriveFilesOnDemand",
+      "expectedCaller": "operatorTool",
+      "localExposure": "loopback",
+      "remoteExposure": "denied",
+      "handlerOwner": "desktopAgentViaHost",
+      "fixture": "bounded-onedrive-files-on-demand-fixture",
+      "observableEffect": "Typed OneDrive Files-On-Demand control-plane result returned.",
+      "cleanup": "module-owned-local-state",
+      "credentialGate": "none",
+      "mutationGate": "consequentialApproval",
+      "proofState": "blocked",
+      "evidence": [],
+      "namespace": "files.onedrive",
+      "unresolvedDecision": null,
+      "requestSchemas": [
+        "OneDriveConfigUpdateRequest"
+      ],
+      "successSchemas": [
+        "OneDriveConfigResult"
+      ],
+      "errorSchemas": [
+        "OperatorError"
+      ],
+      "lifecycle": "synchronous",
+      "idempotency": "nonIdempotent",
+      "retryPolicy": "neverWithoutObservedStatus",
+      "timeoutPolicy": "serverBounded:60s",
+      "cancellationPolicy": "requestCancellation",
+      "concurrencyPolicy": "independentRequests",
+      "sensitivity": "runtimeMetadata",
+      "successCase": "Typed OneDrive Files-On-Demand control-plane result returned.",
+      "negativeCase": "Malformed or incomplete request returns typed validation OperatorError.",
+      "prerequisites": [
+        "campaign build running on Windows",
+        "interactive desktop agent healthy",
+        "operator approval"
+      ],
+      "proofEnvironment": "liveWindowsCampaignRuntime",
+      "dispositionRationale": "Operator-only diagnostics excluded from ordinary relay and compatibility.",
+      "decisionOwner": "contractOwner"
+    },
+    {
+      "operationId": "startOneDriveReclaim",
+      "method": "POST",
+      "path": "/v1/files/onedrive/reclaims",
+      "proposedSurface": "diagnostic",
+      "consumerJob": "oneDriveFilesOnDemand",
+      "expectedCaller": "operatorTool",
+      "localExposure": "loopback",
+      "remoteExposure": "denied",
+      "handlerOwner": "desktopAgentViaHost",
+      "fixture": "bounded-onedrive-files-on-demand-fixture",
+      "observableEffect": "Typed OneDrive Files-On-Demand control-plane result returned.",
+      "cleanup": "module-owned-local-state",
+      "credentialGate": "none",
+      "mutationGate": "ownedResource",
+      "proofState": "blocked",
+      "evidence": [],
+      "namespace": "files.onedrive",
+      "unresolvedDecision": null,
+      "requestSchemas": [
+        "OneDriveReclaimRequest"
+      ],
+      "successSchemas": [
+        "OneDriveReclaimResult"
+      ],
+      "errorSchemas": [
+        "OperatorError"
+      ],
+      "lifecycle": "synchronous",
+      "idempotency": "callerKeyed",
+      "retryPolicy": "typedRetryableOnly",
+      "timeoutPolicy": "serverBounded:660s",
+      "cancellationPolicy": "requestCancellation",
+      "concurrencyPolicy": "independentRequests",
+      "sensitivity": "runtimeMetadata",
+      "successCase": "Typed OneDrive Files-On-Demand control-plane result returned.",
+      "negativeCase": "Malformed or incomplete request returns typed validation OperatorError.",
+      "prerequisites": [
+        "campaign build running on Windows",
+        "interactive desktop agent healthy"
+      ],
+      "proofEnvironment": "liveWindowsCampaignRuntime",
+      "dispositionRationale": "Operator-only diagnostics excluded from ordinary relay and compatibility.",
+      "decisionOwner": "contractOwner"
+    },
+    {
+      "operationId": "getOneDriveReclaim",
+      "method": "GET",
+      "path": "/v1/files/onedrive/reclaims/{runId}",
+      "proposedSurface": "diagnostic",
+      "consumerJob": "oneDriveFilesOnDemand",
+      "expectedCaller": "operatorTool",
+      "localExposure": "loopback",
+      "remoteExposure": "denied",
+      "handlerOwner": "desktopAgentViaHost",
+      "fixture": "bounded-onedrive-files-on-demand-fixture",
+      "observableEffect": "Typed OneDrive Files-On-Demand control-plane result returned.",
+      "cleanup": "module-owned-local-state",
+      "credentialGate": "none",
+      "mutationGate": "none",
+      "proofState": "blocked",
+      "evidence": [],
+      "namespace": "files.onedrive",
+      "unresolvedDecision": null,
+      "requestSchemas": [],
+      "successSchemas": [
+        "OneDriveReclaimResult"
+      ],
+      "errorSchemas": [
+        "OperatorError"
+      ],
+      "lifecycle": "synchronous",
+      "idempotency": "safeRead",
+      "retryPolicy": "safeWithSameRequest",
+      "timeoutPolicy": "serverBounded:60s",
+      "cancellationPolicy": "requestCancellation",
+      "concurrencyPolicy": "parallelRead",
+      "sensitivity": "runtimeMetadata",
+      "successCase": "Typed OneDrive Files-On-Demand control-plane result returned.",
+      "negativeCase": "Unknown resource identifier returns typed notFound OperatorError.",
+      "prerequisites": [
+        "campaign build running on Windows",
+        "interactive desktop agent healthy"
+      ],
+      "proofEnvironment": "liveWindowsCampaignRuntime",
+      "dispositionRationale": "Operator-only diagnostics excluded from ordinary relay and compatibility.",
+      "decisionOwner": "contractOwner"
+    },
+    {
+      "operationId": "listOneDriveFiles",
+      "method": "POST",
+      "path": "/v1/files/onedrive/list",
+      "proposedSurface": "diagnostic",
+      "consumerJob": "cenVuelosOneDriveLease",
+      "expectedCaller": "externalApplication",
+      "localExposure": "loopback",
+      "remoteExposure": "denied",
+      "handlerOwner": "desktopAgentViaHost",
+      "fixture": "bounded-onedrive-files-on-demand-fixture",
+      "observableEffect": "OneDrive directory metadata returned from the Windows Agent.",
+      "cleanup": "module-owned-local-state",
+      "credentialGate": "none",
+      "mutationGate": "ownedResource",
+      "proofState": "blocked",
+      "evidence": [],
+      "namespace": "files.onedrive",
+      "unresolvedDecision": null,
+      "requestSchemas": [
+        "OneDriveListRequest"
+      ],
+      "successSchemas": [
+        "OneDriveFileEntry"
+      ],
+      "errorSchemas": [
+        "OperatorError"
+      ],
+      "lifecycle": "synchronous",
+      "idempotency": "safeRead",
+      "retryPolicy": "safeWithSameRequest",
+      "timeoutPolicy": "serverBounded:60s",
+      "cancellationPolicy": "requestCancellation",
+      "concurrencyPolicy": "independentRequests",
+      "sensitivity": "runtimeMetadata",
+      "successCase": "OneDrive directory metadata returned from the Windows Agent.",
+      "negativeCase": "Malformed or incomplete request returns typed validation OperatorError.",
+      "prerequisites": [
+        "campaign build running on Windows",
+        "interactive desktop agent healthy"
+      ],
+      "proofEnvironment": "liveWindowsCampaignRuntime",
+      "dispositionRationale": "Intended external cen_vuelos lease consumer; diagnostic pending live lifecycle proof and consumer integration evidence.",
+      "decisionOwner": "contractOwner"
+    },
+    {
+      "operationId": "downloadOneDriveFile",
+      "method": "POST",
+      "path": "/v1/files/onedrive/download",
+      "proposedSurface": "diagnostic",
+      "consumerJob": "cenVuelosOneDriveLease",
+      "expectedCaller": "externalApplication",
+      "localExposure": "loopback",
+      "remoteExposure": "denied",
+      "handlerOwner": "desktopAgentViaHost",
+      "fixture": "bounded-onedrive-files-on-demand-fixture",
+      "observableEffect": "OneDrive file bytes streamed from the Windows Agent.",
+      "cleanup": "module-owned-local-state",
+      "credentialGate": "none",
+      "mutationGate": "ownedResource",
+      "proofState": "blocked",
+      "evidence": [],
+      "namespace": "files.onedrive",
+      "unresolvedDecision": null,
+      "requestSchemas": [
+        "OneDriveLeaseRequest"
+      ],
+      "successSchemas": [
+        "inline:string"
+      ],
+      "errorSchemas": [
+        "OperatorError"
+      ],
+      "lifecycle": "synchronous",
+      "idempotency": "nonIdempotent",
+      "retryPolicy": "neverWithoutObservedStatus",
+      "timeoutPolicy": "serverBounded:180s",
+      "cancellationPolicy": "requestCancellation",
+      "concurrencyPolicy": "independentRequests",
+      "sensitivity": "runtimeMetadata",
+      "successCase": "OneDrive file bytes streamed from the Windows Agent.",
+      "negativeCase": "Malformed or incomplete request returns typed validation OperatorError.",
+      "prerequisites": [
+        "campaign build running on Windows",
+        "interactive desktop agent healthy"
+      ],
+      "proofEnvironment": "liveWindowsCampaignRuntime",
+      "dispositionRationale": "Intended external cen_vuelos lease consumer; diagnostic pending live lifecycle proof and consumer integration evidence.",
+      "decisionOwner": "contractOwner"
+    },
+    {
+      "operationId": "recoverOneDriveRuntime",
+      "method": "POST",
+      "path": "/v1/files/onedrive/runtime/recover",
+      "proposedSurface": "diagnostic",
+      "consumerJob": "oneDriveFilesOnDemand",
+      "expectedCaller": "operatorTool",
+      "localExposure": "loopback",
+      "remoteExposure": "denied",
+      "handlerOwner": "host",
+      "fixture": "bounded-onedrive-files-on-demand-fixture",
+      "observableEffect": "Typed OneDrive Files-On-Demand control-plane result returned.",
+      "cleanup": "module-owned-local-state",
+      "credentialGate": "none",
+      "mutationGate": "consequentialApproval",
+      "proofState": "blocked",
+      "evidence": [],
+      "namespace": "files.onedrive",
+      "unresolvedDecision": null,
+      "requestSchemas": [
+        "OneDriveConfigurationRecoveryRequest"
+      ],
+      "successSchemas": [
+        "OneDriveConfigurationRecoveryResult"
+      ],
+      "errorSchemas": [
+        "OperatorError"
+      ],
+      "lifecycle": "synchronous",
+      "idempotency": "nonIdempotent",
+      "retryPolicy": "neverWithoutObservedStatus",
+      "timeoutPolicy": "serverBounded:60s",
+      "cancellationPolicy": "requestCancellation",
+      "concurrencyPolicy": "independentRequests",
+      "sensitivity": "runtimeMetadata",
+      "successCase": "Typed OneDrive Files-On-Demand control-plane result returned.",
+      "negativeCase": "Malformed or incomplete request returns typed validation OperatorError.",
+      "prerequisites": [
+        "campaign build running on Windows",
+        "operator approval"
+      ],
+      "proofEnvironment": "liveWindowsCampaignRuntime",
+      "dispositionRationale": "Operator-only diagnostics excluded from ordinary relay and compatibility.",
+      "decisionOwner": "contractOwner"
     }
   ],
   "schemaVersion": 1

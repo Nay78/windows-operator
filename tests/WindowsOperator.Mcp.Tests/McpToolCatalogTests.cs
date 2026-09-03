@@ -710,5 +710,35 @@ public sealed class McpToolCatalogTests
 
         public Task<MailStatusResult> GetMailStatusAsync(CancellationToken cancellationToken) =>
             Task.FromResult(new MailStatusResult(true, 0, 0, null, DateTimeOffset.Parse("2026-04-26T20:16:00Z")));
+
+        public Task<OneDriveLeaseResult> AcquireOneDriveLeaseAsync(OneDriveLeaseRequest request, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<IReadOnlyList<OneDriveFileEntry>> ListOneDriveFilesAsync(OneDriveListRequest request, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<OneDriveLeaseStatusResult> GetOneDriveLeaseAsync(string leaseId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<OneDriveLeaseResult> RenewOneDriveLeaseAsync(string leaseId, OneDriveLeaseRenewRequest request, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<OneDriveLeaseResult> ReleaseOneDriveLeaseAsync(string leaseId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<OneDriveFilesOnDemandStatusResult> GetOneDriveStatusAsync(CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<OneDriveConfigResult> GetOneDriveConfigAsync(CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<OneDriveConfigResult> UpdateOneDriveConfigAsync(OneDriveConfigUpdateRequest request, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<OneDriveReclaimResult> StartOneDriveReclaimAsync(OneDriveReclaimRequest request, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<OneDriveReclaimResult> GetOneDriveReclaimAsync(string runId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
     }
 }

@@ -929,6 +929,23 @@ public sealed class ContractSerializationTests
     }
 
     [Fact]
+    public void OperatorOpenApi_DescribesReleaseAcceptedPollingLocation()
+    {
+        using var document = JsonDocument.Parse(JsonSerializer.Serialize(OperatorOpenApi.Document, OperatorJson.SerializerOptions));
+        var accepted = document.RootElement
+            .GetProperty("paths")
+            .GetProperty("/v1/files/onedrive/leases/{leaseId}/release")
+            .GetProperty("post")
+            .GetProperty("responses")
+            .GetProperty("202");
+
+        Assert.Contains("Poll the URI in Location", accepted.GetProperty("description").GetString());
+        var location = accepted.GetProperty("headers").GetProperty("Location");
+        Assert.True(location.GetProperty("required").GetBoolean());
+        Assert.Equal("uri-reference", location.GetProperty("schema").GetProperty("format").GetString());
+    }
+
+    [Fact]
     public void OperatorOpenApi_Requires_DeclaredRequestMembers_AndCoreErrorFields()
     {
         using var document = JsonDocument.Parse(JsonSerializer.Serialize(OperatorOpenApi.Document, OperatorJson.SerializerOptions));
@@ -1010,7 +1027,7 @@ public sealed class ContractSerializationTests
             }
         }
 
-        Assert.Equal(39, requestBodyCount);
+        Assert.Equal(43, requestBodyCount);
     }
 
     [Fact]

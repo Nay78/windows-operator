@@ -94,16 +94,18 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
         try
         {
             Trace("start");
-            var preCleanup = CleanupAuthWindows(
-                new MicrosoftAuthCleanupRequest { DryRun = request.DryRun },
-                actions,
-                null);
-            Trace($"pre_cleanup_closed:{preCleanup.ClosedWindows}");
             if (!OperatingSystem.IsWindows())
             {
                 throw new OperatorFailureException(
                     OperatorErrors.AuthUnavailable("Microsoft authorize probe requires Windows desktop session."));
             }
+
+            EnsureInteractiveAuthSession();
+            var preCleanup = CleanupAuthWindows(
+                new MicrosoftAuthCleanupRequest { DryRun = request.DryRun },
+                actions,
+                null);
+            Trace($"pre_cleanup_closed:{preCleanup.ClosedWindows}");
 
             if (string.IsNullOrWhiteSpace(request.AuthorizeUrl))
             {
@@ -143,17 +145,19 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
             Trace($"remote_debugging_port:{devToolsPort}");
             if (reuseExistingProfile)
             {
-                actions.Add("reuse_existing_profile");
-                Trace("reuse_existing_profile");
+                actions.Add("reuse_existing_profile_ignored:isolated_auth_profile");
+                Trace("reuse_existing_profile_ignored:isolated_auth_profile");
             }
 
             var startedAfterUtc = DateTimeOffset.UtcNow.AddSeconds(-2);
+            var authorizeProfile = EdgeProfileSelection.Temp(Path.Combine(runRoot, "edge-profile"));
             using var edge = StartEdge(
                 edgePath,
-                reuseExistingProfile ? EdgeWorkProfileSelection() : EdgeProfileSelection.Temp(Path.Combine(runRoot, "edge-profile")),
+                authorizeProfile,
                 request.InPrivate,
                 authorizeUrl,
                 devToolsPort);
+            PersistAuthBrowserOwnership(runId, edge, authorizeProfile.UserDataDir);
             actions.Add("edge_opened");
             Thread.Sleep(TimeSpan.FromSeconds(pageLoadSeconds));
 
@@ -161,7 +165,7 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
             var edgeWindow = FindAuthorizeWindow(
                 edge.Id,
                 startedAfterUtc,
-                reuseExistingProfile,
+                false,
                 TimeSpan.FromSeconds(Math.Max(1, pageLoadSeconds)),
                 actions);
             if (edgeWindow is null || !TryActivateEdge(shell, edgeWindow.Value, actions))
@@ -194,7 +198,7 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
             var observation = ObserveAuthorizeState(
                 startedAfterUtc,
                 edge.Id,
-                request.ReuseExistingProfile,
+                false,
                 devToolsPort,
                 authorizeUrl,
                 TimeSpan.FromSeconds(observationTimeoutSeconds));
@@ -289,16 +293,18 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
         {
             cancellationToken.ThrowIfCancellationRequested();
             Trace("start");
-            var preCleanup = CleanupAuthWindows(
-                new MicrosoftAuthCleanupRequest { DryRun = request.DryRun },
-                actions,
-                null);
-            Trace($"pre_cleanup_closed:{preCleanup.ClosedWindows}");
             if (!OperatingSystem.IsWindows())
             {
                 throw new OperatorFailureException(
                     OperatorErrors.AuthUnavailable("Microsoft device login requires Windows desktop session."));
             }
+
+            EnsureInteractiveAuthSession();
+            var preCleanup = CleanupAuthWindows(
+                new MicrosoftAuthCleanupRequest { DryRun = request.DryRun },
+                actions,
+                null);
+            Trace($"pre_cleanup_closed:{preCleanup.ClosedWindows}");
 
             if (string.IsNullOrWhiteSpace(request.DeviceCode))
             {
@@ -332,21 +338,23 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
             var devToolsPort = ReserveLoopbackPort();
             actions.Add($"remote_debugging_port:{devToolsPort}");
             Trace($"remote_debugging_port:{devToolsPort}");
-            CleanupHiddenEdgeProcesses(actions);
 
             var startedAfterUtc = DateTimeOffset.UtcNow.AddSeconds(-2);
             if (reuseExistingProfile)
             {
-                actions.Add("reuse_existing_profile");
-                Trace("reuse_existing_profile");
+                actions.Add("reuse_existing_profile_ignored:isolated_auth_profile");
+                Trace("reuse_existing_profile_ignored:isolated_auth_profile");
             }
 
+            var authProfile = EdgeProfileSelection.Temp(Path.Combine(runRoot, "edge-profile"));
             using var edge = StartEdge(
                 edgePath,
-                reuseExistingProfile ? EdgeWorkProfileSelection() : EdgeProfileSelection.Temp(Path.Combine(runRoot, "edge-profile")),
+                authProfile,
                 request.InPrivate,
                 loginUrl,
                 devToolsPort);
+            PersistAuthBrowserOwnership(runId, edge, authProfile.UserDataDir);
+            actions.Add("isolated_auth_profile");
             actions.Add("edge_opened");
             DelayWithCancellation(TimeSpan.FromSeconds(pageLoadSeconds), cancellationToken);
 
@@ -354,7 +362,7 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
             var edgeWindow = FindAuthorizeWindow(
                 edge.Id,
                 startedAfterUtc,
-                reuseExistingProfile,
+                false,
                 TimeSpan.FromSeconds(Math.Max(1, pageLoadSeconds)),
                 actions);
             if (edgeWindow is null || !TryActivateEdge(shell, edgeWindow.Value, actions))
@@ -439,7 +447,7 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
             var observation = ObserveBrowserState(
                 startedAfterUtc,
                 edge.Id,
-                reuseExistingProfile,
+                false,
                 TimeSpan.FromSeconds(verificationWaitSeconds),
                 selectedDevToolsPort,
                 loginUrl,
@@ -885,59 +893,6 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
         }
 
         return false;
-    }
-
-    private static void CleanupHiddenEdgeProcesses(List<string> actions)
-    {
-        if (!OperatingSystem.IsWindows())
-        {
-            return;
-        }
-
-        var visibleWindows = EdgeWindows().ToList();
-        if (visibleWindows.Count > 0)
-        {
-            actions.Add($"hidden_edge_cleanup:skipped_visible={visibleWindows.Count}");
-            return;
-        }
-
-        var matched = 0;
-        var closed = 0;
-        var failed = 0;
-        foreach (var process in Process.GetProcessesByName("msedge"))
-        {
-            using (process)
-            {
-                try
-                {
-                    process.Refresh();
-                    if (process.HasExited)
-                    {
-                        continue;
-                    }
-
-                    matched++;
-                    process.Kill(entireProcessTree: true);
-                    if (process.WaitForExit(3000))
-                    {
-                        closed++;
-                    }
-                    else
-                    {
-                        failed++;
-                    }
-                }
-                catch
-                {
-                    failed++;
-                }
-            }
-        }
-
-        if (matched > 0 || failed > 0)
-        {
-            actions.Add($"hidden_edge_cleanup:matched={matched};closed={closed};failed={failed}");
-        }
     }
 
     private static BrowserWindow? FindAuthorizeWindow(
@@ -2541,6 +2496,22 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
     {
         var actions = new List<string>();
         var errors = new List<string>();
+        if (OperatingSystem.IsWindows() &&
+            !IsInteractiveAuthSession(Process.GetCurrentProcess().SessionId, WtsGetActiveConsoleSessionId()))
+        {
+            actions.Add("cleanup_skipped:inactive_agent_session");
+            errors.Add("Microsoft auth cleanup requires the active console session.");
+            return new MicrosoftAuthCleanupResult(
+                false,
+                0,
+                0,
+                0,
+                0,
+                actions,
+                errors,
+                DateTimeOffset.UtcNow);
+        }
+
         var summary = CleanupAuthWindows(request, actions, errors);
         return new MicrosoftAuthCleanupResult(
             errors.Count == 0,
@@ -2570,9 +2541,15 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
         var closedWindows = 0;
         var preservedWindows = 0;
         var failedWindows = 0;
+        var ownedBrowsers = ReadOwnedAuthBrowsers();
 
         foreach (var window in EdgeWindows().OrderByDescending(candidate => candidate.StartedAtUtc))
         {
+            if (!IsOwnedAuthWindow(window, ownedBrowsers))
+            {
+                continue;
+            }
+
             var text = ReadWindowText(window.Hwnd);
             if (!LooksLikeMicrosoftAuthWindow(window.Title, text))
             {
@@ -2601,7 +2578,43 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
             errors?.Add($"Failed to close auth window hwnd={window.Hwnd} title='{window.Title}'.");
         }
 
+        var matchedProcesses = 0;
+        var closedProcesses = 0;
+        var failedProcesses = 0;
+        foreach (var browser in ownedBrowsers)
+        {
+            if (!IsOwnedActiveAuthBrowser(browser))
+            {
+                continue;
+            }
+
+            if (browser.StartedAtUtc >= preserveAfterUtc)
+            {
+                continue;
+            }
+
+            matchedProcesses++;
+            if (request.DryRun)
+            {
+                continue;
+            }
+
+            if (TryKillOwnedProcess(browser))
+            {
+                closedProcesses++;
+            }
+            else
+            {
+                failedProcesses++;
+                errors?.Add($"Failed to close owned auth Edge process pid={browser.ProcessId}.");
+            }
+        }
+
         actions.Add($"auth_window_cleanup:matched={matchedWindows};closed={closedWindows};preserved={preservedWindows};failed={failedWindows}");
+        if (matchedProcesses > 0 || failedProcesses > 0)
+        {
+            actions.Add($"auth_process_cleanup:matched={matchedProcesses};closed={closedProcesses};failed={failedProcesses}");
+        }
         if (request.DryRun)
         {
             actions.Add("cleanup_dry_run");
@@ -2609,6 +2622,139 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
 
         return new MicrosoftAuthCleanupSummary(matchedWindows, closedWindows, preservedWindows, failedWindows);
     }
+
+    private static void EnsureInteractiveAuthSession()
+    {
+        var agentSessionId = Process.GetCurrentProcess().SessionId;
+        var activeConsoleSessionId = WtsGetActiveConsoleSessionId();
+        if (!IsInteractiveAuthSession(agentSessionId, activeConsoleSessionId))
+        {
+            throw new OperatorFailureException(
+                OperatorErrors.LockedDesktop(
+                    $"Microsoft UI auth requires the active console session; agentSession={agentSessionId}; activeConsoleSession={activeConsoleSessionId}."));
+        }
+    }
+
+    internal static bool IsInteractiveAuthSessionForTest(int agentSessionId, uint activeConsoleSessionId) =>
+        IsInteractiveAuthSession(agentSessionId, activeConsoleSessionId);
+
+    internal static bool MatchesOwnedActiveEdgeWindow(
+        int processId,
+        int sessionId,
+        int activeSessionId,
+        IReadOnlySet<int> ownedProcessIds) =>
+        sessionId == activeSessionId && ownedProcessIds.Contains(processId);
+
+    private static bool IsInteractiveAuthSession(int agentSessionId, uint activeConsoleSessionId) =>
+        activeConsoleSessionId != 0xFFFFFFFFu && agentSessionId >= 0 && agentSessionId == activeConsoleSessionId;
+
+    private static void PersistAuthBrowserOwnership(string runId, Process process, string? profileRoot)
+    {
+        process.Refresh();
+        var ownership = new AuthBrowserOwnership(
+            runId,
+            process.Id,
+            process.SessionId,
+            new DateTimeOffset(process.StartTime.ToUniversalTime()),
+            profileRoot);
+        File.WriteAllText(
+            AuthBrowserOwnershipPath(runId),
+            JsonSerializer.Serialize(ownership, OperatorJson.SerializerOptions));
+    }
+
+    private static IReadOnlyList<AuthBrowserOwnership> ReadOwnedAuthBrowsers()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return Array.Empty<AuthBrowserOwnership>();
+        }
+
+        var root = AuthRoot();
+        if (!Directory.Exists(root))
+        {
+            return Array.Empty<AuthBrowserOwnership>();
+        }
+
+        var browsers = new List<AuthBrowserOwnership>();
+        foreach (var path in Directory.EnumerateFiles(root, "edge-ownership.json", SearchOption.AllDirectories))
+        {
+            try
+            {
+                var ownership = JsonSerializer.Deserialize<AuthBrowserOwnership>(
+                    File.ReadAllText(path),
+                    OperatorJson.SerializerOptions);
+                if (ownership is not null)
+                {
+                    browsers.Add(ownership);
+                }
+            }
+            catch
+            {
+                // Ignore incomplete run state; never broaden cleanup scope.
+            }
+        }
+
+        return browsers;
+    }
+
+    private static bool IsOwnedAuthWindow(
+        BrowserWindow window,
+        IReadOnlyList<AuthBrowserOwnership> ownedBrowsers) =>
+        ownedBrowsers.Any(browser =>
+            MatchesOwnedActiveEdgeWindow(
+                window.ProcessId,
+                window.SessionId ?? -1,
+                browser.SessionId,
+                new HashSet<int> { browser.ProcessId }) &&
+            NearlyEqualProcessStart(browser.StartedAtUtc, window.StartedAtUtc));
+
+    private static bool IsOwnedActiveAuthBrowser(AuthBrowserOwnership browser)
+    {
+        var activeConsoleSessionId = WtsGetActiveConsoleSessionId();
+        return IsInteractiveAuthSession(browser.SessionId, activeConsoleSessionId) &&
+            IsOwnedProcessAlive(browser);
+    }
+
+    private static bool IsOwnedProcessAlive(AuthBrowserOwnership browser)
+    {
+        try
+        {
+            using var process = Process.GetProcessById(browser.ProcessId);
+            process.Refresh();
+            return !process.HasExited &&
+                process.SessionId == browser.SessionId &&
+                NearlyEqualProcessStart(
+                    browser.StartedAtUtc,
+                    new DateTimeOffset(process.StartTime.ToUniversalTime()));
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool TryKillOwnedProcess(AuthBrowserOwnership browser)
+    {
+        if (!IsOwnedProcessAlive(browser))
+        {
+            return true;
+        }
+
+        try
+        {
+            using var process = Process.GetProcessById(browser.ProcessId);
+            process.Kill(entireProcessTree: true);
+            process.WaitForExit(3000);
+            return process.HasExited;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool NearlyEqualProcessStart(DateTimeOffset expected, DateTimeOffset actual) =>
+        Math.Abs((expected - actual).TotalSeconds) <= 2;
 
     private static bool LooksLikeMicrosoftAuthWindow(string? title, string? text)
     {
@@ -2698,7 +2844,11 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
         {
             var windows = WindowCatalogService.ListAsync(CancellationToken.None).GetAwaiter().GetResult();
             var mapped = MapEdgeWindowsFromCatalog(windows, TryGetEdgeProcessStartTime);
-            return mapped.Count > 0 ? mapped : EdgeMainWindowsFallback();
+            var activeSession = WtsGetActiveConsoleSessionId();
+            var activeWindows = mapped
+                .Where(window => activeSession != 0xFFFFFFFFu && window.SessionId == checked((int)activeSession))
+                .ToArray();
+            return activeWindows.Length > 0 ? activeWindows : EdgeMainWindowsFallback();
         }
         catch
         {
@@ -2739,7 +2889,8 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
                 window.Title,
                 startedAtUtc.Value,
                 window.IsForeground,
-                window.IsMinimized));
+                window.IsMinimized,
+                TryGetEdgeProcessSessionId(window.ProcessId)));
         }
 
         return mapped;
@@ -2765,9 +2916,30 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
         }
     }
 
+    private static int? TryGetEdgeProcessSessionId(uint processId)
+    {
+        try
+        {
+            using var process = Process.GetProcessById(checked((int)processId));
+            process.Refresh();
+            if (process.HasExited ||
+                !string.Equals(process.ProcessName, "msedge", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            return process.SessionId;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private static IReadOnlyList<BrowserWindow> EdgeMainWindowsFallback()
     {
         var foreground = GetForegroundWindow();
+        var activeSession = WtsGetActiveConsoleSessionId();
         var windows = new List<BrowserWindow>();
         foreach (var process in Process.GetProcessesByName("msedge"))
         {
@@ -2781,13 +2953,19 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
                         continue;
                     }
 
+                    if (activeSession == 0xFFFFFFFFu || process.SessionId != checked((int)activeSession))
+                    {
+                        continue;
+                    }
+
                     windows.Add(new BrowserWindow(
                         process.Id,
                         process.MainWindowHandle,
                         process.MainWindowTitle,
                         new DateTimeOffset(process.StartTime.ToUniversalTime()),
                         process.MainWindowHandle == foreground,
-                        false));
+                        false,
+                        process.SessionId));
                 }
                 catch
                 {
@@ -2892,6 +3070,9 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
     private static string RunRoot(string runId) =>
         Path.Combine(AuthRoot(), runId);
 
+    private static string AuthBrowserOwnershipPath(string runId) =>
+        Path.Combine(RunRoot(runId), "edge-ownership.json");
+
     private static string AuthorizeProbeRunRoot(string runId) =>
         Path.Combine(AuthorizeProbeRoot(), runId);
 
@@ -2931,6 +3112,9 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool PostMessage(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
 
+    [DllImport("kernel32.dll", EntryPoint = "WTSGetActiveConsoleSessionId")]
+    private static extern uint WtsGetActiveConsoleSessionId();
+
     private static string SafeFileName(string? raw, string fallback)
     {
         var value = string.IsNullOrWhiteSpace(raw) ? fallback : raw.Trim();
@@ -2948,7 +3132,8 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
         string? Title,
         DateTimeOffset StartedAtUtc,
         bool IsForeground,
-        bool IsMinimized);
+        bool IsMinimized,
+        int? SessionId = null);
 
     private readonly record struct EdgeProfileSelection(string? UserDataDir, string? ProfileDirectory)
     {
@@ -2978,4 +3163,11 @@ public sealed partial class EdgeMicrosoftAuthService : IMicrosoftAuthService, IE
         int ClosedWindows,
         int PreservedWindows,
         int FailedWindows);
+
+    private sealed record AuthBrowserOwnership(
+        string RunId,
+        int ProcessId,
+        int SessionId,
+        DateTimeOffset StartedAtUtc,
+        string? ProfileRoot);
 }

@@ -59,6 +59,36 @@ const (
 	MicrosoftDeviceLoginStatusTimedOut        MicrosoftDeviceLoginStatus = "timedOut"
 )
 
+// Defines values for OneDriveFinalReleaseAction.
+const (
+	Dehydrate OneDriveFinalReleaseAction = "dehydrate"
+)
+
+// Defines values for OneDriveLeaseState.
+const (
+	OneDriveLeaseStateAcquiring        OneDriveLeaseState = "acquiring"
+	OneDriveLeaseStateExpired          OneDriveLeaseState = "expired"
+	OneDriveLeaseStateFailed           OneDriveLeaseState = "failed"
+	OneDriveLeaseStateReady            OneDriveLeaseState = "ready"
+	OneDriveLeaseStateRecoveryRequired OneDriveLeaseState = "recoveryRequired"
+	OneDriveLeaseStateReleased         OneDriveLeaseState = "released"
+	OneDriveLeaseStateReleasing        OneDriveLeaseState = "releasing"
+)
+
+// Defines values for OneDriveReclaimScope.
+const (
+	ModuleOwned OneDriveReclaimScope = "moduleOwned"
+)
+
+// Defines values for OneDriveReclaimState.
+const (
+	OneDriveReclaimStateCompleted        OneDriveReclaimState = "completed"
+	OneDriveReclaimStateFailed           OneDriveReclaimState = "failed"
+	OneDriveReclaimStatePending          OneDriveReclaimState = "pending"
+	OneDriveReclaimStateRecoveryRequired OneDriveReclaimState = "recoveryRequired"
+	OneDriveReclaimStateRunning          OneDriveReclaimState = "running"
+)
+
 // Defines values for OperatorErrorCategory.
 const (
 	OperatorErrorCategoryConflict    OperatorErrorCategory = "conflict"
@@ -668,6 +698,294 @@ type MicrosoftDeviceLoginResult struct {
 
 // MicrosoftDeviceLoginStatus Allowed values for MicrosoftDeviceLoginStatus.
 type MicrosoftDeviceLoginStatus string
+
+// OneDriveConfig defines model for OneDriveConfig.
+type OneDriveConfig struct {
+	DefaultTtlSeconds   int32 `json:"defaultTtlSeconds"`
+	MaximumAcquireBytes int64 `json:"maximumAcquireBytes"`
+	MaximumTtlSeconds   int32 `json:"maximumTtlSeconds"`
+	MinimumFreeBytes    int64 `json:"minimumFreeBytes"`
+	PeriodicReclaim     bool  `json:"periodicReclaim"`
+	PreserveUserPins    bool  `json:"preserveUserPins"`
+
+	// ReclaimScope Allowed values for OneDriveReclaimScope.
+	ReclaimScope OneDriveReclaimScope          `json:"reclaimScope"`
+	Roots        map[string]OneDriveRootConfig `json:"roots"`
+	Version      int32                         `json:"version"`
+}
+
+// OneDriveConfigInput defines model for OneDriveConfigInput.
+type OneDriveConfigInput struct {
+	// DefaultTtlSeconds Defaults to 300 when omitted.
+	DefaultTtlSeconds *int32 `json:"defaultTtlSeconds,omitempty"`
+
+	// MaximumAcquireBytes Defaults to 1073741824 when omitted.
+	MaximumAcquireBytes *int64 `json:"maximumAcquireBytes,omitempty"`
+
+	// MaximumTtlSeconds Defaults to 900 when omitted.
+	MaximumTtlSeconds *int32 `json:"maximumTtlSeconds,omitempty"`
+
+	// MinimumFreeBytes Defaults to 10737418240 when omitted.
+	MinimumFreeBytes *int64 `json:"minimumFreeBytes,omitempty"`
+
+	// PeriodicReclaim Defaults to false when omitted.
+	PeriodicReclaim *bool `json:"periodicReclaim,omitempty"`
+
+	// PreserveUserPins Defaults to true when omitted.
+	PreserveUserPins *bool `json:"preserveUserPins,omitempty"`
+
+	// ReclaimScope Defaults to "moduleOwned" when omitted.
+	ReclaimScope *OneDriveReclaimScope               `json:"reclaimScope,omitempty"`
+	Roots        *map[string]OneDriveRootConfigInput `json:"roots,omitempty"`
+
+	// Version Defaults to 1 when omitted.
+	Version *int32 `json:"version,omitempty"`
+}
+
+// OneDriveConfigResult defines model for OneDriveConfigResult.
+type OneDriveConfigResult struct {
+	Actions       []string        `json:"actions"`
+	Config        OneDriveConfig  `json:"config"`
+	ETag          string          `json:"eTag"`
+	Errors        []OperatorError `json:"errors"`
+	ObservedAtUtc time.Time       `json:"observedAtUtc"`
+	Warnings      []string        `json:"warnings"`
+}
+
+// OneDriveConfigUpdateRequest defines model for OneDriveConfigUpdateRequest.
+type OneDriveConfigUpdateRequest struct {
+	Config OneDriveConfigInput `json:"config"`
+}
+
+// OneDriveConfigurationRecoveryRequest defines model for OneDriveConfigurationRecoveryRequest.
+type OneDriveConfigurationRecoveryRequest struct {
+	// ClearConfiguration Defaults to false when omitted.
+	ClearConfiguration *bool `json:"clearConfiguration,omitempty"`
+
+	// TargetSessionId Defaults to 0 when omitted.
+	TargetSessionId *int32 `json:"targetSessionId,omitempty"`
+}
+
+// OneDriveConfigurationRecoveryResult defines model for OneDriveConfigurationRecoveryResult.
+type OneDriveConfigurationRecoveryResult struct {
+	Actions              []string  `json:"actions"`
+	BackupDirectoryName  *string   `json:"backupDirectoryName"`
+	CompletedAtUtc       time.Time `json:"completedAtUtc"`
+	ComputerName         string    `json:"computerName"`
+	ConfigurationCleared bool      `json:"configurationCleared"`
+	ProcessId            *int32    `json:"processId"`
+	ProcessSessionId     *int32    `json:"processSessionId"`
+	RuntimeStarted       bool      `json:"runtimeStarted"`
+	TargetSessionId      int32     `json:"targetSessionId"`
+	TargetSessionState   string    `json:"targetSessionState"`
+	UserName             string    `json:"userName"`
+	Warnings             []string  `json:"warnings"`
+}
+
+// OneDriveFileEntry defines model for OneDriveFileEntry.
+type OneDriveFileEntry struct {
+	Id            string  `json:"id"`
+	LogicalLength *int64  `json:"logicalLength"`
+	MimeType      string  `json:"mimeType"`
+	ModifiedTime  *string `json:"modifiedTime"`
+	Name          string  `json:"name"`
+}
+
+// OneDriveFileOnDemandAttributes defines model for OneDriveFileOnDemandAttributes.
+type OneDriveFileOnDemandAttributes struct {
+	Offline            bool `json:"offline"`
+	Pinned             bool `json:"pinned"`
+	RecallOnDataAccess bool `json:"recallOnDataAccess"`
+	Unpinned           bool `json:"unpinned"`
+}
+
+// OneDriveFilesOnDemandStatusResult defines model for OneDriveFilesOnDemandStatusResult.
+type OneDriveFilesOnDemandStatusResult struct {
+	Actions                      []string                        `json:"actions"`
+	ActiveLeaseCount             int32                           `json:"activeLeaseCount"`
+	ActiveReclaimCount           int32                           `json:"activeReclaimCount"`
+	Available                    bool                            `json:"available"`
+	Errors                       []OperatorError                 `json:"errors"`
+	ObservedAtUtc                time.Time                       `json:"observedAtUtc"`
+	ProviderReadinessReason      *string                         `json:"providerReadinessReason"`
+	RecoveryRequiredLeaseCount   int32                           `json:"recoveryRequiredLeaseCount"`
+	RecoveryRequiredReclaimCount int32                           `json:"recoveryRequiredReclaimCount"`
+	Runtime                      OneDriveRuntimeEvidence         `json:"runtime"`
+	RuntimeSupervisor            *OneDriveRuntimeSupervisorState `json:"runtimeSupervisor"`
+	Warnings                     []string                        `json:"warnings"`
+}
+
+// OneDriveFinalReleaseAction Allowed values for OneDriveFinalReleaseAction.
+type OneDriveFinalReleaseAction string
+
+// OneDriveLeaseRenewRequest defines model for OneDriveLeaseRenewRequest.
+type OneDriveLeaseRenewRequest struct {
+	RequestId  string `json:"requestId"`
+	TtlSeconds int32  `json:"ttlSeconds"`
+}
+
+// OneDriveLeaseRequest defines model for OneDriveLeaseRequest.
+type OneDriveLeaseRequest struct {
+	ExpectedLength *int64  `json:"expectedLength"`
+	ExpectedSha256 *string `json:"expectedSha256"`
+	RelativePath   string  `json:"relativePath"`
+	RequestId      string  `json:"requestId"`
+	RootId         string  `json:"rootId"`
+	TtlSeconds     *int32  `json:"ttlSeconds"`
+}
+
+// OneDriveLeaseResult defines model for OneDriveLeaseResult.
+type OneDriveLeaseResult struct {
+	Actions                       []string                        `json:"actions"`
+	AllocatedBytesAfterHydration  *int64                          `json:"allocatedBytesAfterHydration"`
+	AllocatedBytesAfterRelease    *int64                          `json:"allocatedBytesAfterRelease"`
+	AllocatedBytesBeforeHydration *int64                          `json:"allocatedBytesBeforeHydration"`
+	Attributes                    *OneDriveFileOnDemandAttributes `json:"attributes"`
+	CreatedAtUtc                  time.Time                       `json:"createdAtUtc"`
+	Errors                        []OperatorError                 `json:"errors"`
+	ExpiresAtUtc                  *time.Time                      `json:"expiresAtUtc"`
+	LeaseId                       string                          `json:"leaseId"`
+	LogicalLength                 *int64                          `json:"logicalLength"`
+	ObservedAtUtc                 time.Time                       `json:"observedAtUtc"`
+	ReadyAtUtc                    *time.Time                      `json:"readyAtUtc"`
+	RelativePath                  string                          `json:"relativePath"`
+	ReleasedAtUtc                 *time.Time                      `json:"releasedAtUtc"`
+	RootId                        string                          `json:"rootId"`
+	Sha256                        *string                         `json:"sha256"`
+
+	// State Allowed values for OneDriveLeaseState.
+	State    OneDriveLeaseState `json:"state"`
+	Success  bool               `json:"success"`
+	Warnings []string           `json:"warnings"`
+}
+
+// OneDriveLeaseState Allowed values for OneDriveLeaseState.
+type OneDriveLeaseState string
+
+// OneDriveLeaseStatusResult defines model for OneDriveLeaseStatusResult.
+type OneDriveLeaseStatusResult struct {
+	Found         bool                 `json:"found"`
+	Lease         *OneDriveLeaseResult `json:"lease"`
+	ObservedAtUtc time.Time            `json:"observedAtUtc"`
+}
+
+// OneDriveListRequest defines model for OneDriveListRequest.
+type OneDriveListRequest struct {
+	// RelativePath Defaults to "" when omitted.
+	RelativePath *string `json:"relativePath,omitempty"`
+	RootId       string  `json:"rootId"`
+}
+
+// OneDriveReclaimFileProgress defines model for OneDriveReclaimFileProgress.
+type OneDriveReclaimFileProgress struct {
+	AllocatedBytesAfter   *int64                          `json:"allocatedBytesAfter"`
+	AllocatedBytesBefore  int64                           `json:"allocatedBytesBefore"`
+	Completed             bool                            `json:"completed"`
+	Evidence              *string                         `json:"evidence"`
+	EvidenceRecordedAtUtc *time.Time                      `json:"evidenceRecordedAtUtc"`
+	Identity              string                          `json:"identity"`
+	OperationPhase        string                          `json:"operationPhase"`
+	OriginalAttributes    *OneDriveFileOnDemandAttributes `json:"originalAttributes"`
+	Outcome               *string                         `json:"outcome"`
+	RelativePath          string                          `json:"relativePath"`
+}
+
+// OneDriveReclaimRequest defines model for OneDriveReclaimRequest.
+type OneDriveReclaimRequest struct {
+	// DryRun Defaults to true when omitted.
+	DryRun        *bool     `json:"dryRun,omitempty"`
+	RelativePaths *[]string `json:"relativePaths,omitempty"`
+	RequestId     string    `json:"requestId"`
+	RootId        string    `json:"rootId"`
+}
+
+// OneDriveReclaimResult defines model for OneDriveReclaimResult.
+type OneDriveReclaimResult struct {
+	Actions                   []string                      `json:"actions"`
+	AllocatedBytesAfter       int64                         `json:"allocatedBytesAfter"`
+	AllocatedBytesBefore      int64                         `json:"allocatedBytesBefore"`
+	CompletedAtUtc            *time.Time                    `json:"completedAtUtc"`
+	CreatedAtUtc              time.Time                     `json:"createdAtUtc"`
+	DryRun                    bool                          `json:"dryRun"`
+	Errors                    []OperatorError               `json:"errors"`
+	EstimatedReclaimableBytes int64                         `json:"estimatedReclaimableBytes"`
+	Files                     []OneDriveReclaimFileProgress `json:"files"`
+	FilesConsidered           int32                         `json:"filesConsidered"`
+	FilesReclaimed            int32                         `json:"filesReclaimed"`
+	ObservedAtUtc             time.Time                     `json:"observedAtUtc"`
+	ReclaimedLocalBytes       int64                         `json:"reclaimedLocalBytes"`
+	RequestFingerprint        string                        `json:"requestFingerprint"`
+	RequestId                 string                        `json:"requestId"`
+	RootId                    string                        `json:"rootId"`
+	RunId                     string                        `json:"runId"`
+
+	// State Allowed values for OneDriveReclaimState.
+	State    OneDriveReclaimState `json:"state"`
+	Success  bool                 `json:"success"`
+	Warnings []string             `json:"warnings"`
+}
+
+// OneDriveReclaimScope Allowed values for OneDriveReclaimScope.
+type OneDriveReclaimScope string
+
+// OneDriveReclaimState Allowed values for OneDriveReclaimState.
+type OneDriveReclaimState string
+
+// OneDriveRootConfig defines model for OneDriveRootConfig.
+type OneDriveRootConfig struct {
+	Enabled bool `json:"enabled"`
+
+	// FinalRelease Allowed values for OneDriveFinalReleaseAction.
+	FinalRelease OneDriveFinalReleaseAction `json:"finalRelease"`
+	Path         string                     `json:"path"`
+}
+
+// OneDriveRootConfigInput defines model for OneDriveRootConfigInput.
+type OneDriveRootConfigInput struct {
+	// Enabled Defaults to true when omitted.
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// FinalRelease Defaults to "dehydrate" when omitted.
+	FinalRelease *OneDriveFinalReleaseAction `json:"finalRelease,omitempty"`
+	Path         string                      `json:"path"`
+}
+
+// OneDriveRuntimeEvidence defines model for OneDriveRuntimeEvidence.
+type OneDriveRuntimeEvidence struct {
+	ActiveInteractiveSessionId *int32   `json:"activeInteractiveSessionId"`
+	AuthenticationRequired     bool     `json:"authenticationRequired"`
+	ComputerName               *string  `json:"computerName"`
+	ConfiguredSessionId        *int32   `json:"configuredSessionId"`
+	InteractiveSessionProtocol *int32   `json:"interactiveSessionProtocol"`
+	InteractiveSessionState    *string  `json:"interactiveSessionState"`
+	InteractiveUser            *string  `json:"interactiveUser"`
+	ProcessPresent             bool     `json:"processPresent"`
+	ProcessSessionId           *int32   `json:"processSessionId"`
+	ProviderReady              bool     `json:"providerReady"`
+	ProviderReason             *string  `json:"providerReason"`
+	RecoveryActions            []string `json:"recoveryActions"`
+	RecoveryAllowed            bool     `json:"recoveryAllowed"`
+}
+
+// OneDriveRuntimeSupervisorState defines model for OneDriveRuntimeSupervisorState.
+type OneDriveRuntimeSupervisorState struct {
+	Actions                 []string   `json:"actions"`
+	AttemptCount            int64      `json:"attemptCount"`
+	ComputerName            string     `json:"computerName"`
+	ConsecutiveFailureCount int32      `json:"consecutiveFailureCount"`
+	LastAttemptAtUtc        *time.Time `json:"lastAttemptAtUtc"`
+	LastSuccessAtUtc        *time.Time `json:"lastSuccessAtUtc"`
+	NextAttemptAtUtc        *time.Time `json:"nextAttemptAtUtc"`
+	ObservedAtUtc           time.Time  `json:"observedAtUtc"`
+	ProcessId               *int32     `json:"processId"`
+	ProcessSessionId        *int32     `json:"processSessionId"`
+	Reason                  *string    `json:"reason"`
+	RecoveryAllowed         bool       `json:"recoveryAllowed"`
+	RestartCount            int64      `json:"restartCount"`
+	SessionState            *string    `json:"sessionState"`
+	State                   string     `json:"state"`
+	TargetSessionId         int32      `json:"targetSessionId"`
+}
 
 // OpenApiNamespaceDiscoveryResult defines model for OpenApiNamespaceDiscoveryResult.
 type OpenApiNamespaceDiscoveryResult struct {

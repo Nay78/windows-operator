@@ -9,6 +9,39 @@ namespace WindowsOperator.Agent.Tests;
 [Collection(ProcessEnvironmentCollection.Name)]
 public sealed class EdgeMicrosoftAuthServiceBrowserTargetTests
 {
+    [Theory]
+    [InlineData(1, 1, true)]
+    [InlineData(2, 1, false)]
+    [InlineData(1, 0xFFFFFFFF, false)]
+    public void InteractiveAuthSession_RequiresActiveConsoleSession(
+        int agentSessionId,
+        uint activeConsoleSessionId,
+        bool expected)
+    {
+        Assert.Equal(
+            expected,
+            EdgeMicrosoftAuthService.IsInteractiveAuthSessionForTest(agentSessionId, activeConsoleSessionId));
+    }
+
+    [Theory]
+    [InlineData(4100, 1, 1, true)]
+    [InlineData(4100, 2, 1, false)]
+    [InlineData(5100, 1, 1, false)]
+    public void AuthCleanup_RequiresOwnedProcessInActiveSession(
+        int processId,
+        int windowSessionId,
+        int activeSessionId,
+        bool expected)
+    {
+        Assert.Equal(
+            expected,
+            EdgeMicrosoftAuthService.MatchesOwnedActiveEdgeWindow(
+                processId,
+                windowSessionId,
+                activeSessionId,
+                new HashSet<int> { 4100 }));
+    }
+
     [Fact]
     public void MapEdgeWindowsFromCatalog_UsesAllTopLevelEdgeWindows()
     {

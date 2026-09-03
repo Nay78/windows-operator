@@ -10,7 +10,11 @@ $tasks = foreach ($taskName in @("WindowsOperator.Host", "WindowsOperator.Agent"
             taskName = $taskName
             exists = $false
             state = $null
+            enabled = $null
             principal = $null
+            principalDetails = $null
+            triggers = @()
+            settings = $null
             actions = @()
             lastRunTime = $null
             lastTaskResult = $null
@@ -23,7 +27,28 @@ $tasks = foreach ($taskName in @("WindowsOperator.Host", "WindowsOperator.Agent"
         taskName = $taskName
         exists = $true
         state = [string]$task.State
+        enabled = [bool]$task.Settings.Enabled
         principal = $task.Principal.UserId
+        principalDetails = [pscustomobject]@{
+            userId = $task.Principal.UserId
+            logonType = [string]$task.Principal.LogonType
+            runLevel = [string]$task.Principal.RunLevel
+        }
+        triggers = @($task.Triggers | ForEach-Object {
+            [pscustomobject]@{
+                type = $_.CimClass.CimClassName
+                enabled = [bool]$_.Enabled
+                startBoundary = $_.StartBoundary
+                delay = $_.Delay
+            }
+        })
+        settings = [pscustomobject]@{
+            restartCount = $task.Settings.RestartCount
+            restartInterval = [string]$task.Settings.RestartInterval
+            executionTimeLimit = [string]$task.Settings.ExecutionTimeLimit
+            multipleInstances = [string]$task.Settings.MultipleInstances
+            startWhenAvailable = [bool]$task.Settings.StartWhenAvailable
+        }
         actions = @($task.Actions | ForEach-Object {
             [pscustomobject]@{
                 execute = $_.Execute

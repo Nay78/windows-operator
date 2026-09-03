@@ -22,8 +22,7 @@ public sealed class PowerPointOnlineUpdateService : IPowerPointOnlineUpdateServi
 
     public PowerPointOnlineUpdateService(
         IPowerPointOnlineService powerPointOnline,
-        IPowerPointJobService jobs,
-        IOperatorFacade? operatorFacade = null)
+        IPowerPointJobService jobs)
     {
         _powerPointOnline = powerPointOnline;
         _jobs = jobs;

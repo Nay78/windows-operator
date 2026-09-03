@@ -66,6 +66,27 @@ function Find-EdgePath {
     throw "Microsoft Edge not found."
 }
 
+function Assert-ActiveConsoleSession {
+    if (-not ('WindowsOperator.SessionNativeMethods' -as [type])) {
+        Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+namespace WindowsOperator {
+    public static class SessionNativeMethods {
+        [DllImport("kernel32.dll", EntryPoint = "WTSGetActiveConsoleSessionId")]
+        public static extern uint GetActiveConsoleSessionId();
+    }
+}
+"@
+    }
+
+    $agentSessionId = [System.Diagnostics.Process]::GetCurrentProcess().SessionId
+    $activeConsoleSessionId = [WindowsOperator.SessionNativeMethods]::GetActiveConsoleSessionId()
+    if ($activeConsoleSessionId -eq [uint32]::MaxValue -or $agentSessionId -ne $activeConsoleSessionId) {
+        throw "Microsoft UI auth requires the active console session. agentSession=$agentSessionId activeConsoleSession=$activeConsoleSessionId."
+    }
+}
+
 function Get-LoggedOnUser {
     $computerSystem = Get-CimInstance Win32_ComputerSystem
     if (-not [string]::IsNullOrWhiteSpace($computerSystem.UserName)) {
@@ -89,6 +110,7 @@ function Invoke-InteractiveDeviceLogin {
     Ensure-StateDirectories -Path $StateRoot
     $resolvedStateRoot = (Resolve-Path -LiteralPath $StateRoot).Path
     $logPath = Join-Path $resolvedStateRoot "logs\microsoft-device-login.log"
+    Assert-ActiveConsoleSession
 
     function Write-Log {
         param([string]$Message)
@@ -115,7 +137,14 @@ function Invoke-InteractiveDeviceLogin {
     }
 
     $edgePath = Find-EdgePath
-    $edgeArgs = @("--new-window")
+    $authProfilePath = Join-Path $resolvedStateRoot ("run\auth-edge\{0}" -f [guid]::NewGuid().ToString("N"))
+    New-Item -ItemType Directory -Path $authProfilePath -Force | Out-Null
+    $edgeArgs = @(
+        "--new-window",
+        "--no-first-run",
+        "--no-session-restore",
+        "--user-data-dir=$authProfilePath"
+    )
     if ($effectiveInPrivate) {
         $edgeArgs += "--inprivate"
     }

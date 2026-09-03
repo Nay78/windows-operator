@@ -72,6 +72,7 @@ REQUIRED_FIELDS = {
     "unresolvedDecision",
     "decisionOwner",
 }
+OPTIONAL_FIELDS = {"acceptedPolling"}
 HOST_ONLY_NAMESPACES = {"artifacts", "powerpoint.jobs"}
 
 
@@ -114,6 +115,7 @@ def collect_openapi_operations(document: dict, errors: list[str]) -> dict[str, d
                     f"{prior['method']} {prior['path']} and {method.upper()} {path}"
                 )
                 continue
+            accepted = operation.get("responses", {}).get("202", {})
             operations[operation_id] = {
                 "method": method.upper(),
                 "path": path,
@@ -132,6 +134,12 @@ def collect_openapi_operations(document: dict, errors: list[str]) -> dict[str, d
                     .get("application/json", {})
                     .get("schema", {})
                 ),
+                "acceptedPolling": {
+                    "locationHeader": accepted.get("headers", {}).get("Location", {}).get("description"),
+                    "responseDescription": accepted.get("description"),
+                }
+                if accepted
+                else None,
             }
     return operations
 
@@ -226,7 +234,7 @@ def validate_policy(
             errors.append(f"{label} must be an object")
             continue
         missing_fields = sorted(REQUIRED_FIELDS - set(entry))
-        extra_fields = sorted(set(entry) - REQUIRED_FIELDS)
+        extra_fields = sorted(set(entry) - REQUIRED_FIELDS - OPTIONAL_FIELDS)
         if missing_fields:
             errors.append(f"{label} missing fields: {', '.join(missing_fields)}")
         if extra_fields:
@@ -260,6 +268,8 @@ def validate_policy(
             nonempty_string(entry, field, label, errors)
         for field in ("requestSchemas", "successSchemas", "errorSchemas", "prerequisites"):
             string_array(entry, field, label, errors)
+        if "acceptedPolling" in entry and not isinstance(entry["acceptedPolling"], dict):
+            errors.append(f"{label}: acceptedPolling must be an object")
         if entry.get("errorSchemas") != ["OperatorError"]:
             errors.append(f"{label}: errorSchemas must contain only OperatorError")
         if entry.get("proposedSurface") not in SURFACES:
@@ -336,6 +346,8 @@ def validate_policy(
                     f"{operation_id}: {policy_field} drift; "
                     f"policy={entry.get(policy_field)!r} OpenAPI={source[source_field]!r}"
                 )
+        if source["acceptedPolling"] != entry.get("acceptedPolling"):
+            errors.append(f"{operation_id}: acceptedPolling drift from OpenAPI")
         if (
             source["namespace"] in HOST_ONLY_NAMESPACES
             and entry.get("handlerOwner") != "host"

@@ -162,6 +162,7 @@ public static class OperatorJsonSchema
                 .Where(property =>
                     property.GetMethod is not null &&
                     property.GetIndexParameters().Length == 0 &&
+                    !property.IsDefined(typeof(JsonIgnoreAttribute), inherit: true) &&
                     !property.IsDefined(typeof(OperatorInternalAttribute), inherit: true))
                 .ToArray();
             var required = properties

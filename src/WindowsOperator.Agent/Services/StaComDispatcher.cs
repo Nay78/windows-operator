@@ -6,6 +6,7 @@ public sealed class StaComDispatcher : IDisposable
 {
     private readonly BlockingCollection<IStaWorkItem> _queue = new();
     private readonly Thread _thread;
+    private int _disposed;
 
     public StaComDispatcher()
     {
@@ -20,18 +21,33 @@ public sealed class StaComDispatcher : IDisposable
 
     public Task<T> InvokeAsync<T>(Func<T> action, CancellationToken cancellationToken)
     {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
         cancellationToken.ThrowIfCancellationRequested();
 
         var item = new StaWorkItem<T>(action);
-        _queue.Add(item, cancellationToken);
+        try
+        {
+            _queue.Add(item, cancellationToken);
+        }
+        catch (InvalidOperationException)
+        {
+            throw new ObjectDisposedException(nameof(StaComDispatcher));
+        }
         return item.Task.WaitAsync(cancellationToken);
     }
 
     public void Dispose()
     {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
+            return;
+        }
+
         _queue.CompleteAdding();
-        _thread.Join(TimeSpan.FromSeconds(3));
-        _queue.Dispose();
+        if (_thread.Join(TimeSpan.FromSeconds(3)))
+        {
+            _queue.Dispose();
+        }
     }
 
     private void Run()

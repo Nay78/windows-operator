@@ -6,6 +6,10 @@ into OneDrive without requiring a new Entra app registration.
 This feature covers the missing `mail -> OneDrive` step. It assumes mailbox
 classification already exists through Outlook or Exchange rules.
 
+Placeholder hydration, lease lifecycle, and local disk reclamation are governed
+by [`onedrive-files-on-demand-spec.md`](onedrive-files-on-demand-spec.md). This
+document remains limited to mail attachment upload into a local sync folder.
+
 ## Current State
 
 Windows Operator now exposes a narrow Power Automate MCP bridge and API-backed

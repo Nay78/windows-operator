@@ -65,6 +65,21 @@ editing the active roadmap. During queue review, promote accepted items into
   - Current desktop session
   - Task status
 
+## OneDrive Runtime Hardening
+
+- [ ] Make Host recovery cancellation and child-process cleanup terminal.
+  - Status: inbox; captured 2026-08-10 after same-session console recovery.
+  - Outcome: cancellation records non-stale supervisor state and terminates
+    timed-out `tscon`, task-control, Agent, and OneDrive child starts.
+- [ ] Strengthen wrong-session process identity before termination.
+  - Status: inbox; captured 2026-08-10.
+  - Outcome: verify Agent command path and OneDrive process owner/token in
+    addition to listener port, process name, executable path, and session.
+- [ ] Enforce or remove explicit positive OneDrive recovery session IDs.
+  - Status: inbox; captured 2026-08-10.
+  - Outcome: align `targetSessionId` contract with dynamic resolver behavior
+    and add multi-session tests.
+
 ## Nice To Have
 
 - Add structured JSON logging for PowerShell launchers.

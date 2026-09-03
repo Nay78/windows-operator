@@ -15,11 +15,16 @@ param(
 
     [string]$HostExchangeRoot = "",
 
+    [string]$OneDriveRecoveryAllowedComputer = "",
+
+    [switch]$DeferStart,
+
     [switch]$DisablePowerPointAddIn
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+$requiredOneDriveRecoveryComputer = "WIN-UUKQS009K4J"
 
 function Write-Step {
     param([string]$Message)
@@ -34,6 +39,115 @@ function Quote-Argument {
 function Quote-PowerShellLiteral {
     param([string]$Value)
     return "'" + $Value.Replace("'", "''") + "'"
+}
+
+function ConvertTo-TaskDuration {
+    param($Value)
+
+    if ($null -eq $Value) {
+        return $null
+    }
+
+    if ($Value -is [TimeSpan]) {
+        return $Value
+    }
+
+    $text = [string]$Value
+    if ([string]::IsNullOrWhiteSpace($text)) {
+        return $null
+    }
+
+    $parsed = [TimeSpan]::Zero
+    if ([TimeSpan]::TryParse($text, [ref]$parsed)) {
+        return $parsed
+    }
+
+    try {
+        return [System.Xml.XmlConvert]::ToTimeSpan($text)
+    }
+    catch {
+        throw "Task duration '$text' is not a supported CIM/XML duration."
+    }
+}
+
+function Get-HostScheduledTaskValidationErrors {
+    param(
+        $Task,
+        [Parameter(Mandatory = $true)][string]$ExpectedExecute,
+        [Parameter(Mandatory = $true)][string]$ExpectedArguments,
+        [Parameter(Mandatory = $true)][string]$ExpectedWorkingDirectory
+    )
+
+    $errors = [System.Collections.Generic.List[string]]::new()
+    if ($null -eq $Task) {
+        $errors.Add("WindowsOperator.Host task is missing after registration.")
+        return @($errors)
+    }
+
+    $principal = $Task.Principal
+    $isSystem = $principal.UserId -match '^(?i:SYSTEM|NT AUTHORITY\\SYSTEM)$'
+    if (-not $isSystem) {
+        $errors.Add("principal UserId must be SYSTEM; observed '$($principal.UserId)'.")
+    }
+    if ([string]$principal.LogonType -ne "ServiceAccount") {
+        $errors.Add("principal LogonType must be ServiceAccount; observed '$($principal.LogonType)'.")
+    }
+    if ([string]$principal.RunLevel -ne "Highest") {
+        $errors.Add("principal RunLevel must be Highest; observed '$($principal.RunLevel)'.")
+    }
+
+    $hasStartupTrigger = @($Task.Triggers | Where-Object {
+        $_.CimClass.CimClassName -eq "MSFT_TaskBootTrigger"
+    }).Count -gt 0
+    if (-not $hasStartupTrigger) {
+        $errors.Add("startup trigger MSFT_TaskBootTrigger is missing.")
+    }
+
+    $actions = @($Task.Actions)
+    if ($actions.Count -ne 1) {
+        $errors.Add("exactly one launcher action is required; observed $($actions.Count).")
+    }
+    else {
+        $registeredAction = $actions[0]
+        if (-not [string]::Equals([string]$registeredAction.Execute, $ExpectedExecute, [StringComparison]::OrdinalIgnoreCase)) {
+            $errors.Add("action Execute mismatch; expected '$ExpectedExecute', observed '$($registeredAction.Execute)'.")
+        }
+        if (-not [string]::Equals([string]$registeredAction.Arguments, $ExpectedArguments, [StringComparison]::Ordinal)) {
+            $errors.Add("action Arguments mismatch; expected launcher arguments were not read back.")
+        }
+        if (-not [string]::Equals([string]$registeredAction.WorkingDirectory, $ExpectedWorkingDirectory, [StringComparison]::OrdinalIgnoreCase)) {
+            $errors.Add("action WorkingDirectory mismatch; expected '$ExpectedWorkingDirectory', observed '$($registeredAction.WorkingDirectory)'.")
+        }
+    }
+
+    $settings = $Task.Settings
+    if ([int]$settings.RestartCount -ne 3) {
+        $errors.Add("RestartCount must be 3; observed '$($settings.RestartCount)'.")
+    }
+    try {
+        if ((ConvertTo-TaskDuration $settings.RestartInterval) -ne [TimeSpan]::FromMinutes(1)) {
+            $errors.Add("RestartInterval must be 1 minute; observed '$($settings.RestartInterval)'.")
+        }
+    }
+    catch {
+        $errors.Add($_.Exception.Message)
+    }
+    try {
+        if ((ConvertTo-TaskDuration $settings.ExecutionTimeLimit) -ne [TimeSpan]::Zero) {
+            $errors.Add("ExecutionTimeLimit must be unlimited (PT0S); observed '$($settings.ExecutionTimeLimit)'.")
+        }
+    }
+    catch {
+        $errors.Add($_.Exception.Message)
+    }
+    if ([string]$settings.MultipleInstances -ne "IgnoreNew") {
+        $errors.Add("MultipleInstances must be IgnoreNew; observed '$($settings.MultipleInstances)'.")
+    }
+    if (-not [bool]$settings.StartWhenAvailable) {
+        $errors.Add("StartWhenAvailable must be enabled.")
+    }
+
+    return @($errors)
 }
 
 function Test-DotnetSdk {
@@ -58,8 +172,8 @@ function Test-DotnetSdk {
         return $false
     }
 
-    $hasCoreRuntime = $runtimes | Where-Object { $_ -match '^Microsoft\.NETCore\.App\s' }
-    $hasAspNetRuntime = $runtimes | Where-Object { $_ -match '^Microsoft\.AspNetCore\.App\s' }
+    $hasCoreRuntime = $runtimes | Where-Object { $_ -match '^Microsoft\.NETCore\.App\s+8\.' }
+    $hasAspNetRuntime = $runtimes | Where-Object { $_ -match '^Microsoft\.AspNetCore\.App\s+8\.' }
     if (-not $hasCoreRuntime -or -not $hasAspNetRuntime) {
         return $false
     }
@@ -100,7 +214,7 @@ function Resolve-Dotnet {
         }
     }
 
-    throw ".NET 8 SDK missing. Run bootstrap.ps1 first or pass -DotnetPath."
+    throw ".NET 8 x64 SDK plus Core and ASP.NET Core runtimes missing. Run bootstrap.ps1 first or pass -DotnetPath."
 }
 
 function Stop-ExistingHost {
@@ -152,6 +266,19 @@ function Stop-ExistingHost {
         Select-Object -First 1
     if ($remainingListener) {
         throw "WindowsOperator.Host listener PID=$($remainingListener.OwningProcess) did not stop."
+    }
+}
+
+function Disable-OneDriveStartupTasks {
+    $tasks = @(Get-ScheduledTask -ErrorAction SilentlyContinue |
+        Where-Object {
+            $_.TaskName -like "OneDrive Startup Task-*" -and
+            $_.Principal.UserId -match "(?i)(^|\\)Administrator$"
+        })
+
+    foreach ($task in $tasks) {
+        Disable-ScheduledTask -TaskName $task.TaskName -ErrorAction Stop | Out-Null
+        Write-Step "Disabled duplicate OneDrive startup task $($task.TaskName); Host owns OneDrive lifecycle."
     }
 }
 
@@ -224,6 +351,21 @@ New-Item -ItemType Directory -Path $runRoot -Force | Out-Null
 New-Item -ItemType Directory -Path $certRoot -Force | Out-Null
 
 $resolvedDotnetPath = Resolve-Dotnet -Candidate $DotnetPath -StateRoot $resolvedStateRoot.FullName
+$recoveryEnvironment = "`$env:WINDOWS_OPERATOR_ONEDRIVE_RECOVERY_ALLOWED_COMPUTERS = `$null`r`n"
+if (-not [string]::IsNullOrWhiteSpace($OneDriveRecoveryAllowedComputer)) {
+    if (-not [string]::Equals($OneDriveRecoveryAllowedComputer, $requiredOneDriveRecoveryComputer, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "OneDrive recovery is restricted to $requiredOneDriveRecoveryComputer."
+    }
+    if (-not [string]::Equals($OneDriveRecoveryAllowedComputer, $env:COMPUTERNAME, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "OneDrive recovery allowlist target '$OneDriveRecoveryAllowedComputer' does not match this computer '$env:COMPUTERNAME'."
+    }
+    $recoveryEnvironment = @"
+`$env:WINDOWS_OPERATOR_ONEDRIVE_RECOVERY_ALLOWED_COMPUTERS = $(Quote-PowerShellLiteral $OneDriveRecoveryAllowedComputer)
+"@
+    $recoveryEnvironment += "`r`n"
+}
+
+Disable-OneDriveStartupTasks
 
 $resolvedExchangeRoot = $null
 if (-not [string]::IsNullOrWhiteSpace($ExchangeRoot)) {
@@ -250,9 +392,14 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Step "Publishing WindowsOperator.Host."
-& $resolvedDotnetPath publish $hostProjectPath -c Debug -o $hostRoot --no-self-contained --disable-build-servers --no-restore
+& $resolvedDotnetPath publish $hostProjectPath -c Debug -o $hostRoot --no-self-contained --disable-build-servers --no-restore -t:Rebuild
 if ($LASTEXITCODE -ne 0) {
     throw "dotnet publish failed."
+}
+
+$hostDll = Join-Path $hostRoot "WindowsOperator.Host.dll"
+if (-not (Test-Path -LiteralPath $hostDll -PathType Leaf)) {
+    throw "Published Host entry point missing: $hostDll"
 }
 
 $addInEnabled = $false
@@ -332,6 +479,7 @@ $launcherPath = Join-Path $runRoot "start-host.ps1"
 $launcherContent = @"
 `$ErrorActionPreference = "Stop"
 `$env:WINDOWS_OPERATOR_HOST_STATE_ROOT = $(Quote-PowerShellLiteral $resolvedStateRoot.FullName)
+$recoveryEnvironment`$env:WINDOWS_OPERATOR_ONEDRIVE_RECOVERY_USER = 'Administrator'
 & $(Quote-PowerShellLiteral $resolvedDotnetPath) $(Quote-PowerShellLiteral $hostDll)
 exit `$LASTEXITCODE
 "@
@@ -360,6 +508,19 @@ $settings = New-ScheduledTaskSettingsSet `
 
 $task = New-ScheduledTask -Action $action -Trigger $trigger -Principal $principal -Settings $settings
 Register-ScheduledTask -TaskName "WindowsOperator.Host" -InputObject $task -Force | Out-Null
-Start-ScheduledTask -TaskName "WindowsOperator.Host"
-
-Write-Step "Registered and started task WindowsOperator.Host as SYSTEM. HostRoot=$hostRoot"
+$registeredTask = Get-ScheduledTask -TaskName "WindowsOperator.Host" -ErrorAction Stop
+$taskValidationErrors = @(Get-HostScheduledTaskValidationErrors `
+    -Task $registeredTask `
+    -ExpectedExecute $action.Execute `
+    -ExpectedArguments $action.Arguments `
+    -ExpectedWorkingDirectory $action.WorkingDirectory)
+if ($taskValidationErrors.Count -gt 0) {
+    throw "WindowsOperator.Host registration policy validation failed: $($taskValidationErrors -join ' ')"
+}
+if ($DeferStart) {
+    Write-Step "Registered task WindowsOperator.Host as SYSTEM; start deferred until Agent publication completes. HostRoot=$hostRoot"
+}
+else {
+    Start-ScheduledTask -TaskName "WindowsOperator.Host"
+    Write-Step "Registered and started task WindowsOperator.Host as SYSTEM. HostRoot=$hostRoot"
+}

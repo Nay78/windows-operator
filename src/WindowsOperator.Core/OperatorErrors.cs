@@ -274,6 +274,92 @@ public static class OperatorErrors
             OperatorErrorCategory.Validation,
             retryable: false);
 
+    public static OperatorError OneDriveUnavailable(string detail) =>
+        Create(ErrorCodes.OneDriveUnavailable, "OneDrive Files-On-Demand is unavailable.", "Confirm OneDrive is running and signed in, then retry.", detail, OperatorErrorCategory.Unavailable, true);
+
+    public static OperatorError OneDriveUnavailable(string detail, OneDriveRuntimeEvidence runtime)
+    {
+        var remediation = runtime.AuthenticationRequired
+            ? "Sign in to OneDrive in the active Administrator desktop session, then retry. Windows Operator will not automate sign-in."
+            : runtime.ConfiguredSessionId is not null &&
+              (!string.Equals(runtime.InteractiveUser, "Administrator", StringComparison.OrdinalIgnoreCase) ||
+               !string.Equals(runtime.InteractiveSessionState, "active", StringComparison.OrdinalIgnoreCase) ||
+               runtime.InteractiveSessionProtocol is not 0 and not 2)
+                ? $"Open and unlock Administrator RDP session {runtime.ConfiguredSessionId} on the allowlisted VM, then retry."
+                : runtime.ActiveInteractiveSessionId is null
+                    ? "Open the Administrator desktop session on the allowlisted VM, then retry."
+                : !runtime.RecoveryAllowed
+                    ? "Enable OneDrive recovery only on WIN-UUKQS009K4J, then retry."
+                    : "Retry after OneDrive process and Files-On-Demand provider readiness recover.";
+        return new OperatorError(
+            ErrorCodes.OneDriveUnavailable,
+            "OneDrive Files-On-Demand is unavailable.",
+            remediation,
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["detail"] = detail,
+                ["reason"] = runtime.ProviderReason ?? "provider_not_ready",
+                ["computerName"] = runtime.ComputerName ?? "unknown",
+                ["processPresent"] = runtime.ProcessPresent.ToString().ToLowerInvariant(),
+                ["processSessionId"] = runtime.ProcessSessionId?.ToString() ?? "none",
+                ["configuredSessionId"] = runtime.ConfiguredSessionId?.ToString() ?? "none",
+                ["activeInteractiveSessionId"] = runtime.ActiveInteractiveSessionId?.ToString() ?? "none",
+                ["interactiveUser"] = runtime.InteractiveUser ?? "unknown",
+                ["interactiveSessionState"] = runtime.InteractiveSessionState ?? "unknown",
+                ["interactiveSessionProtocol"] = runtime.InteractiveSessionProtocol?.ToString() ?? "unknown",
+                ["recoveryAllowed"] = runtime.RecoveryAllowed.ToString().ToLowerInvariant(),
+                ["authenticationRequired"] = runtime.AuthenticationRequired.ToString().ToLowerInvariant(),
+                ["actions"] = string.Join(',', runtime.RecoveryActions),
+            },
+            Retryable: true,
+            Category: OperatorErrorCategory.Unavailable);
+    }
+
+    public static OperatorError OneDriveRootNotFound(string detail) =>
+        Create(ErrorCodes.OneDriveRootNotFound, "Configured OneDrive root was not found.", "Use an enabled configured root id.", detail, OperatorErrorCategory.NotFound, false);
+
+    public static OperatorError OneDriveFileNotFound(string detail) =>
+        Create(ErrorCodes.OneDriveFileNotFound, "Requested OneDrive file was not found.", "Check the configured root and relative path.", detail, OperatorErrorCategory.NotFound, false);
+
+    public static OperatorError OneDriveLeaseNotFound(string detail) =>
+        Create(ErrorCodes.OneDriveLeaseNotFound, "Requested OneDrive lease was not found.", "Check the lease id or acquire a new lease.", detail, OperatorErrorCategory.NotFound, false);
+
+    public static OperatorError OneDriveReclaimNotFound(string detail) =>
+        Create(ErrorCodes.OneDriveReclaimNotFound, "Requested OneDrive reclaim run was not found.", "Check the reclaim run id or start a new reclaim run.", detail, OperatorErrorCategory.NotFound, false);
+
+    public static OperatorError OneDrivePathBlocked(string detail) =>
+        Create(ErrorCodes.OneDrivePathBlocked, "OneDrive path is blocked by containment policy.", "Use a relative path contained by an approved root.", detail, OperatorErrorCategory.Validation, false);
+
+    public static OperatorError OneDrivePolicyDenied(string detail) =>
+        Create(ErrorCodes.OneDrivePolicyDenied, "OneDrive operation is denied by policy.", "Review the configured root and Files-On-Demand policy.", detail, OperatorErrorCategory.Permission, false);
+
+    public static OperatorError OneDriveIdempotencyConflict(string detail) =>
+        Create(ErrorCodes.OneDriveIdempotencyConflict, "OneDrive request id was reused with different content.", "Use a new request id or repeat the original request exactly.", detail, OperatorErrorCategory.Conflict, false);
+
+    public static OperatorError OneDriveConfigConflict(string detail) =>
+        Create(ErrorCodes.OneDriveConfigConflict, "OneDrive configuration version conflicts with the current policy.", "Read current configuration and retry with its ETag.", detail, OperatorErrorCategory.Conflict, false);
+
+    public static OperatorError OneDriveLeaseConflict(string detail) =>
+        Create(ErrorCodes.OneDriveLeaseConflict, "OneDrive lease cannot transition in its current state.", "Read lease status and retry only when its lifecycle permits the operation.", detail, OperatorErrorCategory.Conflict, false);
+
+    public static OperatorError OneDriveContentChanged(string detail) =>
+        Create(ErrorCodes.OneDriveContentChanged, "OneDrive file content or identity changed.", "Acquire a new lease after inspecting the current file.", detail, OperatorErrorCategory.Conflict, false);
+
+    public static OperatorError OneDriveHydrationTimeout(string detail) =>
+        Create(ErrorCodes.OneDriveHydrationTimeout, "OneDrive hydration did not complete before timeout.", "Confirm OneDrive connectivity, then retry.", detail, OperatorErrorCategory.Timeout, true);
+
+    public static OperatorError OneDriveDehydrationTimeout(string detail) =>
+        Create(ErrorCodes.OneDriveDehydrationTimeout, "OneDrive dehydration did not complete before timeout.", "Retry release after OneDrive becomes available; local bytes may remain resident.", detail, OperatorErrorCategory.Timeout, true);
+
+    public static OperatorError OneDriveHydrationFailed(string detail) =>
+        Create(ErrorCodes.OneDriveHydrationFailed, "OneDrive hydration failed.", "Confirm OneDrive connectivity and file availability, then retry.", detail, OperatorErrorCategory.Unavailable, true);
+
+    public static OperatorError OneDriveDehydrationFailed(string detail) =>
+        Create(ErrorCodes.OneDriveDehydrationFailed, "OneDrive dehydration failed.", "Inspect file state; local bytes were left resident for safety.", detail, OperatorErrorCategory.Conflict, false);
+
+    public static OperatorError OneDriveVerificationFailed(string detail) =>
+        Create(ErrorCodes.OneDriveVerificationFailed, "OneDrive operation could not be verified.", "Inspect file state before retrying; local bytes may remain resident.", detail, OperatorErrorCategory.Conflict, false);
+
     private static OperatorError Create(
         string code,
         string message,

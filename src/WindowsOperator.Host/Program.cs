@@ -39,17 +39,17 @@ builder.Services.AddTransient<IWorkbenchService>(services => services.GetRequire
 builder.Services.AddTransient<IPowerPointOnlineService>(services => services.GetRequiredService<DesktopAgentClient>());
 builder.Services.AddTransient<IDevAutomationService>(services => services.GetRequiredService<DesktopAgentClient>());
 builder.Services.AddTransient<IPowerAutomateMcpService>(services => services.GetRequiredService<DesktopAgentClient>());
-builder.Services.AddTransient<IPowerPointOnlineUpdateService>(services =>
-    new PowerPointOnlineUpdateService(
-        services.GetRequiredService<IPowerPointOnlineService>(),
-        services.GetRequiredService<IPowerPointJobService>(),
-        services.GetRequiredService<IOperatorFacade>()));
+builder.Services.AddTransient<IPowerPointOnlineUpdateService, PowerPointOnlineUpdateService>();
 builder.Services.AddSingleton<IPowerPointJobService>(services =>
     new PowerPointJobService(
         services.GetRequiredService<IHttpClientFactory>().CreateClient("powerpoint-artifacts"),
         services.GetRequiredService<IOptions<PowerPointAddInOptions>>()));
 builder.Services.AddSingleton<IArtifactService, ExchangeArtifactService>();
+builder.Services.AddSingleton<OneDriveRuntimeStateStore>();
 builder.Services.AddSingleton<IOperatorFacade, HostOperatorFacade>();
+builder.Services.AddSingleton<BrowserCallbackRelayService>();
+builder.Services.AddSingleton<OneDriveConfigurationRecoveryService>();
+builder.Services.AddHostedService<OneDriveRuntimeSupervisor>();
 builder.Services.AddOperatorMcp(hostStdioServer: true);
 
 var app = builder.Build();

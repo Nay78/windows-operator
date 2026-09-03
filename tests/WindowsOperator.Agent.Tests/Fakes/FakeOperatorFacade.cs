@@ -406,4 +406,84 @@ internal sealed class FakeOperatorFacade : IOperatorFacade
 
     public Task<MailStatusResult> GetMailStatusAsync(CancellationToken cancellationToken) =>
         Task.FromResult(new MailStatusResult(true, 0, 0, null, DateTimeOffset.Parse("2026-04-26T20:16:00Z")));
+
+    public Task<OneDriveLeaseResult> AcquireOneDriveLeaseAsync(
+        OneDriveLeaseRequest request,
+        CancellationToken cancellationToken) =>
+        Task.FromResult(new OneDriveLeaseResult
+        {
+            Success = true,
+            LeaseId = "fake-lease",
+            RootId = request.RootId,
+            RelativePath = request.RelativePath,
+            State = OneDriveLeaseState.Ready,
+            LogicalLength = 0,
+            AllocatedBytesBeforeHydration = 0,
+            AllocatedBytesAfterHydration = 0,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            ReadyAtUtc = DateTimeOffset.UtcNow,
+        });
+
+    public Task<OneDriveLeaseStatusResult> GetOneDriveLeaseAsync(string leaseId, CancellationToken cancellationToken) =>
+        Task.FromResult(new OneDriveLeaseStatusResult { Found = false });
+
+    public Task<OneDriveLeaseResult> RenewOneDriveLeaseAsync(
+        string leaseId,
+        OneDriveLeaseRenewRequest request,
+        CancellationToken cancellationToken) =>
+        Task.FromResult(new OneDriveLeaseResult
+        {
+            Success = true,
+            LeaseId = leaseId,
+            RootId = "geosupport",
+            RelativePath = "fake",
+            State = OneDriveLeaseState.Ready,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+        });
+
+    public Task<IReadOnlyList<OneDriveFileEntry>> ListOneDriveFilesAsync(
+        OneDriveListRequest request,
+        CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<OneDriveFileEntry>>(Array.Empty<OneDriveFileEntry>());
+
+    public Task<OneDriveLeaseResult> ReleaseOneDriveLeaseAsync(string leaseId, CancellationToken cancellationToken) =>
+        Task.FromResult(new OneDriveLeaseResult
+        {
+            Success = true,
+            LeaseId = leaseId,
+            RootId = "geosupport",
+            RelativePath = "fake",
+            State = OneDriveLeaseState.Released,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+            ReleasedAtUtc = DateTimeOffset.UtcNow,
+        });
+
+    public Task<OneDriveFilesOnDemandStatusResult> GetOneDriveStatusAsync(CancellationToken cancellationToken) =>
+        Task.FromResult(new OneDriveFilesOnDemandStatusResult { Available = true });
+
+    public Task<OneDriveConfigResult> GetOneDriveConfigAsync(CancellationToken cancellationToken) =>
+        Task.FromResult(new OneDriveConfigResult { Config = new OneDriveConfig(), ETag = "\"fake\"" });
+
+    public Task<OneDriveConfigResult> UpdateOneDriveConfigAsync(
+        OneDriveConfigUpdateRequest request,
+        CancellationToken cancellationToken) =>
+        Task.FromResult(new OneDriveConfigResult { Config = request.Config, ETag = "\"fake\"" });
+
+    public Task<OneDriveReclaimResult> StartOneDriveReclaimAsync(
+        OneDriveReclaimRequest request,
+        CancellationToken cancellationToken) =>
+        Task.FromResult(new OneDriveReclaimResult
+        {
+            RequestId = request.RequestId,
+            RequestFingerprint = "fake",
+            Success = true,
+            RunId = "fake-reclaim",
+            State = OneDriveReclaimState.Completed,
+            RootId = request.RootId,
+            DryRun = true,
+            CreatedAtUtc = DateTimeOffset.UtcNow,
+        });
+
+    public Task<OneDriveReclaimResult> GetOneDriveReclaimAsync(string runId, CancellationToken cancellationToken) =>
+        StartOneDriveReclaimAsync(new OneDriveReclaimRequest { RequestId = runId, RootId = "geosupport" }, cancellationToken);
 }

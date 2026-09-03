@@ -32,4 +32,20 @@ public static class ErrorCodes
     public const string PowerAutomateMcpValidationFailed = "power_automate_mcp_validation_failed";
     public const string OpenApiNamespaceNotFound = "openapi_namespace_not_found";
     public const string OpenApiSurfaceInvalid = "openapi_surface_invalid";
+    public const string OneDriveUnavailable = "onedrive_unavailable";
+    public const string OneDriveRootNotFound = "onedrive_root_not_found";
+    public const string OneDriveFileNotFound = "onedrive_file_not_found";
+    public const string OneDriveLeaseNotFound = "onedrive_lease_not_found";
+    public const string OneDriveReclaimNotFound = "onedrive_reclaim_not_found";
+    public const string OneDrivePathBlocked = "onedrive_path_blocked";
+    public const string OneDrivePolicyDenied = "onedrive_policy_denied";
+    public const string OneDriveIdempotencyConflict = "onedrive_idempotency_conflict";
+    public const string OneDriveConfigConflict = "onedrive_config_conflict";
+    public const string OneDriveLeaseConflict = "onedrive_lease_conflict";
+    public const string OneDriveContentChanged = "onedrive_content_changed";
+    public const string OneDriveHydrationTimeout = "onedrive_hydration_timeout";
+    public const string OneDriveDehydrationTimeout = "onedrive_dehydration_timeout";
+    public const string OneDriveHydrationFailed = "onedrive_hydration_failed";
+    public const string OneDriveDehydrationFailed = "onedrive_dehydration_failed";
+    public const string OneDriveVerificationFailed = "onedrive_verification_failed";
 }

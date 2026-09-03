@@ -25,6 +25,22 @@ Every HTTP `OperatorError` response may include:
 | `internal_error` | `internal` | true | Unexpected server failure; use the correlation id for log lookup. |
 | `invalid_request` | `validation` | false | HTTP body, route value, or query value could not be bound to the documented request. |
 | `locked_desktop` | `unavailable` | true | Desktop session or Desktop Agent is unavailable. |
+| `onedrive_config_conflict` | `conflict` | false | OneDrive Files-On-Demand configuration ETag is stale. |
+| `onedrive_content_changed` | `conflict` | false | OneDrive file identity or expected content changed during a lease. |
+| `onedrive_dehydration_failed` | `conflict` | false | Local OneDrive dehydration failed; bytes remain resident for safety. |
+| `onedrive_dehydration_timeout` | `timeout` | true | Local OneDrive dehydration did not reach verified online-only state before timeout. |
+| `onedrive_file_not_found` | `notFound` | false | Requested file under a configured OneDrive root was not found. |
+| `onedrive_hydration_failed` | `unavailable` | true | OneDrive could not materialize the requested file locally. |
+| `onedrive_hydration_timeout` | `timeout` | true | OneDrive hydration did not complete before timeout or cancellation. |
+| `onedrive_idempotency_conflict` | `conflict` | false | A request id was reused with a different request body. |
+| `onedrive_lease_conflict` | `conflict` | false | OneDrive lease lifecycle operation is invalid for its current state. |
+| `onedrive_lease_not_found` | `notFound` | false | OneDrive lease id was not found. |
+| `onedrive_path_blocked` | `validation` | false | OneDrive path escaped the configured root or violated path policy. |
+| `onedrive_policy_denied` | `permission` | false | OneDrive operation was rejected by configured local policy. |
+| `onedrive_reclaim_not_found` | `notFound` | false | OneDrive reclaim run id was not found. |
+| `onedrive_root_not_found` | `notFound` | false | Configured OneDrive root id was not found or disabled. |
+| `onedrive_unavailable` | `unavailable` | true | OneDrive process, root, or Files-On-Demand session is unavailable. |
+| `onedrive_verification_failed` | `conflict` | false | OneDrive local state could not be verified after an operation. |
 | `mail_folder_not_found` | `notFound` | false | Outlook folder path was not found. |
 | `mail_run_not_found` | `notFound` | false | Mail run id was not found. |
 | `mail_unavailable` | `unavailable` | true | Outlook automation is unavailable. |
